@@ -128,6 +128,7 @@ jobs:
 
       - name: Package unsigned IPA
         id: ipa
+        continue-on-error: true
         run: |
           set -uo pipefail
           # rules_xcodeproj embeds a *symlinked* bazel-out inside DerivedData
@@ -162,6 +163,7 @@ jobs:
           path: build-device.log
 
       - name: Publish unsigned IPA as a versioned pre-release
+        if: steps.ipa.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
