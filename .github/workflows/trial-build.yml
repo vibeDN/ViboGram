@@ -130,17 +130,17 @@ jobs:
         id: ipa
         run: |
           set -uo pipefail
-          # rules_xcodeproj builds are actually produced by Bazel, not classic Xcode DerivedData —
-          # the real .app can end up under DerivedData OR under bazel-out (a symlink, needs `find -L`).
-          APP_PATH=$(find "$HOME/derived-device" -iname "*.app" -type d 2>/dev/null | head -1)
+          # rules_xcodeproj embeds a *symlinked* bazel-out inside DerivedData
+          # (Build/Products/.../bazel-out -> real Bazel output tree). Plain `find`
+          # doesn't descend into symlinked directories at all -- needs `-L`.
+          APP_PATH=$(find -L "$HOME/derived-device" -iname "*.app" -type d 2>/dev/null | head -1)
           if [ -z "$APP_PATH" ]; then
-            echo "Not found under DerivedData, searching bazel-out..."
+            echo "Not found under DerivedData, searching repo-root bazel-out..."
             APP_PATH=$(find -L bazel-out -iname "*.app" -type d 2>/dev/null | head -1)
           fi
           if [ -z "$APP_PATH" ]; then
             echo "No .app found anywhere. Diagnostic listing:" >&2
-            find "$HOME/derived-device" -maxdepth 5 >&2 || true
-            find -L bazel-out -maxdepth 8 -iname "*telegram*" -o -iname "*swiftgram*" 2>/dev/null >&2 || true
+            find -L "$HOME/derived-device/Build/Products" -maxdepth 8 >&2 || true
             exit 1
           fi
           echo "Found app: $APP_PATH"
