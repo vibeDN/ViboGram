@@ -1,0 +1,92 @@
+name: trial-build
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 180
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Disk usage before cleanup
+        run: df -h /
+
+      - name: Free disk space (remove unused Xcode versions, simulators, junk)
+        run: |
+          set -x
+          sudo rm -rf /Applications/Xcode_16*.app /Applications/Xcode_17*.app 2>/dev/null || true
+          sudo rm -rf ~/Library/Developer/CoreSimulator/Caches
+          sudo rm -rf ~/Library/Developer/Xcode/DerivedData
+          sudo rm -rf /Library/Developer/CoreSimulator/Profiles/Runtimes/*.simruntime 2>/dev/null || true
+          df -h /
+
+      - name: Select Xcode 26.2
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.2.app || \
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+
+      - name: Write minimal development configuration
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, secrets
+          path = "build-system/template_minimal_development_configuration.json"
+          with open(path) as f:
+              cfg = json.load(f)
+          cfg["bundle_id"] = f"org.{secrets.token_hex(8)}.Swiftgram"
+          cfg["api_id"] = os.environ["TG_API_ID"]
+          cfg["api_hash"] = os.environ["TG_API_HASH"]
+          cfg["team_id"] = "0000000000"  # dummy: simulator build below disables real code signing
+          with open("build-system/generated_trial_configuration.json", "w") as f:
+              json.dump(cfg, f, indent=2)
+          print(json.dumps(cfg, indent=2))
+          EOF
+
+      - name: Generate Xcode project via Bazel
+        run: |
+          python3 build-system/Make/Make.py \
+            --cacheDir="$HOME/telegram-bazel-cache" \
+            generateProject \
+            --configurationPath=build-system/generated_trial_configuration.json \
+            --xcodeManagedCodesigning
+
+      - name: Disk usage after project generation
+        run: df -h /
+
+      - name: List available schemes
+        id: schemes
+        run: |
+          xcodebuild -list -workspace Telegram.xcworkspace | tee scheme_list.txt
+
+      - name: Build for simulator (no code signing, just validating the pipeline)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -workspace Telegram.xcworkspace \
+            -scheme Telegram-iOS \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            -derivedDataPath "$HOME/derived" \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee build.log
+
+      - name: Disk usage after build
+        if: always()
+        run: df -h /
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trial-build-log
+          path: |
+            build.log
+            scheme_list.txt
