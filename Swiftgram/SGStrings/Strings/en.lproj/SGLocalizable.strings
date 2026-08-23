@@ -85,6 +85,9 @@
 "Settings.DownloadsBoost.maximum" = "Maximum";
 
 "Settings.Privacy.Header" = "PRIVACY";
+"Settings.CustomEditedLabel" = "Custom \"Edited\" Label";
+"Settings.CustomEditedLabel.Placeholder" = "Leave empty for default";
+"Settings.Save" = "Save";
 "Settings.GhostMode.SkipReadReceipts" = "Ghost Mode: Hide Read Receipts";
 "Settings.GhostMode.SkipPresence" = "Ghost Mode: Hide Online Status";
 "Settings.ShowProfileID" = "Show Profile ID";

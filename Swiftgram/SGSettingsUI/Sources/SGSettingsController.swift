@@ -142,6 +142,7 @@ private enum SGDisclosureLink: String {
     case messageFilter
     case appIcons
     case appBadges
+    case customEditedLabel
 }
 
 private struct PeerNameColorScreenState: Equatable {
@@ -347,6 +348,7 @@ private func SGControllerEntries(presentationData: PresentationData, callListSet
     entries.append(.notice(id: id.count, section: .other, text: i18n("Settings.DefaultEmojisFirst.Notice", lang)))
     entries.append(.toggle(id: id.count, section: .other, settingName: .hidePhoneInSettings, value: SGSimpleSettings.shared.hidePhoneInSettings, text: i18n("Settings.HidePhoneInSettingsUI", lang), enabled: true))
     entries.append(.notice(id: id.count, section: .other, text: i18n("Settings.HidePhoneInSettingsUI.Notice", lang)))
+    entries.append(.disclosure(id: id.count, section: .other, link: .customEditedLabel, text: i18n("Settings.CustomEditedLabel", lang)))
 
     // MARK: ViboGram - merged in from the former separate "Swiftgram Pro" screen, unlocked for everyone
     entries.append(.disclosure(id: id.count, section: .proBase, link: .sessionBackupManager, text: "SessionBackup.Title".i18n(lang)))
@@ -771,6 +773,19 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
                 } else {
                     presentControllerImpl?(context.sharedContext.makeSGUpdateIOSController(), nil)
                 }
+            case .customEditedLabel:
+                let lang = presentationData.strings.baseLanguageCode
+                let alert = UIAlertController(title: i18n("Settings.CustomEditedLabel", lang), message: nil, preferredStyle: .alert)
+                alert.addTextField { textField in
+                    textField.text = SGSimpleSettings.shared.customEditedLabel
+                    textField.placeholder = i18n("Settings.CustomEditedLabel.Placeholder", lang)
+                }
+                alert.addAction(UIAlertAction(title: presentationData.strings.Common_Cancel, style: .cancel, handler: nil))
+                alert.addAction(UIAlertAction(title: i18n("Settings.Save", lang), style: .default, handler: { [weak alert] _ in
+                    let newValue = alert?.textFields?.first?.text ?? ""
+                    SGSimpleSettings.shared.customEditedLabel = newValue
+                }))
+                context.sharedContext.mainWindow?.presentNative(alert)
         }
     }, searchInput: { searchQuery in
         updateState { state in

@@ -542,7 +542,9 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
             if arguments.edited {
                 if let useEditedTimestamp = arguments.context.getAppConfigValue("message_primary_edited_date") as? Bool, useEditedTimestamp {
                 } else {
-                    updatedDateText = "\(arguments.presentationData.strings.Conversation_MessageEditedLabel) \(updatedDateText)"
+                    // MARK: ViboGram - customizable edited label
+                    let editedLabel = SGSimpleSettings.shared.customEditedLabel.isEmpty ? arguments.presentationData.strings.Conversation_MessageEditedLabel : SGSimpleSettings.shared.customEditedLabel
+                    updatedDateText = "\(editedLabel) \(updatedDateText)"
                 }
             }
             if let impressionCount = arguments.impressionCount {

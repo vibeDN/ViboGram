@@ -178,6 +178,7 @@ public class SGSimpleSettings {
         case sendWithReturnKey
         case ghostModeSkipReadReceipts
         case ghostModeSkipPresence
+        case customEditedLabel
     }
     
     public enum DownloadSpeedBoostValues: String, CaseIterable {
@@ -332,7 +333,8 @@ public class SGSimpleSettings {
         Keys.showProfileId.rawValue: true,
         Keys.sendWithReturnKey.rawValue: false,
         Keys.ghostModeSkipReadReceipts.rawValue: false,
-        Keys.ghostModeSkipPresence.rawValue: false
+        Keys.ghostModeSkipPresence.rawValue: false,
+        Keys.customEditedLabel.rawValue: ""
     ]
     
     public static let groupDefaultValues: [String: Any] = [
@@ -602,6 +604,9 @@ public class SGSimpleSettings {
 
     @UserDefault(key: Keys.ghostModeSkipPresence.rawValue)
     public var ghostModeSkipPresence: Bool
+
+    @UserDefault(key: Keys.customEditedLabel.rawValue)
+    public var customEditedLabel: String
 }
 
 extension SGSimpleSettings {
