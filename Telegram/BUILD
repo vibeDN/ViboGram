@@ -1970,11 +1970,11 @@ ios_application(
         ":disableExtensionsSetting": [],
         "//conditions:default": [
             # ":SGActionRequestHandler", # UX sucks https://t.me/swiftgramchat/7335
-            ":ShareExtension",
+            # ":ShareExtension", # MARK: ViboGram - dropped, keeping notifications + broadcast upload only
             ":NotificationContentExtension",
             ":NotificationServiceExtension" + notificationServiceExtensionVersion,
-            ":IntentsExtension",
-            ":WidgetExtension",
+            # ":IntentsExtension", # MARK: ViboGram - dropped, keeping notifications + broadcast upload only
+            # ":WidgetExtension", # MARK: ViboGram - dropped, keeping notifications + broadcast upload only
             ":BroadcastUploadExtension",
         ],
     }),
