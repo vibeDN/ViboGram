@@ -7,6 +7,8 @@ jobs:
   build:
     runs-on: macos-26
     timeout-minutes: 180
+    permissions:
+      contents: write
     steps:
       - name: Checkout (with submodules)
         uses: actions/checkout@v4
@@ -75,21 +77,23 @@ jobs:
           echo "path=$PROJ_PATH" >> "$GITHUB_OUTPUT"
 
       - name: List available schemes
+        id: scheme
         run: |
           set -o pipefail
           xcodebuild -list -project "${{ steps.proj.outputs.path }}" | tee scheme_list.txt
+          SCHEME=$(awk '/Schemes:/{flag=1; next} flag && NF{print $1; exit}' scheme_list.txt)
+          echo "Using scheme: $SCHEME"
+          echo "name=$SCHEME" >> "$GITHUB_OUTPUT"
 
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
           set -o pipefail
-          SCHEME=$(awk '/Schemes:/{flag=1; next} flag && NF{print $1; exit}' scheme_list.txt)
-          echo "Using scheme: $SCHEME"
           xcodebuild build \
             -project "${{ steps.proj.outputs.path }}" \
-            -scheme "$SCHEME" \
+            -scheme "${{ steps.scheme.outputs.name }}" \
             -sdk iphonesimulator \
             -configuration Debug \
-            -derivedDataPath "$HOME/derived" \
+            -derivedDataPath "$HOME/derived-sim" \
             CODE_SIGNING_ALLOWED=NO \
             | tee build.log
 
@@ -105,3 +109,57 @@ jobs:
           path: |
             build.log
             scheme_list.txt
+
+      - name: Build for device (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project "${{ steps.proj.outputs.path }}" \
+            -scheme "${{ steps.scheme.outputs.name }}" \
+            -sdk iphoneos \
+            -configuration Debug \
+            -derivedDataPath "$HOME/derived-device" \
+            -destination "generic/platform=iOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            | tee build-device.log
+
+      - name: Package unsigned IPA
+        id: ipa
+        run: |
+          set -euo pipefail
+          PRODUCTS_DIR=$(find "$HOME/derived-device/Build/Products" -maxdepth 1 -iname "*-iphoneos" | head -1)
+          APP_PATH=$(find "$PRODUCTS_DIR" -maxdepth 1 -iname "*.app" | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app found in $PRODUCTS_DIR" >&2
+            exit 1
+          fi
+          echo "Found app: $APP_PATH"
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          IPA_NAME="ViboGram-unsigned-${SHORT_SHA}.ipa"
+          PACK_DIR=$(mktemp -d)/Payload
+          mkdir -p "$PACK_DIR"
+          cp -R "$APP_PATH" "$PACK_DIR/"
+          (cd "$(dirname "$PACK_DIR")" && zip -r -y -q "$GITHUB_WORKSPACE/$IPA_NAME" Payload)
+          echo "path=$IPA_NAME" >> "$GITHUB_OUTPUT"
+          ls -lh "$IPA_NAME"
+
+      - name: Upload device build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trial-build-device-log
+          path: build-device.log
+
+      - name: Publish unsigned IPA as a versioned pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="v0.0.${{ github.run_number }}"
+          gh release create "$TAG" "${{ steps.ipa.outputs.path }}" \
+            --title "$TAG ($(git rev-parse --short HEAD))" \
+            --notes "Unsigned device IPA, auto-published from trial-build.yml. Not signed — needs resigning (LiveContainer/AltStore/SideStore/ldid) before install. Development build, not v1.0.0 yet." \
+            --prerelease
