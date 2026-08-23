@@ -28,18 +28,19 @@ If a feature below turns out to already exist upstream in Swiftgram, this README
 
 ## Feature roadmap
 
-Nothing in this list is done yet. This is a plan, not a changelog. Tiers are roughly in priority order — quick/self-contained wins first, riskier persistence-layer work later, the plugin system last because it's a project in its own right.
+This is a living plan, not a fixed spec. Tiers are roughly in priority order — quick/self-contained wins first, riskier persistence-layer work later, the plugin system last because it's a project in its own right.
 
 Status legend: `[ ]` not started, `[~]` in progress, `[x]` done.
 
 ### Tier 1 — quick wins
 
-- [ ] Ghost mode: skip read receipts (Swiftgram already has a hidden debug flag for this upstream; goal is to expose it as a real user-facing setting)
-- [ ] Ghost mode: skip online/last-seen presence updates
+- [x] Ghost mode: skip read receipts (exposed as a real toggle; upstream's own hidden debug flag stays as a separate override)
+- [x] Ghost mode: skip online/last-seen presence updates
 - [ ] Customizable "edited" / "deleted" message marks
 - [ ] Streamer mode (mask your own phone number in the UI)
 - [ ] Show User ID in profile
 - [ ] Alternate app icon color themes
+- [x] Trimmed shipped extensions to Notification (Content + Service) and Broadcast Upload only — dropped Share, Siri Intents, and Widget
 - [ ] Remove in-app ads (sponsored messages, free-proxy sponsor-channel prompts)
 
 ### Tier 2 — medium
