@@ -101,6 +101,50 @@ jobs:
         if: always()
         run: df -h /
 
+      - name: Boot simulator, install, launch, and screenshot (smoke test)
+        id: smoke
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          APP_PATH=$(find -L "$HOME/derived-sim" -iname "*.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app found for smoke test" >&2
+            exit 1
+          fi
+          echo "App: $APP_PATH"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PATH/Info.plist")
+          echo "Bundle id: $BUNDLE_ID"
+
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          for runtime, devices in d['devices'].items():
+              if 'iOS' not in runtime:
+                  continue
+              for dev in devices:
+                  if 'iPhone' in dev['name']:
+                      print(dev['udid'])
+                      sys.exit(0)
+          sys.exit(1)
+          ")
+          echo "Using simulator: $DEVICE_ID"
+
+          xcrun simctl boot "$DEVICE_ID"
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl install "$DEVICE_ID" "$APP_PATH"
+          xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
+          sleep 8
+          xcrun simctl io "$DEVICE_ID" screenshot smoke-test-screenshot.png
+          echo "Screenshot taken. Note: without a real logged-in account this only shows the initial launch screen, not app UI behind login."
+
+      - name: Upload smoke-test screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-screenshot
+          path: smoke-test-screenshot.png
+          if-no-files-found: warn
+
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
