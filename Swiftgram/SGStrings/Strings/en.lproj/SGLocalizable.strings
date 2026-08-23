@@ -84,6 +84,9 @@
 "Settings.DownloadsBoost.medium" = "Medium";
 "Settings.DownloadsBoost.maximum" = "Maximum";
 
+"Settings.Privacy.Header" = "PRIVACY";
+"Settings.GhostMode.SkipReadReceipts" = "Ghost Mode: Hide Read Receipts";
+"Settings.GhostMode.SkipPresence" = "Ghost Mode: Hide Online Status";
 "Settings.ShowProfileID" = "Show Profile ID";
 "Settings.ShowDC" = "Show Data Center";
 "Settings.ShowCreationDate" = "Show Chat Creation Date";

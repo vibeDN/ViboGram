@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import SGSimpleSettings
 import Display
 import ComponentFlow
 import SwiftSignalKit
@@ -1130,7 +1131,7 @@ public final class StoryContentContextImpl: StoryContentContext {
     }
     
     public func markAsSeen(id: StoryId) {
-        if !self.context.sharedContext.immediateExperimentalUISettings.skipReadHistory {
+        if !self.context.sharedContext.immediateExperimentalUISettings.skipReadHistory && !SGSimpleSettings.shared.ghostModeSkipReadReceipts {
             let _ = self.context.engine.messages.markStoryAsSeen(peerId: id.peerId, id: id.id, asPinned: false).startStandalone()
         }
     }
@@ -1432,7 +1433,7 @@ public final class SingleStoryContentContextImpl: StoryContentContext {
     
     public func markAsSeen(id: StoryId) {
         if self.readGlobally {
-            if !self.context.sharedContext.immediateExperimentalUISettings.skipReadHistory {
+            if !self.context.sharedContext.immediateExperimentalUISettings.skipReadHistory && !SGSimpleSettings.shared.ghostModeSkipReadReceipts {
                 let _ = self.context.engine.messages.markStoryAsSeen(peerId: id.peerId, id: id.id, asPinned: false).startStandalone()
             }
         }
@@ -1830,7 +1831,7 @@ public final class PeerStoryListContentContextImpl: StoryContentContext {
     }
     
     public func markAsSeen(id: StoryId) {
-        if !self.context.sharedContext.immediateExperimentalUISettings.skipReadHistory {
+        if !self.context.sharedContext.immediateExperimentalUISettings.skipReadHistory && !SGSimpleSettings.shared.ghostModeSkipReadReceipts {
             let _ = self.context.engine.messages.markStoryAsSeen(peerId: id.peerId, id: id.id, asPinned: true).startStandalone()
         }
     }
@@ -3094,7 +3095,7 @@ public final class RepostStoriesContentContextImpl: StoryContentContext {
     }
     
     public func markAsSeen(id: StoryId) {
-        if !self.context.sharedContext.immediateExperimentalUISettings.skipReadHistory {
+        if !self.context.sharedContext.immediateExperimentalUISettings.skipReadHistory && !SGSimpleSettings.shared.ghostModeSkipReadReceipts {
             let _ = self.context.engine.messages.markStoryAsSeen(peerId: id.peerId, id: id.id, asPinned: false).startStandalone()
         }
     }

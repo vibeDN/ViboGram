@@ -33,6 +33,7 @@ private enum SGControllerSection: Int32, SGItemListSection {
     case folders
     case chatList
     case profiles
+    case privacy
     case stories
     case translation
     case voiceMessages
@@ -53,6 +54,8 @@ private enum SGBoolSetting: String {
     case wideTabBar
     case foldersAtBottom
     case startTelescopeWithRearCam
+    case ghostModeSkipReadReceipts
+    case ghostModeSkipPresence
     case hideStories
     case uploadSpeedBoost
     case showProfileId
@@ -204,6 +207,10 @@ private func SGControllerEntries(presentationData: PresentationData, callListSet
     entries.append(.toggle(id: id.count, section: .profiles, settingName: .confirmCalls, value: SGSimpleSettings.shared.confirmCalls, text: i18n("Settings.CallConfirmation", lang), enabled: true))
     entries.append(.notice(id: id.count, section: .profiles, text: i18n("Settings.CallConfirmation.Notice", lang)))
     
+    entries.append(.header(id: id.count, section: .privacy, text: i18n("Settings.Privacy.Header", lang), badge: nil))
+    entries.append(.toggle(id: id.count, section: .privacy, settingName: .ghostModeSkipReadReceipts, value: SGSimpleSettings.shared.ghostModeSkipReadReceipts, text: i18n("Settings.GhostMode.SkipReadReceipts", lang), enabled: true))
+    entries.append(.toggle(id: id.count, section: .privacy, settingName: .ghostModeSkipPresence, value: SGSimpleSettings.shared.ghostModeSkipPresence, text: i18n("Settings.GhostMode.SkipPresence", lang), enabled: true))
+
     entries.append(.header(id: id.count, section: .stories, text: strings.AutoDownloadSettings_Stories.uppercased(), badge: nil))
     entries.append(.toggle(id: id.count, section: .stories, settingName: .hideStories, value: SGSimpleSettings.shared.hideStories, text: i18n("Settings.Stories.Hide", lang), enabled: true))
     entries.append(.toggle(id: id.count, section: .stories, settingName: .disableSwipeToRecordStory, value: SGSimpleSettings.shared.disableSwipeToRecordStory, text: i18n("Settings.Stories.DisableSwipeToRecord", lang), enabled: true))
@@ -398,6 +405,10 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
             ).start()
         case .startTelescopeWithRearCam:
             SGSimpleSettings.shared.startTelescopeWithRearCam = value
+        case .ghostModeSkipReadReceipts:
+            SGSimpleSettings.shared.ghostModeSkipReadReceipts = value
+        case .ghostModeSkipPresence:
+            SGSimpleSettings.shared.ghostModeSkipPresence = value
         case .hideStories:
             SGSimpleSettings.shared.hideStories = value
         case .showProfileId:
