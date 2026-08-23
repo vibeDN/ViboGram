@@ -1,0 +1,76 @@
+name: sync-upstream
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # every Monday 06:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "upstream-sync-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/Swiftgram/Telegram-iOS.git
+          git fetch upstream master
+
+      - name: Check if there's anything new
+        id: check
+        run: |
+          BEHIND=$(git rev-list --count HEAD..upstream/master)
+          echo "behind=$BEHIND" >> "$GITHUB_OUTPUT"
+          echo "Upstream has $BEHIND new commit(s) we don't have."
+
+      - name: Create sync branch and attempt merge
+        if: steps.check.outputs.behind != '0'
+        id: merge
+        run: |
+          BRANCH="upstream-sync-$(date +%Y-%m-%d)"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          git checkout -b "$BRANCH"
+          if git merge upstream/master --no-edit; then
+            echo "clean=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "clean=false" >> "$GITHUB_OUTPUT"
+            git merge --abort
+          fi
+
+      - name: Push branch (clean or conflicted, for visibility)
+        if: steps.check.outputs.behind != '0' && steps.merge.outputs.clean == 'true'
+        run: |
+          git push origin "${{ steps.merge.outputs.branch }}"
+
+      - name: Open PR (clean merge)
+        if: steps.check.outputs.behind != '0' && steps.merge.outputs.clean == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --title "Sync upstream Swiftgram (${{ steps.check.outputs.behind }} commits)" \
+            --body "Automated merge of Swiftgram/Telegram-iOS master into this fork. Clean merge, no conflicts. Review before merging — run trial-build on this branch first." \
+            --base master \
+            --head "${{ steps.merge.outputs.branch }}"
+
+      - name: Open issue (conflicted merge)
+        if: steps.check.outputs.behind != '0' && steps.merge.outputs.clean == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "Upstream sync conflict ($(date +%Y-%m-%d))" \
+            --body "Swiftgram upstream has ${{ steps.check.outputs.behind }} new commit(s), but merging upstream/master into master produced conflicts that need manual resolution. Run locally: \`git fetch upstream master && git merge upstream/master\` to see and fix them."
