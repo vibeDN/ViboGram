@@ -61,17 +61,32 @@ jobs:
       - name: Disk usage after project generation
         run: df -h /
 
-      - name: List available schemes
-        id: schemes
+      - name: Locate generated .xcodeproj
+        id: proj
         run: |
-          xcodebuild -list -workspace Telegram.xcworkspace | tee scheme_list.txt
+          set -euo pipefail
+          PROJ_PATH=$(find . -maxdepth 3 -iname "*.xcodeproj" -not -path "*/bazel-*" | head -1)
+          if [ -z "$PROJ_PATH" ]; then
+            echo "No .xcodeproj found after generateProject" >&2
+            find . -maxdepth 3 -iname "*.xcodeproj" -o -iname "*.xcworkspace"
+            exit 1
+          fi
+          echo "Found project: $PROJ_PATH"
+          echo "path=$PROJ_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: List available schemes
+        run: |
+          set -o pipefail
+          xcodebuild -list -project "${{ steps.proj.outputs.path }}" | tee scheme_list.txt
 
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
           set -o pipefail
+          SCHEME=$(awk '/Schemes:/{flag=1; next} flag && NF{print $1; exit}' scheme_list.txt)
+          echo "Using scheme: $SCHEME"
           xcodebuild build \
-            -workspace Telegram.xcworkspace \
-            -scheme Telegram-iOS \
+            -project "${{ steps.proj.outputs.path }}" \
+            -scheme "$SCHEME" \
             -sdk iphonesimulator \
             -configuration Debug \
             -derivedDataPath "$HOME/derived" \
