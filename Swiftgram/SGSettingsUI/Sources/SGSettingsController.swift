@@ -5,6 +5,8 @@ import SGStrings
 import SGAPIToken
 
 import SGItemListUI
+import SGProUI
+import SettingsUI
 import Foundation
 import UIKit
 import Display
@@ -44,6 +46,9 @@ private enum SGControllerSection: Int32, SGItemListSection {
     case contextMenu
     case accountColors
     case other
+    case proBase
+    case proNotifications
+    case proAppearance
 }
 
 private enum SGBoolSetting: String {
@@ -109,6 +114,7 @@ private enum SGBoolSetting: String {
     case nyStyleSnow
     case nyStyleLightning
     case tabBarSearchEnabled
+    case inputToolbar
 }
 
 private enum SGOneFromManySetting: String {
@@ -119,6 +125,8 @@ private enum SGOneFromManySetting: String {
 //    case allChatsFolderPositionOverride
     case translationBackend
     case transcriptionBackend
+    case pinnedMessageNotifications
+    case mentionsAndRepliesNotifications
 }
 
 private enum SGSliderSetting: String {
@@ -130,6 +138,10 @@ private enum SGSliderSetting: String {
 private enum SGDisclosureLink: String {
     case contentSettings
     case languageSettings
+    case sessionBackupManager
+    case messageFilter
+    case appIcons
+    case appBadges
 }
 
 private struct PeerNameColorScreenState: Equatable {
@@ -335,7 +347,21 @@ private func SGControllerEntries(presentationData: PresentationData, callListSet
     entries.append(.notice(id: id.count, section: .other, text: i18n("Settings.DefaultEmojisFirst.Notice", lang)))
     entries.append(.toggle(id: id.count, section: .other, settingName: .hidePhoneInSettings, value: SGSimpleSettings.shared.hidePhoneInSettings, text: i18n("Settings.HidePhoneInSettingsUI", lang), enabled: true))
     entries.append(.notice(id: id.count, section: .other, text: i18n("Settings.HidePhoneInSettingsUI.Notice", lang)))
-    
+
+    // MARK: ViboGram - merged in from the former separate "Swiftgram Pro" screen, unlocked for everyone
+    entries.append(.disclosure(id: id.count, section: .proBase, link: .sessionBackupManager, text: "SessionBackup.Title".i18n(lang)))
+    entries.append(.disclosure(id: id.count, section: .proBase, link: .messageFilter, text: "MessageFilter.Title".i18n(lang)))
+    entries.append(.toggle(id: id.count, section: .proBase, settingName: .inputToolbar, value: SGSimpleSettings.shared.inputToolbar, text: "InputToolbar.Title".i18n(lang), enabled: true))
+
+    entries.append(.header(id: id.count, section: .proNotifications, text: presentationData.strings.Notifications_Title.uppercased(), badge: nil))
+    entries.append(.oneFromManySelector(id: id.count, section: .proNotifications, settingName: .pinnedMessageNotifications, text: "Notifications.PinnedMessages.Title".i18n(lang), value: "Notifications.PinnedMessages.value.\(SGSimpleSettings.shared.pinnedMessageNotifications)".i18n(lang), enabled: true))
+    entries.append(.oneFromManySelector(id: id.count, section: .proNotifications, settingName: .mentionsAndRepliesNotifications, text: "Notifications.MentionsAndReplies.Title".i18n(lang), value: "Notifications.MentionsAndReplies.value.\(SGSimpleSettings.shared.mentionsAndRepliesNotifications)".i18n(lang), enabled: true))
+
+    entries.append(.header(id: id.count, section: .proAppearance, text: presentationData.strings.Appearance_Title.uppercased(), badge: nil))
+    entries.append(.disclosure(id: id.count, section: .proAppearance, link: .appIcons, text: presentationData.strings.Appearance_AppIcon))
+    entries.append(.disclosure(id: id.count, section: .proAppearance, link: .appBadges, text: "AppBadge.Title".i18n(lang)))
+    entries.append(.notice(id: id.count, section: .proAppearance, text: "AppBadge.Notice".i18n(lang)))
+
     return filterSGItemListUIEntrires(entries: entries, by: state.searchQuery)
 }
 
@@ -405,6 +431,8 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
             ).start()
         case .startTelescopeWithRearCam:
             SGSimpleSettings.shared.startTelescopeWithRearCam = value
+        case .inputToolbar:
+            SGSimpleSettings.shared.inputToolbar = value
         case .ghostModeSkipReadReceipts:
             SGSimpleSettings.shared.ghostModeSkipReadReceipts = value
         case .ghostModeSkipPresence:
@@ -683,6 +711,33 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
                         setAction(value.rawValue)
                     }))
                 }
+            // MARK: ViboGram - merged in from the former separate "Swiftgram Pro" screen
+            case .pinnedMessageNotifications:
+                let setAction: (String) -> Void = { value in
+                    SGSimpleSettings.shared.pinnedMessageNotifications = value
+                    SGSimpleSettings.shared.synchronizeShared()
+                    simplePromise.set(true)
+                }
+
+                for value in SGSimpleSettings.PinnedMessageNotificationsSettings.allCases {
+                    items.append(ActionSheetButtonItem(title: "Notifications.PinnedMessages.value.\(value.rawValue)".i18n(presentationData.strings.baseLanguageCode), color: .accent, action: { [weak actionSheet] in
+                        actionSheet?.dismissAnimated()
+                        setAction(value.rawValue)
+                    }))
+                }
+            case .mentionsAndRepliesNotifications:
+                let setAction: (String) -> Void = { value in
+                    SGSimpleSettings.shared.mentionsAndRepliesNotifications = value
+                    SGSimpleSettings.shared.synchronizeShared()
+                    simplePromise.set(true)
+                }
+
+                for value in SGSimpleSettings.MentionsAndRepliesNotificationsSettings.allCases {
+                    items.append(ActionSheetButtonItem(title: "Notifications.MentionsAndReplies.value.\(value.rawValue)".i18n(presentationData.strings.baseLanguageCode), color: .accent, action: { [weak actionSheet] in
+                        actionSheet?.dismissAnimated()
+                        setAction(value.rawValue)
+                    }))
+                }
         }
         
         actionSheet.setItemGroups([ActionSheetItemGroup(items: items), ActionSheetItemGroup(items: [
@@ -692,6 +747,7 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
         ])])
         presentControllerImpl?(actionSheet, ViewControllerPresentationArguments(presentationAnimation: .modalSheet))
     }, openDisclosureLink: { link in
+        let presentationData = context.sharedContext.currentPresentationData.with { $0 }
         switch (link) {
             case .languageSettings:
                 pushControllerImpl?(context.sharedContext.makeLocalizationListController(context: context))
@@ -702,6 +758,19 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
                     }
                     strongContext.sharedContext.applicationBindings.openUrl(url)
                 })
+            // MARK: ViboGram - merged in from the former separate "Swiftgram Pro" screen
+            case .sessionBackupManager:
+                pushControllerImpl?(sgSessionBackupManagerController(context: context, presentationData: presentationData))
+            case .messageFilter:
+                pushControllerImpl?(sgMessageFilterController(presentationData: presentationData))
+            case .appIcons:
+                pushControllerImpl?(themeSettingsController(context: context, focusOnItemTag: .icon))
+            case .appBadges:
+                if #available(iOS 14.0, *) {
+                    pushControllerImpl?(sgAppBadgeSettingsController(context: context, presentationData: presentationData))
+                } else {
+                    presentControllerImpl?(context.sharedContext.makeSGUpdateIOSController(), nil)
+                }
         }
     }, searchInput: { searchQuery in
         updateState { state in
