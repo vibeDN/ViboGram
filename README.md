@@ -41,6 +41,7 @@ Status legend: `[ ]` not started, `[~]` in progress, `[x]` done.
 - [ ] Show User ID in profile
 - [ ] Alternate app icon color themes
 - [x] Trimmed shipped extensions to Notification (Content + Service) and Broadcast Upload only — dropped Share, Siri Intents, and Widget
+- [x] Merged the separate "Swiftgram Pro" settings screen into the regular Swiftgram one, unlocked for everyone (no more paywall)
 - [ ] Remove in-app ads (sponsored messages, free-proxy sponsor-channel prompts)
 
 ### Tier 2 — medium
@@ -63,6 +64,10 @@ Status legend: `[ ]` not started, `[~]` in progress, `[x]` done.
 ### Long-term / separate track
 
 - [ ] Python plugin system, merging the approaches used by AyuGram4A's and exteraGram's Android plugin systems (both Chaquopy/Python-based). This has no direct iOS-equivalent runtime, so it's a significant standalone effort on its own — tackled last, after everything above is stable.
+
+## Development builds
+
+Every CI run publishes an **unsigned** device IPA to the [Releases page](https://github.com/vibeDN/ViboGram/releases), tagged `v0.0.<build number>` and marked as a pre-release. It is not signed with any certificate — you'll need to resign it yourself (LiveContainer, AltStore/SideStore, `ldid`, etc.) before installing on a real device. Once every feature on the roadmap above is done, a proper signed `v1.0.0` replaces this scheme.
 
 ## Building
 
