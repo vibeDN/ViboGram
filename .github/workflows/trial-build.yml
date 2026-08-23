@@ -129,14 +129,22 @@ jobs:
       - name: Package unsigned IPA
         id: ipa
         run: |
-          set -euo pipefail
-          PRODUCTS_DIR=$(find "$HOME/derived-device/Build/Products" -maxdepth 1 -iname "*-iphoneos" | head -1)
-          APP_PATH=$(find "$PRODUCTS_DIR" -maxdepth 1 -iname "*.app" | head -1)
+          set -uo pipefail
+          # rules_xcodeproj builds are actually produced by Bazel, not classic Xcode DerivedData —
+          # the real .app can end up under DerivedData OR under bazel-out (a symlink, needs `find -L`).
+          APP_PATH=$(find "$HOME/derived-device" -iname "*.app" -type d 2>/dev/null | head -1)
           if [ -z "$APP_PATH" ]; then
-            echo "No .app found in $PRODUCTS_DIR" >&2
+            echo "Not found under DerivedData, searching bazel-out..."
+            APP_PATH=$(find -L bazel-out -iname "*.app" -type d 2>/dev/null | head -1)
+          fi
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app found anywhere. Diagnostic listing:" >&2
+            find "$HOME/derived-device" -maxdepth 5 >&2 || true
+            find -L bazel-out -maxdepth 8 -iname "*telegram*" -o -iname "*swiftgram*" 2>/dev/null >&2 || true
             exit 1
           fi
           echo "Found app: $APP_PATH"
+          set -e
           SHORT_SHA=$(git rev-parse --short HEAD)
           IPA_NAME="ViboGram-unsigned-${SHORT_SHA}.ipa"
           PACK_DIR=$(mktemp -d)/Payload
