@@ -14,12 +14,17 @@ public struct ChatToolbarView: View {
     var onStrikethrough: () -> Void
     var onUnderline: () -> Void
     var onCode: () -> Void
-    
+
+    // MARK: ViboGram - Size/Dim/Rainbow text effects (ported from Margelet)
+    var onDim: () -> Void
+    var onRainbow: () -> Void
+    var onSizeBig: () -> Void
+
     var onNewLine: () -> Void
     @Binding private var showNewLine: Bool
-    
+
     var onClearFormatting: () -> Void
-    
+
     public init(
         onQuote: @escaping () -> Void,
         onSpoiler: @escaping () -> Void,
@@ -31,6 +36,9 @@ public struct ChatToolbarView: View {
         onStrikethrough: @escaping () -> Void,
         onUnderline: @escaping () -> Void,
         onCode: @escaping () -> Void,
+        onDim: @escaping () -> Void,
+        onRainbow: @escaping () -> Void,
+        onSizeBig: @escaping () -> Void,
         onNewLine: @escaping () -> Void,
         showNewLine: Binding<Bool>,
         onClearFormatting: @escaping () -> Void
@@ -45,6 +53,9 @@ public struct ChatToolbarView: View {
         self.onStrikethrough = onStrikethrough
         self.onUnderline = onUnderline
         self.onCode = onCode
+        self.onDim = onDim
+        self.onRainbow = onRainbow
+        self.onSizeBig = onSizeBig
         self.onNewLine = onNewLine
         self._showNewLine = showNewLine
         self.onClearFormatting = onClearFormatting
@@ -132,6 +143,25 @@ public struct ChatToolbarView: View {
                 // Code Button
                 Button(action: onCode) {
                     Image(systemName: "chevron.left.forwardslash.chevron.right")
+                }
+                .buttonStyle(ToolbarButtonStyle())
+
+                // MARK: ViboGram - Size/Dim/Rainbow text effects
+                // Dim Button
+                Button(action: onDim) {
+                    Image(systemName: "circle.lefthalf.filled")
+                }
+                .buttonStyle(ToolbarButtonStyle())
+
+                // Rainbow Button
+                Button(action: onRainbow) {
+                    Image(systemName: "rainbow")
+                }
+                .buttonStyle(ToolbarButtonStyle())
+
+                // Big Size Button
+                Button(action: onSizeBig) {
+                    Image(systemName: "textformat.size.larger")
                 }
                 .buttonStyle(ToolbarButtonStyle())
             }

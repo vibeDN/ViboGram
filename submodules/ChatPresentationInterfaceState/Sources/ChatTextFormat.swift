@@ -2,6 +2,30 @@ import Foundation
 import TextFormat
 import TelegramCore
 import AccountContext
+import SGTextEffects
+
+// MARK: ViboGram - Size/Dim/Rainbow text effects
+// Unlike chatTextInputAddFormattingAttribute above, this doesn't add an
+// NSAttributedString attribute (there's no ChatInputContent-level extensibility
+// point for a non-standard style) -- it splices literal invisible marker
+// characters into the plain text itself, decoded back into visual attributes
+// wherever stringWithAppliedEntities renders a message. No live-preview
+// styling while composing (that would need a second decode pass hooked into
+// the composer's own text rendering); the effect becomes visible after send.
+public func chatTextInputWrapWithEffect(_ state: ChatTextInputState, kind: SGTextEffectKind) -> ChatTextInputState {
+    if state.selectionRange.isEmpty {
+        return state
+    }
+    let nsRange = NSRange(location: state.selectionRange.lowerBound, length: state.selectionRange.count)
+    let result = NSMutableAttributedString(attributedString: state.inputText)
+    // Insert the closing marker first (higher index) so the lowerBound insertion
+    // right after doesn't invalidate it -- NSMutableAttributedString.insert
+    // already shifts any existing attribute ranges correctly on its own.
+    result.insert(NSAttributedString(string: String(SGTextEffects.closeMarker)), at: nsRange.upperBound)
+    result.insert(NSAttributedString(string: SGTextEffects.openSequence(for: kind)), at: nsRange.lowerBound)
+    let selectionIndex = nsRange.upperBound + 3
+    return ChatTextInputState(inputText: result, selectionRange: selectionIndex ..< selectionIndex)
+}
 
 public func chatTextInputAddFormattingAttribute(forceRemoveAll: Bool = false, _ state: ChatTextInputState, attribute: NSAttributedString.Key, value: Any?) -> ChatTextInputState {
     if !state.selectionRange.isEmpty {

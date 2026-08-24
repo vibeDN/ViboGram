@@ -19,6 +19,7 @@ swift_library(
         "//submodules/Markdown:Markdown",
         "//submodules/Emoji:Emoji",
         "//third-party/libprisma",
+        "//Swiftgram/SGTextEffects:SGTextEffects",
     ],
     visibility = [
         "//visibility:public",

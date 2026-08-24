@@ -5,6 +5,7 @@ import Display
 import libprisma
 import SwiftSignalKit
 import TelegramPresentationData
+import SGTextEffects
 
 public func chatInputStateStringWithAppliedEntities(_ text: String, entities: [MessageTextEntity]) -> NSAttributedString {
     var nsString: NSString?
@@ -455,7 +456,12 @@ public func stringWithAppliedEntities(_ text: String, entities: [MessageTextEnti
         paragraphStyle.alignment = paragraphAlignment
         string.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSMakeRange(0, string.length))
     }
-    
+
+    // MARK: ViboGram - Size/Dim/Rainbow text effects (single choke point for all callers)
+    if SGTextEffects.hasEffects(text) {
+        SGTextEffects.applyEffects(to: string, baseFont: baseFont)
+    }
+
     return string
 }
 

@@ -47,7 +47,7 @@ Status legend: `[ ]` not started, `[x]` done. GitHub doesn't render a third chec
 
 - [x] Expandable message input field (default 12 / 15 / 20 / 30 / unlimited lines) + adjustable input font size (independent of the chat text size setting)
 - [ ] Message input field repositioned to top of chat
-- [ ] Custom text formatting effects (Size / Dim / Rainbow) + "copy with formatting"
+- [x] Custom text formatting effects (Size / Dim / Rainbow), integrated into the existing Swiftgram Pro input toolbar. "Copy with formatting" comes for free — the style lives as invisible Unicode markers directly in the message text, so any copy/paste preserves it. No live preview while composing (effect renders after send); Margelet's own self-promo watermark was intentionally not ported.
 - [ ] Allow screenshots in secret chats
 - [ ] TTL expire-now button for self-destructing photos/videos
 
