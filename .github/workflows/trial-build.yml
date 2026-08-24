@@ -129,20 +129,36 @@ jobs:
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
           set -o pipefail
-          xcodebuild build \
-            -project "${{ steps.proj.outputs.path }}" \
-            -scheme "${{ steps.scheme.outputs.name }}" \
-            -sdk iphonesimulator \
-            -destination "generic/platform=iOS Simulator" \
-            -configuration Debug \
-            -derivedDataPath "$HOME/derived-sim" \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            | tee build.log
+          # rules_xcodeproj's "Copy Bazel Outputs" script phases occasionally race
+          # the underlying bazel build for the first few framework targets ("No
+          # such file or directory" copying a .swiftmodule that hasn't landed
+          # yet) -- this has reproduced 4/4 runs regardless of caching or
+          # COMPILER_INDEX_STORE_ENABLE. Retrying in the same job (reusing the
+          # now-partially-populated DerivedData) reliably clears it.
+          for attempt in 1 2 3; do
+            echo "=== xcodebuild attempt $attempt/3 ==="
+            if xcodebuild build \
+              -project "${{ steps.proj.outputs.path }}" \
+              -scheme "${{ steps.scheme.outputs.name }}" \
+              -sdk iphonesimulator \
+              -destination "generic/platform=iOS Simulator" \
+              -configuration Debug \
+              -derivedDataPath "$HOME/derived-sim" \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              DEVELOPMENT_TEAM="" \
+              PROVISIONING_PROFILE_SPECIFIER="" \
+              | tee -a build.log; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "All 3 attempts failed" >&2
+              exit 1
+            fi
+            echo "Attempt $attempt failed, retrying..."
+          done
 
       - name: Disk usage after build
         if: always()
@@ -204,15 +220,25 @@ jobs:
       - name: Build for device (signed)
         run: |
           set -o pipefail
-          xcodebuild build \
-            -project "${{ steps.proj.outputs.path }}" \
-            -scheme "${{ steps.scheme.outputs.name }}" \
-            -sdk iphoneos \
-            -configuration Debug \
-            -derivedDataPath "$HOME/derived-device" \
-            -destination "generic/platform=iOS" \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            | tee build-device.log
+          for attempt in 1 2 3; do
+            echo "=== xcodebuild attempt $attempt/3 ==="
+            if xcodebuild build \
+              -project "${{ steps.proj.outputs.path }}" \
+              -scheme "${{ steps.scheme.outputs.name }}" \
+              -sdk iphoneos \
+              -configuration Debug \
+              -derivedDataPath "$HOME/derived-device" \
+              -destination "generic/platform=iOS" \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              | tee -a build-device.log; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "All 3 attempts failed" >&2
+              exit 1
+            fi
+            echo "Attempt $attempt failed, retrying..."
+          done
 
       - name: Package signed IPA
         id: ipa
