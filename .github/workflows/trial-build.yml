@@ -58,6 +58,7 @@ jobs:
             --cacheDir="$HOME/telegram-bazel-cache" \
             generateProject \
             --configurationPath=build-system/generated_trial_configuration.json \
+            --xcodeManagedCodesigning \
             --disableProvisioningProfiles
 
       - name: Persist disableProvisioningProfiles for subsequent bazel builds
@@ -110,6 +111,7 @@ jobs:
             -project "${{ steps.proj.outputs.path }}" \
             -scheme "${{ steps.scheme.outputs.name }}" \
             -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
             -configuration Debug \
             -derivedDataPath "$HOME/derived-sim" \
             CODE_SIGNING_ALLOWED=NO \
