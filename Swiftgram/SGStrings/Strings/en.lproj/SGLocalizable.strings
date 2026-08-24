@@ -110,6 +110,8 @@
 "Settings.AllowSecretMediaSaving.Notice" = "Stops reporting screenshots to the other party in secret chats and one-time-view photos/videos, and restores the Save/Copy options for that media. Only affects your own client.";
 "Settings.BypassContentRestrictions" = "Bypass iOS Content Restrictions";
 "Settings.BypassContentRestrictions.Notice" = "Client-side only: stops hiding channels/bots/messages that Telegram's server flags as restricted specifically for the iOS platform (App Store guidelines), and reveals the sensitive-content toggle in Settings > Data and Storage if the server allows adjusting it. Purely cosmetic filtering — the content was already reachable, this just stops the client from hiding it.";
+"Settings.AntiDelete" = "Anti-Delete";
+"Settings.AntiDelete.Notice" = "Keeps a message visible in the chat when the other side deletes it, instead of removing it from your history — cloud chats and channels only, not secret chats. Only works for messages the app had already seen before they were deleted.";
 "Chat.ExpireNow" = "Expire Now";
 "Settings.GhostMode.SkipReadReceipts" = "Ghost Mode: Hide Read Receipts";
 "Settings.GhostMode.SkipPresence" = "Ghost Mode: Hide Online Status";
