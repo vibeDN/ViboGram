@@ -1512,6 +1512,28 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                 }
             }
             if let mediaReference = mediaReference {
+                // MARK: ViboGram - TTL expire-now: force an already-counting-down
+                // self-destruct message to delete immediately instead of waiting.
+                // Genuinely two-sided for secret chats (protocol-level delete);
+                // for view-once media in normal chats this only removes it locally,
+                // since there's no server API to force the other side's copy early.
+                let hasLiveTTLCountdown = message.attributes.contains(where: { attr in
+                    if let a = attr as? AutoremoveTimeoutMessageAttribute {
+                        return a.countdownBeginTime != nil
+                    }
+                    if let a = attr as? AutoclearTimeoutMessageAttribute {
+                        return a.countdownBeginTime != nil
+                    }
+                    return false
+                })
+                if hasLiveTTLCountdown {
+                    actions.append(.action(ContextMenuActionItem(text: i18n("Chat.ExpireNow", chatPresentationInterfaceState.strings.baseLanguageCode), textColor: .destructive, icon: { theme in
+                        return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Delete"), color: theme.actionSheet.destructiveActionTextColor)
+                    }, action: { _, f in
+                        let _ = context.engine.messages.deleteMessagesInteractively(messageIds: [message.id], type: .forEveryone).startStandalone()
+                        f(.dismissWithoutContent)
+                    })))
+                }
                 actions.append(.action(ContextMenuActionItem(text: isVideo ? chatPresentationInterfaceState.strings.Gallery_SaveVideo : chatPresentationInterfaceState.strings.Gallery_SaveImage, icon: { theme in
                     return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Save"), color: theme.actionSheet.primaryTextColor)
                 }, action: { _, f in
