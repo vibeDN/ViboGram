@@ -3,6 +3,7 @@ import SGIAP
 import SGPayWall
 import SGProUI
 import SGSimpleSettings
+import SGBadges
 //
 import Foundation
 import UIKit
@@ -554,6 +555,8 @@ public final class SharedAccountContextImpl: SharedAccountContext {
             }
         })
         self.initSGIAP(isMainApp: applicationBindings.isMainApp)
+        // MARK: ViboGram - user badges (Tier 3)
+        SGBadges.refresh()
         //
         
         let _ = self.contactDataManager?.personNameDisplayOrder().start(next: { order in

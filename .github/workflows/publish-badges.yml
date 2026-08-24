@@ -1,0 +1,27 @@
+name: publish-badges
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish badges.json to the "data" release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VIBOGRAM_BADGES_JSON: ${{ secrets.VIBOGRAM_BADGES_JSON }}
+        run: |
+          set -euo pipefail
+          echo "$VIBOGRAM_BADGES_JSON" > badges.json
+          python3 -c "import json; json.load(open('badges.json'))"  # fail fast on invalid JSON
+
+          if ! gh release view data --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create data --repo "${{ github.repository }}" \
+              --title "data" \
+              --notes "Not a real release -- just a stable place to host app-fetched data files (badges.json) as release assets, since GitHub Secrets are CI-only and can't be fetched at runtime." \
+              --prerelease
+          fi
+          gh release upload data badges.json --repo "${{ github.repository }}" --clobber
