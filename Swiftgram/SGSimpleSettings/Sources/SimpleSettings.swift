@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 import SGAppGroupIdentifier
 import SGLogging
 
@@ -181,6 +182,8 @@ public class SGSimpleSettings {
         case customEditedLabel
         case streamerMode
         case hideAds
+        case inputFieldMaxLines
+        case inputFieldFontSizeOverride
     }
     
     public enum DownloadSpeedBoostValues: String, CaseIterable {
@@ -248,6 +251,51 @@ public class SGSimpleSettings {
         case `default`
         case silenced
         case disabled
+    }
+
+    // MARK: ViboGram - expandable input field
+    public enum InputFieldMaxLinesValues: String, CaseIterable {
+        case defaultValue = "default"
+        case fifteen = "15"
+        case twenty = "20"
+        case thirty = "30"
+        case unlimited = "unlimited"
+
+        public static let defaultCase: InputFieldMaxLinesValues = .defaultValue
+
+        public var lineCount: Int {
+            switch self {
+            case .defaultValue: return 12
+            case .fifteen: return 15
+            case .twenty: return 20
+            case .thirty: return 30
+            case .unlimited: return Int.max
+            }
+        }
+    }
+
+    public enum InputFieldFontSizeValues: String, CaseIterable {
+        case defaultValue = "default"
+        case fourteen = "14"
+        case sixteen = "16"
+        case eighteen = "18"
+        case twenty = "20"
+        case twentyFour = "24"
+        case twentyEight = "28"
+
+        public static let defaultCase: InputFieldFontSizeValues = .defaultValue
+
+        public var points: CGFloat? {
+            switch self {
+            case .defaultValue: return nil
+            case .fourteen: return 14
+            case .sixteen: return 16
+            case .eighteen: return 18
+            case .twenty: return 20
+            case .twentyFour: return 24
+            case .twentyEight: return 28
+            }
+        }
     }
 
     public enum NYStyle: String, CaseIterable {
@@ -338,7 +386,9 @@ public class SGSimpleSettings {
         Keys.ghostModeSkipPresence.rawValue: false,
         Keys.customEditedLabel.rawValue: "",
         Keys.streamerMode.rawValue: false,
-        Keys.hideAds.rawValue: false
+        Keys.hideAds.rawValue: false,
+        Keys.inputFieldMaxLines.rawValue: InputFieldMaxLinesValues.defaultCase.rawValue,
+        Keys.inputFieldFontSizeOverride.rawValue: InputFieldFontSizeValues.defaultCase.rawValue
     ]
     
     public static let groupDefaultValues: [String: Any] = [
@@ -617,6 +667,23 @@ public class SGSimpleSettings {
 
     @UserDefault(key: Keys.hideAds.rawValue)
     public var hideAds: Bool
+
+    @UserDefault(key: Keys.inputFieldMaxLines.rawValue)
+    public var inputFieldMaxLines: String
+
+    @UserDefault(key: Keys.inputFieldFontSizeOverride.rawValue)
+    public var inputFieldFontSizeOverride: String
+}
+
+extension SGSimpleSettings {
+    public var inputFieldMaxLinesEnum: InputFieldMaxLinesValues {
+        return InputFieldMaxLinesValues(rawValue: inputFieldMaxLines) ?? .defaultCase
+    }
+
+    // nil means "use the stock chat font size setting"
+    public var inputFieldFontSizeOverridePoints: CGFloat? {
+        return (InputFieldFontSizeValues(rawValue: inputFieldFontSizeOverride) ?? .defaultCase).points
+    }
 }
 
 extension SGSimpleSettings {

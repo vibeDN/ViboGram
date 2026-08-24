@@ -45,7 +45,7 @@ Status legend: `[ ]` not started, `[x]` done. GitHub doesn't render a third chec
 
 ### Tier 2 — medium
 
-- [ ] Expandable message input field + adjustable input font size
+- [x] Expandable message input field (default 12 / 15 / 20 / 30 / unlimited lines) + adjustable input font size (independent of the chat text size setting)
 - [ ] Message input field repositioned to top of chat
 - [ ] Custom text formatting effects (Size / Dim / Rainbow) + "copy with formatting"
 - [ ] Allow screenshots in secret chats

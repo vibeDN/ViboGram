@@ -78,7 +78,7 @@ public let chatTextInputMinFontSize: CGFloat = 5.0
 private let minInputFontSize = chatTextInputMinFontSize
 
 private func calclulateTextFieldMinHeight(_ presentationInterfaceState: ChatPresentationInterfaceState, metrics: LayoutMetrics) -> CGFloat {
-    var baseFontSize = max(minInputFontSize, presentationInterfaceState.fontSize.baseDisplaySize)
+    var baseFontSize = max(minInputFontSize, (SGSimpleSettings.shared.inputFieldFontSizeOverridePoints ?? presentationInterfaceState.fontSize.baseDisplaySize))
     if "".isEmpty {
         baseFontSize = 17.0
     }
@@ -101,7 +101,7 @@ private func calclulateTextFieldMinHeight(_ presentationInterfaceState: ChatPres
 }
 
 private func calculateTextFieldRealInsets(presentationInterfaceState: ChatPresentationInterfaceState, accessoryButtonsWidth: CGFloat, actionControlsWidth: CGFloat) -> UIEdgeInsets {
-    var baseFontSize = max(minInputFontSize, presentationInterfaceState.fontSize.baseDisplaySize)
+    var baseFontSize = max(minInputFontSize, (SGSimpleSettings.shared.inputFieldFontSizeOverridePoints ?? presentationInterfaceState.fontSize.baseDisplaySize))
     if "".isEmpty {
         baseFontSize = 17.0
     }
@@ -498,7 +498,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
                 textColor = presentationInterfaceState.theme.chat.inputPanel.inputTextColor
                 primaryTextColor = presentationInterfaceState.theme.chat.inputPanel.primaryTextColor
                 accentTextColor = presentationInterfaceState.theme.chat.inputPanel.panelControlAccentColor
-                baseFontSize = max(minInputFontSize, presentationInterfaceState.fontSize.baseDisplaySize)
+                baseFontSize = max(minInputFontSize, (SGSimpleSettings.shared.inputFieldFontSizeOverridePoints ?? presentationInterfaceState.fontSize.baseDisplaySize))
             }
             if "".isEmpty {
                 baseFontSize = 17.0
@@ -577,7 +577,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
                 textColor = presentationInterfaceState.theme.chat.inputPanel.inputTextColor
                 primaryTextColor = presentationInterfaceState.theme.chat.inputPanel.primaryTextColor
                 accentTextColor = presentationInterfaceState.theme.chat.inputPanel.panelControlAccentColor
-                baseFontSize = max(minInputFontSize, presentationInterfaceState.fontSize.baseDisplaySize)
+                baseFontSize = max(minInputFontSize, (SGSimpleSettings.shared.inputFieldFontSizeOverridePoints ?? presentationInterfaceState.fontSize.baseDisplaySize))
             }
             if richTextInputNode.usesNativeRichTextEngine {
                 // Pass the model content DIRECTLY (not via `state.inputText`, which flattens structural blocks through
@@ -627,7 +627,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
                 textColor = presentationInterfaceState.theme.chat.inputPanel.inputTextColor
                 primaryTextColor = presentationInterfaceState.theme.chat.inputPanel.primaryTextColor
                 accentTextColor = presentationInterfaceState.theme.chat.inputPanel.panelControlAccentColor
-                baseFontSize = max(minInputFontSize, presentationInterfaceState.fontSize.baseDisplaySize)
+                baseFontSize = max(minInputFontSize, (SGSimpleSettings.shared.inputFieldFontSizeOverridePoints ?? presentationInterfaceState.fontSize.baseDisplaySize))
             }
             if richTextInputNode.usesNativeRichTextEngine {
                 // Pass the model content DIRECTLY (not via `state.inputText`, which flattens structural blocks through
@@ -677,7 +677,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
                     textColor = presentationInterfaceState.theme.chat.inputPanel.inputTextColor
                     primaryTextColor = presentationInterfaceState.theme.chat.inputPanel.primaryTextColor
                     accentTextColor = presentationInterfaceState.theme.chat.inputPanel.panelControlAccentColor
-                    baseFontSize = max(minInputFontSize, presentationInterfaceState.fontSize.baseDisplaySize)
+                    baseFontSize = max(minInputFontSize, (SGSimpleSettings.shared.inputFieldFontSizeOverridePoints ?? presentationInterfaceState.fontSize.baseDisplaySize))
                 }
                 if "".isEmpty {
                     baseFontSize = 17.0
@@ -1231,7 +1231,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
 
             textColor = presentationInterfaceState.theme.chat.inputPanel.inputTextColor
             tintColor = presentationInterfaceState.theme.list.itemAccentColor
-            baseFontSize = max(minInputFontSize, presentationInterfaceState.fontSize.baseDisplaySize)
+            baseFontSize = max(minInputFontSize, (SGSimpleSettings.shared.inputFieldFontSizeOverridePoints ?? presentationInterfaceState.fontSize.baseDisplaySize))
             keyboardAppearance = presentationInterfaceState.theme.rootController.keyboardColor.keyboardAppearance
         }
         
@@ -1483,7 +1483,8 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             
             let unboundTextFieldHeight = max(textFieldMinHeight, ceil(measuredHeight))
             
-            let maxNumberOfLines = max(1, min(12, (Int(fieldMaxHeight - 11.0) - 33) / 22))
+            // MARK: ViboGram - expandable input field (was hardcoded to 12)
+            let maxNumberOfLines = max(1, min(SGSimpleSettings.shared.inputFieldMaxLinesEnum.lineCount, (Int(fieldMaxHeight - 11.0) - 33) / 22))
             
             let updatedMaxHeight = (CGFloat(maxNumberOfLines) * (22.0 + 2.0) + 10.0)
             
@@ -2033,7 +2034,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
                 
                 if self.theme == nil || !self.theme!.chat.inputPanel.inputTextColor.isEqual(interfaceState.theme.chat.inputPanel.inputTextColor) {
                     let textColor = interfaceState.theme.chat.inputPanel.inputTextColor
-                    var baseFontSize = max(minInputFontSize, interfaceState.fontSize.baseDisplaySize)
+                    var baseFontSize = max(minInputFontSize, (SGSimpleSettings.shared.inputFieldFontSizeOverridePoints ?? interfaceState.fontSize.baseDisplaySize))
                     if "".isEmpty {
                         baseFontSize = 17.0
                     }
@@ -3345,7 +3346,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         if (updatedPlaceholder != nil && self.currentPlaceholder != updatedPlaceholder) || themeUpdated {
             let currentPlaceholder = updatedPlaceholder ?? self.currentPlaceholder ?? ""
             self.currentPlaceholder = currentPlaceholder
-            var baseFontSize = max(minInputFontSize, interfaceState.fontSize.baseDisplaySize)
+            var baseFontSize = max(minInputFontSize, (SGSimpleSettings.shared.inputFieldFontSizeOverridePoints ?? interfaceState.fontSize.baseDisplaySize))
             if "".isEmpty {
                 baseFontSize = 17.0
             }
@@ -4042,7 +4043,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             return
         }
         if let richTextInputNode = self.richTextInputNode, let presentationInterfaceState = self.presentationInterfaceState, let context = self.context {
-            let baseFontSize = max(minInputFontSize, presentationInterfaceState.fontSize.baseDisplaySize)
+            let baseFontSize = max(minInputFontSize, (SGSimpleSettings.shared.inputFieldFontSizeOverridePoints ?? presentationInterfaceState.fontSize.baseDisplaySize))
             let fullTranslucency = self.context?.sharedContext.energyUsageSettings.fullTranslucency ?? true
             // The node owns the per-keystroke decoration (in-place fix-up + caret typing attrs + spoiler/emoji
             // overlays) now; the panel hands it the current theme/energy inputs and then reads interface state back.
@@ -4915,7 +4916,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
                 self.inputMenu.hide()
             }
 
-            var baseFontSize = max(minInputFontSize, presentationInterfaceState.fontSize.baseDisplaySize)
+            var baseFontSize = max(minInputFontSize, (SGSimpleSettings.shared.inputFieldFontSizeOverridePoints ?? presentationInterfaceState.fontSize.baseDisplaySize))
             if "".isEmpty {
                 baseFontSize = 17.0
             }
@@ -4923,7 +4924,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
 
             // The node owns the spoiler-reveal flow now; the panel just hands it the live theme inputs.
             if let context = self.context {
-                richTextInputNode.updateSpoilersRevealed(context: context, baseFontSize: max(minInputFontSize, presentationInterfaceState.fontSize.baseDisplaySize), textColor: presentationInterfaceState.theme.chat.inputPanel.inputTextColor, primaryTextColor: presentationInterfaceState.theme.chat.inputPanel.primaryTextColor, accentTextColor: presentationInterfaceState.theme.chat.inputPanel.panelControlAccentColor, availableEmojis: (self.context?.animatedEmojiStickersValue.keys).flatMap(Set.init) ?? Set(), emojiViewProvider: self.emojiViewProvider, animated: true)
+                richTextInputNode.updateSpoilersRevealed(context: context, baseFontSize: max(minInputFontSize, (SGSimpleSettings.shared.inputFieldFontSizeOverridePoints ?? presentationInterfaceState.fontSize.baseDisplaySize)), textColor: presentationInterfaceState.theme.chat.inputPanel.inputTextColor, primaryTextColor: presentationInterfaceState.theme.chat.inputPanel.primaryTextColor, accentTextColor: presentationInterfaceState.theme.chat.inputPanel.panelControlAccentColor, availableEmojis: (self.context?.animatedEmojiStickersValue.keys).flatMap(Set.init) ?? Set(), emojiViewProvider: self.emojiViewProvider, animated: true)
             }
 
             self.updateInputField(textInputFrame: richTextInputNode.textFieldFrame, transition: .immediate)
@@ -5396,7 +5397,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
 
         // The node owns the spoiler-reveal flow now; the panel just hands it the live theme inputs.
         if let richTextInputNode = self.richTextInputNode, let presentationInterfaceState = self.presentationInterfaceState, let context = self.context {
-            richTextInputNode.updateSpoilersRevealed(context: context, baseFontSize: max(minInputFontSize, presentationInterfaceState.fontSize.baseDisplaySize), textColor: presentationInterfaceState.theme.chat.inputPanel.inputTextColor, primaryTextColor: presentationInterfaceState.theme.chat.inputPanel.primaryTextColor, accentTextColor: presentationInterfaceState.theme.chat.inputPanel.panelControlAccentColor, availableEmojis: (self.context?.animatedEmojiStickersValue.keys).flatMap(Set.init) ?? Set(), emojiViewProvider: self.emojiViewProvider, animated: animated)
+            richTextInputNode.updateSpoilersRevealed(context: context, baseFontSize: max(minInputFontSize, (SGSimpleSettings.shared.inputFieldFontSizeOverridePoints ?? presentationInterfaceState.fontSize.baseDisplaySize)), textColor: presentationInterfaceState.theme.chat.inputPanel.inputTextColor, primaryTextColor: presentationInterfaceState.theme.chat.inputPanel.primaryTextColor, accentTextColor: presentationInterfaceState.theme.chat.inputPanel.panelControlAccentColor, availableEmojis: (self.context?.animatedEmojiStickersValue.keys).flatMap(Set.init) ?? Set(), emojiViewProvider: self.emojiViewProvider, animated: animated)
         }
     }
     
@@ -5432,7 +5433,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         if let presentationInterfaceState = self.presentationInterfaceState {
             textColor = presentationInterfaceState.theme.chat.inputPanel.inputTextColor
             accentTextColor = presentationInterfaceState.theme.chat.inputPanel.panelControlAccentColor
-            baseFontSize = max(minInputFontSize, presentationInterfaceState.fontSize.baseDisplaySize)
+            baseFontSize = max(minInputFontSize, (SGSimpleSettings.shared.inputFieldFontSizeOverridePoints ?? presentationInterfaceState.fontSize.baseDisplaySize))
             if "".isEmpty {
                 baseFontSize = 17.0
             }

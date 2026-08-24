@@ -129,6 +129,8 @@ private enum SGOneFromManySetting: String {
     case transcriptionBackend
     case pinnedMessageNotifications
     case mentionsAndRepliesNotifications
+    case inputFieldMaxLines
+    case inputFieldFontSizeOverride
 }
 
 private enum SGSliderSetting: String {
@@ -355,6 +357,8 @@ private func SGControllerEntries(presentationData: PresentationData, callListSet
     entries.append(.toggle(id: id.count, section: .other, settingName: .hidePhoneInSettings, value: SGSimpleSettings.shared.hidePhoneInSettings, text: i18n("Settings.HidePhoneInSettingsUI", lang), enabled: true))
     entries.append(.notice(id: id.count, section: .other, text: i18n("Settings.HidePhoneInSettingsUI.Notice", lang)))
     entries.append(.disclosure(id: id.count, section: .other, link: .customEditedLabel, text: i18n("Settings.CustomEditedLabel", lang)))
+    entries.append(.oneFromManySelector(id: id.count, section: .other, settingName: .inputFieldMaxLines, text: i18n("Settings.InputFieldMaxLines", lang), value: i18n("Settings.InputFieldMaxLines.\(SGSimpleSettings.shared.inputFieldMaxLines)", lang), enabled: true))
+    entries.append(.oneFromManySelector(id: id.count, section: .other, settingName: .inputFieldFontSizeOverride, text: i18n("Settings.InputFieldFontSize", lang), value: i18n("Settings.InputFieldFontSize.\(SGSimpleSettings.shared.inputFieldFontSizeOverride)", lang), enabled: true))
 
     // MARK: ViboGram - merged in from the former separate "Swiftgram Pro" screen, unlocked for everyone
     entries.append(.disclosure(id: id.count, section: .proBase, link: .sessionBackupManager, text: "SessionBackup.Title".i18n(lang)))
@@ -719,6 +723,31 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
 
                 for value in SGSimpleSettings.NYStyle.allCases {
                     items.append(ActionSheetButtonItem(title: i18n("Settings.NY.Style.\(value.rawValue)", presentationData.strings.baseLanguageCode), color: .accent, action: { [weak actionSheet] in
+                        actionSheet?.dismissAnimated()
+                        setAction(value.rawValue)
+                    }))
+                }
+            // MARK: ViboGram - expandable input field
+            case .inputFieldMaxLines:
+                let setAction: (String) -> Void = { value in
+                    SGSimpleSettings.shared.inputFieldMaxLines = value
+                    simplePromise.set(true)
+                }
+
+                for value in SGSimpleSettings.InputFieldMaxLinesValues.allCases {
+                    items.append(ActionSheetButtonItem(title: i18n("Settings.InputFieldMaxLines.\(value.rawValue)", presentationData.strings.baseLanguageCode), color: .accent, action: { [weak actionSheet] in
+                        actionSheet?.dismissAnimated()
+                        setAction(value.rawValue)
+                    }))
+                }
+            case .inputFieldFontSizeOverride:
+                let setAction: (String) -> Void = { value in
+                    SGSimpleSettings.shared.inputFieldFontSizeOverride = value
+                    simplePromise.set(true)
+                }
+
+                for value in SGSimpleSettings.InputFieldFontSizeValues.allCases {
+                    items.append(ActionSheetButtonItem(title: i18n("Settings.InputFieldFontSize.\(value.rawValue)", presentationData.strings.baseLanguageCode), color: .accent, action: { [weak actionSheet] in
                         actionSheet?.dismissAnimated()
                         setAction(value.rawValue)
                     }))
