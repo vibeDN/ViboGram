@@ -173,7 +173,11 @@ func infoItems(
         }
         
         if let phone = user.phone, !(SGSimpleSettings.shared.hidePhoneInSettings && isMyProfile) {
-            let formattedPhone = formatPhoneNumber(context: context, number: phone)
+            var formattedPhone = formatPhoneNumber(context: context, number: phone)
+            // MARK: ViboGram - Streamer Mode
+            if isMyProfile && SGSimpleSettings.shared.streamerMode {
+                formattedPhone = SGSimpleSettings.maskPhoneNumberForStreamerMode(formattedPhone)
+            }
             let label: String
             if formattedPhone.hasPrefix("+888 ") {
                 label = presentationData.strings.UserInfo_AnonymousNumberLabel

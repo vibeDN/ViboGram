@@ -36,8 +36,8 @@ Status legend: `[ ]` not started, `[~]` in progress, `[x]` done.
 
 - [x] Ghost mode: skip read receipts (exposed as a real toggle; upstream's own hidden debug flag stays as a separate override)
 - [x] Ghost mode: skip online/last-seen presence updates
-- [ ] Customizable "edited" / "deleted" message marks
-- [ ] Streamer mode (mask your own phone number in the UI)
+- [~] Customizable "edited" / "deleted" message marks (edited label done; deleted half waits on Tier 3 anti-delete)
+- [x] Streamer mode (mask your own phone number in the UI)
 - [ ] Show User ID in profile
 - [ ] Alternate app icon color themes
 - [x] Trimmed shipped extensions to Notification (Content + Service) and Broadcast Upload only — dropped Share, Siri Intents, and Widget

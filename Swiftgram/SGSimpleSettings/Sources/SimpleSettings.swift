@@ -179,6 +179,7 @@ public class SGSimpleSettings {
         case ghostModeSkipReadReceipts
         case ghostModeSkipPresence
         case customEditedLabel
+        case streamerMode
     }
     
     public enum DownloadSpeedBoostValues: String, CaseIterable {
@@ -334,7 +335,8 @@ public class SGSimpleSettings {
         Keys.sendWithReturnKey.rawValue: false,
         Keys.ghostModeSkipReadReceipts.rawValue: false,
         Keys.ghostModeSkipPresence.rawValue: false,
-        Keys.customEditedLabel.rawValue: ""
+        Keys.customEditedLabel.rawValue: "",
+        Keys.streamerMode.rawValue: false
     ]
     
     public static let groupDefaultValues: [String: Any] = [
@@ -607,6 +609,17 @@ public class SGSimpleSettings {
 
     @UserDefault(key: Keys.customEditedLabel.rawValue)
     public var customEditedLabel: String
+
+    @UserDefault(key: Keys.streamerMode.rawValue)
+    public var streamerMode: Bool
+}
+
+extension SGSimpleSettings {
+    // MARK: ViboGram - Streamer Mode: mask digits in an already-formatted phone
+    // number string, keeping spacing/punctuation so it still "looks like" a phone number.
+    public static func maskPhoneNumberForStreamerMode(_ formatted: String) -> String {
+        return String(formatted.map { $0.isNumber ? "•" : $0 })
+    }
 }
 
 extension SGSimpleSettings {

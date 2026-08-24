@@ -3,6 +3,7 @@ import UIKit
 import AsyncDisplayKit
 import Display
 import TelegramCore
+import SGSimpleSettings
 import AvatarNode
 import AccountContext
 import SwiftSignalKit
@@ -1227,7 +1228,9 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             // MARK: Swiftgram
             if title.isEmpty {
                 if case let .user(user) = peer, let phone = user.phone, !self.hidePhoneInSettings {
-                    title = formatPhoneNumber(context: self.context, number: phone)
+                    let formatted = formatPhoneNumber(context: self.context, number: phone)
+                    // MARK: ViboGram - Streamer Mode
+                    title = SGSimpleSettings.shared.streamerMode ? SGSimpleSettings.maskPhoneNumberForStreamerMode(formatted) : formatted
                 } else if let addressName = peer.addressName {
                     title = "@\(addressName)"
                 } else {
@@ -1244,6 +1247,9 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 var formattedPhone = formatPhoneNumber(context: self.context, number: user.phone ?? "")
                 if !formattedPhone.isEmpty && self.hidePhoneInSettings {
                     formattedPhone = ""
+                } else if !formattedPhone.isEmpty && SGSimpleSettings.shared.streamerMode {
+                    // MARK: ViboGram - Streamer Mode
+                    formattedPhone = SGSimpleSettings.maskPhoneNumberForStreamerMode(formattedPhone)
                 }
 
                 var subtitle = formattedPhone

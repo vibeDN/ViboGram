@@ -88,6 +88,8 @@
 "Settings.CustomEditedLabel" = "Custom \"Edited\" Label";
 "Settings.CustomEditedLabel.Placeholder" = "Leave empty for default";
 "Settings.Save" = "Save";
+"Settings.StreamerMode" = "Streamer Mode";
+"Settings.StreamerMode.Notice" = "Masks your own phone number wherever it's shown in Settings, so it's safe to have on screen during a stream or screen share.";
 "Settings.GhostMode.SkipReadReceipts" = "Ghost Mode: Hide Read Receipts";
 "Settings.GhostMode.SkipPresence" = "Ghost Mode: Hide Online Status";
 "Settings.ShowProfileID" = "Show Profile ID";
