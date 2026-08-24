@@ -224,8 +224,12 @@ def resolve_aps_environment_from_directory(source_path, team_id, bundle_id):
                 profile_base_name = profile_name[len(team_id + '.' + bundle_id):]
                 if profile_base_name == '':
                     if 'aps-environment' not in profile_dict['Entitlements']:
-                        print('Provisioning profile at {} does not include an aps-environment entitlement'.format(file_path))
-                        sys.exit(1)
+                        # MARK: ViboGram - free Apple ID accounts can't get Push Notifications
+                        # capability at all (paid Developer Program only), so their profiles
+                        # never have this entitlement. Don't hard-fail the whole build over it --
+                        # just build without real push support instead of crashing.
+                        print('Warning: provisioning profile at {} has no aps-environment entitlement (free Apple ID) -- continuing without push notification support.'.format(file_path))
+                        return None
                     return profile_dict['Entitlements']['aps-environment']
     return None
 

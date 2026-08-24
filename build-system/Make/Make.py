@@ -518,8 +518,12 @@ def resolve_configuration(base_path, bazel_command_line: BazelCommandLine, argum
         additional_codesigning_output_path=additional_codesigning_output_path
     )
     if codesigning_data.aps_environment is None:
-        print('Could not find a valid aps-environment entitlement in the provided provisioning profiles')
-        sys.exit(1)
+        # MARK: ViboGram - free Apple ID accounts can't get Push Notifications
+        # capability, so their profiles never have an aps-environment entitlement.
+        # Continue with a placeholder instead of hard-failing; push notifications
+        # just won't work in this build until a paid Developer account is used.
+        print('Warning: no aps-environment entitlement found (free Apple ID) -- continuing without push notification support.')
+        codesigning_data.aps_environment = 'development'
 
     if bazel_command_line is not None:
         build_configuration.write_to_variables_file(bazel_path=bazel_command_line.bazel, use_xcode_managed_codesigning=codesigning_data.use_xcode_managed_codesigning, aps_environment=codesigning_data.aps_environment, path=configuration_repository_path + '/variables.bzl')

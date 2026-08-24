@@ -37,20 +37,51 @@ jobs:
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
           TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          IOS_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID }}
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
         run: |
           python3 - <<'EOF'
-          import json, os, secrets
+          import json, os
           path = "build-system/template_minimal_development_configuration.json"
           with open(path) as f:
               cfg = json.load(f)
-          cfg["bundle_id"] = f"org.{secrets.token_hex(8)}.Swiftgram"
+          cfg["bundle_id"] = os.environ["IOS_BUNDLE_ID"]
           cfg["api_id"] = os.environ["TG_API_ID"]
           cfg["api_hash"] = os.environ["TG_API_HASH"]
-          cfg["team_id"] = "0000000000"  # dummy: simulator build below disables real code signing
+          cfg["team_id"] = os.environ["IOS_TEAM_ID"]
           with open("build-system/generated_trial_configuration.json", "w") as f:
               json.dump(cfg, f, indent=2)
           print(json.dumps(cfg, indent=2))
           EOF
+
+      - name: Decode signing certificate and provisioning profile
+        env:
+          IOS_CERT_P12_BASE64: ${{ secrets.IOS_CERT_P12_BASE64 }}
+          IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+          IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CODESIGNING_DIR="$RUNNER_TEMP/codesigning"
+          mkdir -p "$CODESIGNING_DIR/certs" "$CODESIGNING_DIR/profiles"
+          echo -n "$IOS_CERT_P12_BASE64" | base64 --decode -o "$CODESIGNING_DIR/certs/cert.p12"
+          echo -n "$IOS_PROFILE_BASE64" | base64 --decode -o "$CODESIGNING_DIR/profiles/profile.mobileprovision"
+          echo "CODESIGNING_DIR=$CODESIGNING_DIR" >> "$GITHUB_ENV"
+
+          # codesign (invoked by Bazel's rules_apple, not xcodebuild) needs the
+          # profile's matching identity in a keychain -- it isn't read from the
+          # .p12 file directly. Import it into a job-local keychain.
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CODESIGNING_DIR/certs/cert.p12" -P "$IOS_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
+
+          # Xcode/xcodebuild profile matching also expects profiles here.
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp "$CODESIGNING_DIR/profiles/profile.mobileprovision" ~/Library/MobileDevice/Provisioning\ Profiles/
 
       - name: Generate Xcode project via Bazel
         run: |
@@ -58,17 +89,8 @@ jobs:
             --cacheDir="$HOME/telegram-bazel-cache" \
             generateProject \
             --configurationPath=build-system/generated_trial_configuration.json \
-            --xcodeManagedCodesigning \
-            --disableProvisioningProfiles
-
-      - name: Persist disableProvisioningProfiles for subsequent bazel builds
-        run: |
-          # --disableProvisioningProfiles only affects generateProject's own
-          # bazel invocation -- it isn't written into xcodeproj.bazelrc, which is
-          # what later standalone `xcodebuild build` calls actually read. Append
-          # it directly so it sticks for every bazel build triggered from Xcode.
-          echo "build --//Telegram:disableProvisioningProfiles" >> xcodeproj.bazelrc
-          cat xcodeproj.bazelrc
+            --codesigningInformationPath="$CODESIGNING_DIR" \
+            --disableExtensions
 
       - name: Disk usage after project generation
         run: df -h /
@@ -178,7 +200,7 @@ jobs:
             build.log
             scheme_list.txt
 
-      - name: Build for device (unsigned)
+      - name: Build for device (signed)
         run: |
           set -o pipefail
           xcodebuild build \
@@ -188,14 +210,9 @@ jobs:
             -configuration Debug \
             -derivedDataPath "$HOME/derived-device" \
             -destination "generic/platform=iOS" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
             | tee build-device.log
 
-      - name: Package unsigned IPA
+      - name: Package signed IPA
         id: ipa
         continue-on-error: true
         run: |
@@ -216,7 +233,7 @@ jobs:
           echo "Found app: $APP_PATH"
           set -e
           SHORT_SHA=$(git rev-parse --short HEAD)
-          IPA_NAME="ViboGram-unsigned-${SHORT_SHA}.ipa"
+          IPA_NAME="ViboGram-${SHORT_SHA}.ipa"
           PACK_DIR=$(mktemp -d)/Payload
           mkdir -p "$PACK_DIR"
           cp -R "$APP_PATH" "$PACK_DIR/"
@@ -231,7 +248,7 @@ jobs:
           name: trial-build-device-log
           path: build-device.log
 
-      - name: Publish unsigned IPA as a versioned pre-release
+      - name: Publish signed IPA as a versioned pre-release
         if: steps.ipa.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -245,5 +262,5 @@ jobs:
           VERSION="0.${TIERS_DONE}.${NEXT_C}"
           gh release create "$VERSION" "${{ steps.ipa.outputs.path }}" \
             --title "$VERSION" \
-            --notes "Unsigned device IPA, auto-published from trial-build.yml ($(git rev-parse --short HEAD)). Not signed — needs resigning (LiveContainer/AltStore/SideStore/ldid) before install. Tier ${TIERS_DONE}/4 of the roadmap complete." \
+            --notes "Signed device IPA, auto-published from trial-build.yml ($(git rev-parse --short HEAD)). Signed with a free-tier Apple ID cert/profile — install directly via LiveContainer/AltStore/SideStore (no resigning needed), but the cert expires after 7 days and the profile is locked to registered device UDIDs. No push notifications (free Apple ID can't get that entitlement). Tier ${TIERS_DONE}/4 of the roadmap complete." \
             --prerelease
