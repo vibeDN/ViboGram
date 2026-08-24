@@ -129,32 +129,16 @@ jobs:
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
           set -o pipefail
-          # rules_xcodeproj's per-target "Copy Bazel Outputs" script phases
-          # depend on the "BazelDependencies" aggregate target's single upfront
-          # `bazel build` sync having fully landed on disk first. Retrying the
-          # whole scheme build did NOT fix this (5/5 runs failed identically,
-          # and retries within the same job failed near-instantly, meaning
-          # Xcode considered the target already "done" and never re-ran the
-          # sync) -- building BazelDependencies alone as an explicit first pass
-          # forces that sync to complete before any per-target copy can race it.
-          # -destination requires -scheme (not -target) when combined with
-          # -derivedDataPath -- xcodebuild rejects it otherwise ("-scheme,
-          # -testProductsPath, or -xctestrun is required"). Not needed here
-          # anyway since this is a single-target, not a scheme, build.
-          xcodebuild build \
-            -project "${{ steps.proj.outputs.path }}" \
-            -target BazelDependencies \
-            -sdk iphonesimulator \
-            -configuration Debug \
-            -derivedDataPath "$HOME/derived-sim" \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            | tee build.log
-
+          # rules_xcodeproj's "Copy Bazel Outputs" script phases occasionally
+          # race the underlying bazel build for the first few framework
+          # targets ("No such file or directory" copying a .swiftmodule that
+          # hasn't landed yet). A separate BazelDependencies-only pre-build
+          # pass was tried to force that sync first, but it corrupts
+          # DerivedData state for the following -scheme build on Xcode 26.2
+          # (xcodebuild then rejects a well-formed -scheme invocation with
+          # "-scheme, -testProductsPath, or -xctestrun is required") --
+          # reverted. Plain in-job retry is the only thing that's reliably
+          # reached real compilation so far.
           for attempt in 1 2 3; do
             echo "=== xcodebuild attempt $attempt/3 ==="
             if xcodebuild build \
@@ -240,15 +224,6 @@ jobs:
       - name: Build for device (signed)
         run: |
           set -o pipefail
-          xcodebuild build \
-            -project "${{ steps.proj.outputs.path }}" \
-            -target BazelDependencies \
-            -sdk iphoneos \
-            -configuration Debug \
-            -derivedDataPath "$HOME/derived-device" \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            | tee build-device.log
-
           for attempt in 1 2 3; do
             echo "=== xcodebuild attempt $attempt/3 ==="
             if xcodebuild build \
@@ -310,14 +285,29 @@ jobs:
         if: steps.ipa.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # A.B.C versioning: A = 0 (pre-release) / 1 (real release), B = number of
-          # completed roadmap tiers (bump by hand as tiers finish), C = release counter.
+          # A.B.C versioning: A = 0 (pre-release) until the last tier lands, then
+          # flips to 1 for good. B = number of completed roadmap tiers (bump by
+          # hand as tiers finish). C = release counter *within* the current A.B
+          # (resets when B -- or the A flip -- changes, not a global counter).
           TIERS_DONE: "2"
         run: |
           set -euo pipefail
-          RELEASE_COUNT=$(gh api "repos/${{ github.repository }}/releases" --jq 'length')
-          NEXT_C=$((RELEASE_COUNT + 1))
-          VERSION="0.${TIERS_DONE}.${NEXT_C}"
+          if [ "$TIERS_DONE" = "4" ]; then
+            MAJOR=1
+          else
+            MAJOR=0
+          fi
+          PREFIX="${MAJOR}.${TIERS_DONE}."
+          # max(existing C), not count() -- manual test releases can leave gaps
+          # or take a specific number, and count() would then collide with an
+          # already-used tag instead of skipping past it.
+          EXISTING_MAX=$(gh api "repos/${{ github.repository }}/releases" --jq \
+            "[.[] | select(.tag_name | startswith(\"$PREFIX\")) | (.tag_name | split(\".\")[2] | tonumber? // -1)] | if length == 0 then -1 else max end")
+          NEXT_C=$((EXISTING_MAX + 1))
+          if [ "$MAJOR" = "0" ] && [ "$NEXT_C" = "0" ]; then
+            NEXT_C=1
+          fi
+          VERSION="${MAJOR}.${TIERS_DONE}.${NEXT_C}"
           NOTES="Signed device IPA, auto-published from trial-build.yml ($(git rev-parse --short HEAD)). Signed with a free-tier Apple ID cert/profile — install directly via LiveContainer/AltStore/SideStore (no resigning needed), but the cert expires after 7 days and the profile is locked to registered device UDIDs. No push notifications (free Apple ID can't get that entitlement). Tier ${TIERS_DONE}/4 of the roadmap complete."
           gh release create "$VERSION" "${{ steps.ipa.outputs.path }}" \
             --title "$VERSION" \
