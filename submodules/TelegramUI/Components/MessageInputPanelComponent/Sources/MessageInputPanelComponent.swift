@@ -3184,6 +3184,18 @@ extension MessageInputPanelComponent.View {
                 guard let _ = self else { return }
                 NotificationCenter.default.post(name: notificationName, object: nil, userInfo: ["action": "code"])
             },
+            onDim: { [weak self] in
+                guard let _ = self else { return }
+                NotificationCenter.default.post(name: notificationName, object: nil, userInfo: ["action": "dim"])
+            },
+            onRainbow: { [weak self] in
+                guard let _ = self else { return }
+                NotificationCenter.default.post(name: notificationName, object: nil, userInfo: ["action": "rainbow"])
+            },
+            onSizeBig: { [weak self] in
+                guard let _ = self else { return }
+                NotificationCenter.default.post(name: notificationName, object: nil, userInfo: ["action": "sizeBig"])
+            },
             onNewLine: { [weak self] in
                 guard let _ = self else { return }
                 NotificationCenter.default.post(name: notificationName, object: nil, userInfo: ["action": "newline"])
