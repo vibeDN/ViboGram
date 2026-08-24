@@ -4478,7 +4478,11 @@ func replayFinalState(
                         transaction.updateMessage(id) { current in
                             var updatedLocalTags = current.localTags
                             updatedLocalTags.insert(.SGAntiDeleted)
-                            return .update(current.withUpdatedLocalTags(updatedLocalTags))
+                            var storeForwardInfo: StoreMessageForwardInfo?
+                            if let forwardInfo = current.forwardInfo {
+                                storeForwardInfo = StoreMessageForwardInfo(authorId: forwardInfo.author?.id, sourceId: forwardInfo.source?.id, sourceMessageId: forwardInfo.sourceMessageId, date: forwardInfo.date, authorSignature: forwardInfo.authorSignature, psaType: forwardInfo.psaType, flags: forwardInfo.flags)
+                            }
+                            return .update(StoreMessage(id: current.id, customStableId: nil, globallyUniqueId: current.globallyUniqueId, groupingKey: current.groupingKey, threadId: current.threadId, timestamp: current.timestamp, flags: StoreMessageFlags(current.flags), tags: current.tags, globalTags: current.globalTags, localTags: updatedLocalTags, forwardInfo: storeForwardInfo, authorId: current.author?.id, text: current.text, attributes: current.attributes, media: current.media))
                         }
                     }
                 }
