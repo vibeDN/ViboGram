@@ -53,12 +53,13 @@ Status legend: `[ ]` not started, `[x]` done. GitHub doesn't render a third chec
 
 ### Tier 3 — heavier (touches persistence/state)
 
-- [ ] Local anti-delete (keep local history of deleted/edited messages)
-- [ ] Message filters (hide sponsored/ad posts in channels)
+- [ ] Local anti-delete (keep local history of deleted/edited messages). Partial: the core mechanism landed — a message another side deletes in a cloud chat/channel is kept locally (tagged, not removed) instead of vanishing, behind a settings toggle; secret chats are excluded. The originally-discussed hybrid design (also mirror deleted cloud-chat messages into Saved Messages, for cross-device visibility/sync) is deferred — that needs hooking the async send pipeline from several call sites in the core real-time sync code (`AccountStateManager.swift`), which isn't safe to do without on-device testing. No visual "deleted" marker in the chat bubble yet either.
+- [x] Message filters (dim messages matching a keyword list, e.g. sponsored/ad posts in channels). This UI (`Swiftgram/SGProUI/Sources/MessageFilterController.swift`) and its match logic (`ChatMessageItemView.swift`) already existed upstream, but the match logic was still gated behind the old Swiftgram Pro paywall check (`ephemeralStatus > 1`) that Tier 1's Pro-merge missed — removed, so it actually works now. It's substring keyword matching (not regex) and dims the message's opacity rather than hiding it outright.
 - [ ] Keep chat history after being banned/kicked from a chat
 - [ ] Restore deleted gifts
 - [ ] Local Telegram Premium UI unlock
 - [ ] Music file tag editing (title/artist/cover) — re-upload semantics still being worked out
+- [ ] User badges next to name/in profile (owner-curated list + optional custom image, tap-to-view with a 3D spin), sourced from a repo secret. Also fetch and display badges from Margelet's own public `badges.json` for interop.
 
 ### Long-term / separate track
 
