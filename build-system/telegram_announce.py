@@ -63,14 +63,14 @@ def main():
     # feature list is fixed overhead.
     header = (
         f"{version_line}\n\n"
-        f"<b>Что умеет клиент:</b>\n<blockquote>{features_block}</blockquote>\n\n"
+        f"<b>Что умеет клиент:</b>\n<blockquote expandable>{features_block}</blockquote>\n\n"
         f"<b>Что нового в {html.escape(version)}:</b>\n"
     )
-    wrapper_overhead = len("<blockquote></blockquote>")
+    wrapper_overhead = len("<blockquote expandable></blockquote>")
     budget = 1024 - len(header) - wrapper_overhead - 1
     if len(changelog_block) > budget:
         changelog_block = changelog_block[:budget - 1] + "…"
-    caption = f"{header}<blockquote>{changelog_block}</blockquote>"
+    caption = f"{header}<blockquote expandable>{changelog_block}</blockquote>"
 
     top_row = [{"text": "🐙 GitHub", "url": f"https://github.com/{repo}"}]
     top_row.append({"text": "✨ Все фишки форка", "url": f"https://github.com/{repo}/blob/main/README.md"})
