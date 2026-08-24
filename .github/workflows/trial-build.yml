@@ -58,7 +58,8 @@ jobs:
             --cacheDir="$HOME/telegram-bazel-cache" \
             generateProject \
             --configurationPath=build-system/generated_trial_configuration.json \
-            --xcodeManagedCodesigning
+            --xcodeManagedCodesigning \
+            --disableProvisioningProfiles
 
       - name: Disk usage after project generation
         run: df -h /
