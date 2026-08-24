@@ -137,11 +137,14 @@ jobs:
           # Xcode considered the target already "done" and never re-ran the
           # sync) -- building BazelDependencies alone as an explicit first pass
           # forces that sync to complete before any per-target copy can race it.
+          # -destination requires -scheme (not -target) when combined with
+          # -derivedDataPath -- xcodebuild rejects it otherwise ("-scheme,
+          # -testProductsPath, or -xctestrun is required"). Not needed here
+          # anyway since this is a single-target, not a scheme, build.
           xcodebuild build \
             -project "${{ steps.proj.outputs.path }}" \
             -target BazelDependencies \
             -sdk iphonesimulator \
-            -destination "generic/platform=iOS Simulator" \
             -configuration Debug \
             -derivedDataPath "$HOME/derived-sim" \
             COMPILER_INDEX_STORE_ENABLE=NO \
@@ -243,7 +246,6 @@ jobs:
             -sdk iphoneos \
             -configuration Debug \
             -derivedDataPath "$HOME/derived-device" \
-            -destination "generic/platform=iOS" \
             COMPILER_INDEX_STORE_ENABLE=NO \
             | tee build-device.log
 
