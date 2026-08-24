@@ -1,0 +1,64 @@
+name: announce-release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Announce release in Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          VERSION: ${{ github.event.release.tag_name }}
+          NOTES: ${{ github.event.release.body }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+          REPO_URL: ${{ github.event.repository.html_url }}
+          ASSETS_JSON: ${{ toJson(github.event.release.assets) }}
+        run: |
+          set -euo pipefail
+          python3 - <<'EOF'
+          import json, os, urllib.request
+
+          token = os.environ["TELEGRAM_BOT_TOKEN"]
+          chat_id = os.environ["TELEGRAM_CHAT_ID"]
+          version = os.environ["VERSION"]
+          notes = os.environ.get("NOTES") or "(без описания)"
+          release_url = os.environ["RELEASE_URL"]
+          repo_url = os.environ["REPO_URL"]
+          assets = json.loads(os.environ["ASSETS_JSON"])
+
+          ipa_url = None
+          for asset in assets:
+              if asset["name"].endswith(".ipa"):
+                  ipa_url = asset["browser_download_url"]
+                  break
+
+          text = (
+              f"🚀 <b>ViboGram {version}</b>\n\n"
+              f"{notes}\n\n"
+              f"⚠️ Устанавливается через LiveContainer/AltStore/SideStore."
+          )
+
+          top_row = [{"text": "📦 Релиз на GitHub", "url": release_url}]
+          if ipa_url:
+              top_row.insert(0, {"text": "⬇️ Скачать IPA", "url": ipa_url})
+          buttons = [top_row, [{"text": "⭐ Репозиторий", "url": repo_url}]]
+
+          payload = json.dumps({
+              "chat_id": chat_id,
+              "text": text,
+              "parse_mode": "HTML",
+              "reply_markup": {"inline_keyboard": buttons},
+          }).encode()
+
+          req = urllib.request.Request(
+              f"https://api.telegram.org/bot{token}/sendMessage",
+              data=payload,
+              headers={"Content-Type": "application/json"},
+          )
+          with urllib.request.urlopen(req) as resp:
+              print(resp.read().decode())
+          EOF
