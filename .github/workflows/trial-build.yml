@@ -104,6 +104,10 @@ jobs:
             -configuration Debug \
             -derivedDataPath "$HOME/derived-sim" \
             CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
             | tee build.log
 
       - name: Disk usage after build
@@ -177,6 +181,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
             | tee build-device.log
 
       - name: Package unsigned IPA
