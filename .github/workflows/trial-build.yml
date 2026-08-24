@@ -81,7 +81,16 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild -list -project "${{ steps.proj.outputs.path }}" | tee scheme_list.txt
-          SCHEME=$(awk '/Schemes:/{flag=1; next} flag && NF{print $1; exit}' scheme_list.txt)
+          # rules_xcodeproj auto-generates a scheme per Bazel target (hundreds of
+          # them) -- picking the first line under "Schemes:" grabs some internal
+          # helper (e.g. _LocalDebugOptions), not the actual app. The real app
+          # scheme is named after the product ("Swiftgram"); match it exactly.
+          SCHEME=$(awk '/Schemes:/{flag=1; next} flag && $1=="Swiftgram"{print $1; exit}' scheme_list.txt)
+          if [ -z "$SCHEME" ]; then
+            echo "Could not find a 'Swiftgram' scheme. Full scheme list:" >&2
+            cat scheme_list.txt >&2
+            exit 1
+          fi
           echo "Using scheme: $SCHEME"
           echo "name=$SCHEME" >> "$GITHUB_OUTPUT"
 
