@@ -316,10 +316,10 @@ jobs:
               f"⚠️ Пре-релиз, собран автоматически. Устанавливается через LiveContainer/AltStore/SideStore."
           )
 
-          buttons = [[{"text": "📦 Релиз на GitHub", "url": release_url}]]
+          top_row = [{"text": "📦 Релиз на GitHub", "url": release_url}]
           if ipa_url:
-              buttons.insert(0, [{"text": "⬇️ Скачать IPA", "url": ipa_url}])
-          buttons.append([{"text": "⭐ Репозиторий", "url": f"https://github.com/{repo}"}])
+              top_row.insert(0, {"text": "⬇️ Скачать IPA", "url": ipa_url})
+          buttons = [top_row, [{"text": "⭐ Репозиторий", "url": f"https://github.com/{repo}"}]]
 
           payload = json.dumps({
               "chat_id": chat_id,
