@@ -129,12 +129,29 @@ jobs:
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
           set -o pipefail
-          # rules_xcodeproj's "Copy Bazel Outputs" script phases occasionally race
-          # the underlying bazel build for the first few framework targets ("No
-          # such file or directory" copying a .swiftmodule that hasn't landed
-          # yet) -- this has reproduced 4/4 runs regardless of caching or
-          # COMPILER_INDEX_STORE_ENABLE. Retrying in the same job (reusing the
-          # now-partially-populated DerivedData) reliably clears it.
+          # rules_xcodeproj's per-target "Copy Bazel Outputs" script phases
+          # depend on the "BazelDependencies" aggregate target's single upfront
+          # `bazel build` sync having fully landed on disk first. Retrying the
+          # whole scheme build did NOT fix this (5/5 runs failed identically,
+          # and retries within the same job failed near-instantly, meaning
+          # Xcode considered the target already "done" and never re-ran the
+          # sync) -- building BazelDependencies alone as an explicit first pass
+          # forces that sync to complete before any per-target copy can race it.
+          xcodebuild build \
+            -project "${{ steps.proj.outputs.path }}" \
+            -target BazelDependencies \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -configuration Debug \
+            -derivedDataPath "$HOME/derived-sim" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            | tee build.log
+
           for attempt in 1 2 3; do
             echo "=== xcodebuild attempt $attempt/3 ==="
             if xcodebuild build \
@@ -220,6 +237,16 @@ jobs:
       - name: Build for device (signed)
         run: |
           set -o pipefail
+          xcodebuild build \
+            -project "${{ steps.proj.outputs.path }}" \
+            -target BazelDependencies \
+            -sdk iphoneos \
+            -configuration Debug \
+            -derivedDataPath "$HOME/derived-device" \
+            -destination "generic/platform=iOS" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            | tee build-device.log
+
           for attempt in 1 2 3; do
             echo "=== xcodebuild attempt $attempt/3 ==="
             if xcodebuild build \
