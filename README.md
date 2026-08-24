@@ -48,7 +48,7 @@ Status legend: `[ ]` not started, `[x]` done. GitHub doesn't render a third chec
 - [x] Expandable message input field (default 12 / 15 / 20 / 30 / unlimited lines) + adjustable input font size (independent of the chat text size setting)
 - [ ] Message input field repositioned to top of chat
 - [x] Custom text formatting effects (Size / Dim / Rainbow), integrated into the existing Swiftgram Pro input toolbar. "Copy with formatting" comes for free — the style lives as invisible Unicode markers directly in the message text, so any copy/paste preserves it. No live preview while composing (effect renders after send); Margelet's own self-promo watermark was intentionally not ported.
-- [ ] Allow screenshots in secret chats
+- [x] Allow screenshots in secret chats (expanded to cover one-time-view/TTL media too, per request) — stops the screenshot-notification-to-peer, and restores Save/Copy for that media
 - [ ] TTL expire-now button for self-destructing photos/videos
 
 ### Tier 3 — heavier (touches persistence/state)

@@ -6,6 +6,7 @@ import Postbox
 import TelegramCore
 import SwiftSignalKit
 import TelegramPresentationData
+import SGSimpleSettings
 import AccountContext
 import RadialStatusNode
 import ScreenCaptureDetection
@@ -420,7 +421,8 @@ public final class SecretMediaPreviewController: ViewController {
         if self.screenCaptureEventsDisposable == nil {
             self.screenCaptureEventsDisposable = (screenCaptureEvents()
             |> deliverOnMainQueue).start(next: { [weak self] _ in
-                if let strongSelf = self, strongSelf.traceVisibility() {
+                // MARK: ViboGram - don't report screenshots when allowed
+                if let strongSelf = self, strongSelf.traceVisibility(), !SGSimpleSettings.shared.allowSecretMediaScreenshotsAndSaving {
                     if strongSelf.messageId.peerId.namespace == Namespaces.Peer.CloudUser {
                         let _ = enqueueMessages(account: strongSelf.context.account, peerId: strongSelf.messageId.peerId, messages: [.message(text: "", attributes: [], inlineStickers: [:], mediaReference: .standalone(media: TelegramMediaAction(action: TelegramMediaActionType.historyScreenshot)), threadId: nil, replyToMessageId: nil, replyToStoryId: nil, localGroupingKey: nil, correlationId: nil, bubbleUpEmojiOrStickersets: [])]).start()
                     } else if strongSelf.messageId.peerId.namespace == Namespaces.Peer.SecretChat {

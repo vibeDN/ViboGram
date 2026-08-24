@@ -106,6 +106,8 @@
 "Settings.InputFieldFontSize.20" = "20";
 "Settings.InputFieldFontSize.24" = "24";
 "Settings.InputFieldFontSize.28" = "28";
+"Settings.AllowSecretMediaSaving" = "Allow Screenshots & Saving in Secret Chats";
+"Settings.AllowSecretMediaSaving.Notice" = "Stops reporting screenshots to the other party in secret chats and one-time-view photos/videos, and restores the Save/Copy options for that media. Only affects your own client.";
 "Settings.GhostMode.SkipReadReceipts" = "Ghost Mode: Hide Read Receipts";
 "Settings.GhostMode.SkipPresence" = "Ghost Mode: Hide Online Status";
 "Settings.ShowProfileID" = "Show Profile ID";

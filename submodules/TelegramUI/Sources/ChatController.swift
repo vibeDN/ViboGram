@@ -7834,7 +7834,8 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
                 if peerId.namespace == Namespaces.Peer.SecretChat {
                     self.screenCaptureManager = ScreenCaptureDetectionManager(check: { [weak self] in
                         if let strongSelf = self, strongSelf.traceVisibility() {
-                            if strongSelf.canReadHistoryValue {
+                            // MARK: ViboGram - don't report screenshots when allowed
+                            if strongSelf.canReadHistoryValue && !SGSimpleSettings.shared.allowSecretMediaScreenshotsAndSaving {
                                 let _ = strongSelf.context.engine.messages.addSecretChatMessageScreenshot(peerId: peerId).startStandalone()
                             }
                             return true

@@ -752,7 +752,8 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                     }
                 }
             } else if let image = media as? TelegramMediaImage {
-                if !messages[0].containsSecretMedia {
+                // MARK: ViboGram - allow copying secret/TTL media when opted in
+                if !messages[0].containsSecretMedia || SGSimpleSettings.shared.allowSecretMediaScreenshotsAndSaving {
                     loadCopyMediaResource = largestImageRepresentation(image.representations)?.resource
                 }
             } else if let dice = media as? TelegramMediaDice {
@@ -1496,7 +1497,8 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             }
         }
         
-        if resourceAvailable, !message.containsSecretMedia && !isCopyProtected {
+        // MARK: ViboGram - allow saving secret/TTL media when opted in
+        if resourceAvailable, (!message.containsSecretMedia || SGSimpleSettings.shared.allowSecretMediaScreenshotsAndSaving) && !isCopyProtected {
             var mediaReference: AnyMediaReference?
             var isVideo = false
             for media in message.effectiveMedia {

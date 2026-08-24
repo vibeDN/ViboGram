@@ -4,6 +4,7 @@ import Display
 import QuickLook
 import Postbox
 import SwiftSignalKit
+import SGSimpleSettings
 import AsyncDisplayKit
 import TelegramCore
 import SafariServices
@@ -1433,7 +1434,8 @@ public class GalleryController: ViewController, StandalonePresentableController,
         
         switch source {
         case let .peerMessagesAtId(id, _, _, _):
-            if id.peerId.namespace == Namespaces.Peer.SecretChat {
+            // MARK: ViboGram - don't report screenshots when allowed
+            if id.peerId.namespace == Namespaces.Peer.SecretChat && !SGSimpleSettings.shared.allowSecretMediaScreenshotsAndSaving {
                 self.screenCaptureEventsDisposable = (screenCaptureEvents()
                 |> deliverOnMainQueue).start(next: { [weak self] _ in
                     if let strongSelf = self, strongSelf.traceVisibility() {

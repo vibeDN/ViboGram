@@ -184,6 +184,7 @@ public class SGSimpleSettings {
         case hideAds
         case inputFieldMaxLines
         case inputFieldFontSizeOverride
+        case allowSecretMediaScreenshotsAndSaving
     }
     
     public enum DownloadSpeedBoostValues: String, CaseIterable {
@@ -388,7 +389,8 @@ public class SGSimpleSettings {
         Keys.streamerMode.rawValue: false,
         Keys.hideAds.rawValue: false,
         Keys.inputFieldMaxLines.rawValue: InputFieldMaxLinesValues.defaultCase.rawValue,
-        Keys.inputFieldFontSizeOverride.rawValue: InputFieldFontSizeValues.defaultCase.rawValue
+        Keys.inputFieldFontSizeOverride.rawValue: InputFieldFontSizeValues.defaultCase.rawValue,
+        Keys.allowSecretMediaScreenshotsAndSaving.rawValue: false
     ]
     
     public static let groupDefaultValues: [String: Any] = [
@@ -673,6 +675,9 @@ public class SGSimpleSettings {
 
     @UserDefault(key: Keys.inputFieldFontSizeOverride.rawValue)
     public var inputFieldFontSizeOverride: String
+
+    @UserDefault(key: Keys.allowSecretMediaScreenshotsAndSaving.rawValue)
+    public var allowSecretMediaScreenshotsAndSaving: Bool
 }
 
 extension SGSimpleSettings {
