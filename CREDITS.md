@@ -22,11 +22,5 @@ beyond this repo's own personal/non-commercial use.
 
 ## Assets
 
-- **Forest/horseback wallpaper** (used as the GitHub repo's social preview
-  background) — art by **Jeremy Fenske** ("Jeremy Fenske Art", visible
-  signature in the source image). Used here **without a license or the
-  artist's permission**. Fan art, currently used purely for a personal
-  project's social preview card — swap or credit properly before wider
-  distribution.
 - **[Inter](https://rsms.me/inter/)** by Rasmus Andersson — SIL Open Font
   License 1.1. Used for the social preview card's typography.
