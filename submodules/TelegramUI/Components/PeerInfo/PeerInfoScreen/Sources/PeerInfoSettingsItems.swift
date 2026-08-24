@@ -212,7 +212,7 @@ func settingsItems(showProfileId: Bool, data: PeerInfoScreenData?, context: Acco
 
     // MARK: ViboGram - "Swiftgram Pro" merged into the single "Swiftgram" screen, unlocked for everyone;
     // the paywall gate (sgWebSettings.global.paymentsEnabled / immediateSGStatus.status) is dropped.
-    items[.swiftgram]!.append(PeerInfoScreenDisclosureItem(id: 1, label: swiftgramLabel, text: "Swiftgram", icon: PresentationResourcesSettings.swiftgram, action: {
+    items[.swiftgram]!.append(PeerInfoScreenDisclosureItem(id: 1, label: swiftgramLabel, text: "ViboGram", icon: PresentationResourcesSettings.swiftgram, action: {
         interaction.openSettings(.swiftgram)
     }))
 

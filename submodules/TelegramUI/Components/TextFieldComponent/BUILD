@@ -16,6 +16,7 @@ swift_library(
         "//submodules/SSignalKit/SwiftSignalKit",
         "//submodules/TelegramPresentationData",
         "//submodules/AccountContext",
+        "//submodules/ChatPresentationInterfaceState",
         "//submodules/InvisibleInkDustNode",
         "//submodules/TelegramUI/Components/EmojiTextAttachmentView",
         "//submodules/Pasteboard",

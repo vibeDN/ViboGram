@@ -2195,6 +2195,28 @@ public class AttachmentTextInputPanelNode: ASDisplayNode, TGCaptionPanelView, AS
         }
     }
 
+    // MARK: ViboGram - Size/Dim/Rainbow text effects
+    @objc func formatAttributesDim(_ sender: Any) {
+        self.inputMenu.back()
+        self.interfaceInteraction?.updateTextInputStateAndMode { current, inputMode in
+            return (chatTextInputWrapWithEffect(current, kind: .dim), inputMode)
+        }
+    }
+
+    @objc func formatAttributesRainbow(_ sender: Any) {
+        self.inputMenu.back()
+        self.interfaceInteraction?.updateTextInputStateAndMode { current, inputMode in
+            return (chatTextInputWrapWithEffect(current, kind: .rainbow), inputMode)
+        }
+    }
+
+    @objc func formatAttributesSizeBig(_ sender: Any) {
+        self.inputMenu.back()
+        self.interfaceInteraction?.updateTextInputStateAndMode { current, inputMode in
+            return (chatTextInputWrapWithEffect(current, kind: .sizeBig), inputMode)
+        }
+    }
+
     private var imitateFocus = false
     @objc func formatAttributesLink(_ sender: Any) {
         self.inputMenu.back()
@@ -2478,6 +2500,21 @@ extension AttachmentTextInputPanelNode {
                 guard let strongSelf = self else { return }
                 strongSelf.interfaceInteraction?.sgSelectLastWordIfIdle()
                 strongSelf.formatAttributesCodeBlock(strongSelf)
+            },
+            onDim: { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.interfaceInteraction?.sgSelectLastWordIfIdle()
+                strongSelf.formatAttributesDim(strongSelf)
+            },
+            onRainbow: { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.interfaceInteraction?.sgSelectLastWordIfIdle()
+                strongSelf.formatAttributesRainbow(strongSelf)
+            },
+            onSizeBig: { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.interfaceInteraction?.sgSelectLastWordIfIdle()
+                strongSelf.formatAttributesSizeBig(strongSelf)
             },
             onNewLine: { [weak self] in
                 guard let strongSelf = self else { return }

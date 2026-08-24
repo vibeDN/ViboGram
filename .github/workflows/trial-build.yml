@@ -260,6 +260,7 @@ jobs:
           path: build-device.log
 
       - name: Publish signed IPA as a versioned pre-release
+        id: release
         if: steps.ipa.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -271,7 +272,67 @@ jobs:
           RELEASE_COUNT=$(gh api "repos/${{ github.repository }}/releases" --jq 'length')
           NEXT_C=$((RELEASE_COUNT + 1))
           VERSION="0.${TIERS_DONE}.${NEXT_C}"
+          NOTES="Signed device IPA, auto-published from trial-build.yml ($(git rev-parse --short HEAD)). Signed with a free-tier Apple ID cert/profile — install directly via LiveContainer/AltStore/SideStore (no resigning needed), but the cert expires after 7 days and the profile is locked to registered device UDIDs. No push notifications (free Apple ID can't get that entitlement). Tier ${TIERS_DONE}/4 of the roadmap complete."
           gh release create "$VERSION" "${{ steps.ipa.outputs.path }}" \
             --title "$VERSION" \
-            --notes "Signed device IPA, auto-published from trial-build.yml ($(git rev-parse --short HEAD)). Signed with a free-tier Apple ID cert/profile — install directly via LiveContainer/AltStore/SideStore (no resigning needed), but the cert expires after 7 days and the profile is locked to registered device UDIDs. No push notifications (free Apple ID can't get that entitlement). Tier ${TIERS_DONE}/4 of the roadmap complete." \
+            --notes "$NOTES" \
             --prerelease
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          {
+            echo "notes<<NOTESEOF"
+            echo "$NOTES"
+            echo "NOTESEOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Announce release in Telegram
+        if: steps.release.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          VERSION: ${{ steps.release.outputs.version }}
+          NOTES: ${{ steps.release.outputs.notes }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          export RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${VERSION}"
+          export IPA_URL=$(gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name | endswith(".ipa")) | .url')
+
+          python3 - <<'EOF'
+          import json, os, urllib.request
+
+          token = os.environ["TELEGRAM_BOT_TOKEN"]
+          chat_id = os.environ["TELEGRAM_CHAT_ID"]
+          version = os.environ["VERSION"]
+          notes = os.environ["NOTES"]
+          release_url = os.environ["RELEASE_URL"]
+          ipa_url = os.environ.get("IPA_URL", "").strip()
+          repo = os.environ["GITHUB_REPOSITORY"]
+
+          text = (
+              f"🚀 <b>ViboGram {version}</b>\n\n"
+              f"{notes}\n\n"
+              f"⚠️ Пре-релиз, собран автоматически. Устанавливается через LiveContainer/AltStore/SideStore."
+          )
+
+          buttons = [[{"text": "📦 Релиз на GitHub", "url": release_url}]]
+          if ipa_url:
+              buttons.insert(0, [{"text": "⬇️ Скачать IPA", "url": ipa_url}])
+          buttons.append([{"text": "⭐ Репозиторий", "url": f"https://github.com/{repo}"}])
+
+          payload = json.dumps({
+              "chat_id": chat_id,
+              "text": text,
+              "parse_mode": "HTML",
+              "reply_markup": {"inline_keyboard": buttons},
+          }).encode()
+
+          req = urllib.request.Request(
+              f"https://api.telegram.org/bot{token}/sendMessage",
+              data=payload,
+              headers={"Content-Type": "application/json"},
+          )
+          with urllib.request.urlopen(req) as resp:
+              print(resp.read().decode())
+          EOF

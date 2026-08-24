@@ -15,6 +15,7 @@ import ImageTransparency
 import ChatInputTextNode
 import TextInputMenu
 import ObjCRuntimeUtils
+import ChatPresentationInterfaceState
 import MultilineTextComponent
 
 public final class EmptyInputView: UIView, UIInputViewAudioFeedback {
@@ -1946,6 +1947,24 @@ extension TextFieldComponent.View {
             case "code":
                 self.sgSelectLastWordIfIdle()
                 self.toggleAttribute(key: ChatTextInputAttributes.block, value: ChatTextInputTextQuoteAttribute(kind: .code(language: nil), isCollapsed: false))
+            case "dim":
+                self.sgSelectLastWordIfIdle()
+                self.updateInputState { current in
+                    let wrapped = chatTextInputWrapWithEffect(ChatTextInputState(inputText: current.inputText, selectionRange: current.selectionRange), kind: .dim)
+                    return TextFieldComponent.InputState(inputText: wrapped.inputText, selectionRange: wrapped.selectionRange)
+                }
+            case "rainbow":
+                self.sgSelectLastWordIfIdle()
+                self.updateInputState { current in
+                    let wrapped = chatTextInputWrapWithEffect(ChatTextInputState(inputText: current.inputText, selectionRange: current.selectionRange), kind: .rainbow)
+                    return TextFieldComponent.InputState(inputText: wrapped.inputText, selectionRange: wrapped.selectionRange)
+                }
+            case "sizeBig":
+                self.sgSelectLastWordIfIdle()
+                self.updateInputState { current in
+                    let wrapped = chatTextInputWrapWithEffect(ChatTextInputState(inputText: current.inputText, selectionRange: current.selectionRange), kind: .sizeBig)
+                    return TextFieldComponent.InputState(inputText: wrapped.inputText, selectionRange: wrapped.selectionRange)
+                }
             case "newline":
                 self.sgSetNewLine()
             case "clearFormatting":
