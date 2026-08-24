@@ -343,6 +343,9 @@ func settingsItems(showProfileId: Bool, data: PeerInfoScreenData?, context: Acco
         }))
     }
     if let starsState = data.starsState {
+        // MARK: ViboGram - was referencing bare `sgWebSettings`, which only exists as a
+        // property on AppConfiguration; fixed to the pattern used elsewhere in this file.
+        let sgWebSettings = context.currentAppConfiguration.with { $0 }.sgWebSettings
         if (!isPremiumDisabled || starsState.balance > StarsAmount.zero) && sgWebSettings.global.canGrant {
             items[.payment]!.append(PeerInfoScreenDisclosureItem(id: 105, label: .text(""), text: "Telegram Gifts", icon: PresentationResourcesSettings.premiumGift, action: {
                 interaction.openSettings(.premiumGift)
