@@ -33,17 +33,6 @@ jobs:
           sudo xcode-select -s /Applications/Xcode.app
           xcodebuild -version
 
-      - name: Cache Bazel build cache
-        uses: actions/cache@v4
-        with:
-          path: ~/telegram-bazel-cache
-          # Bazel's cache is content-addressed, so a stale key from an older commit
-          # still warms most of the build -- restore-keys falls back to the most
-          # recent cache on this branch instead of forcing a cold build every run.
-          key: bazel-cache-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            bazel-cache-${{ runner.os }}-
-
       - name: Write minimal development configuration
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
