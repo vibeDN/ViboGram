@@ -30,15 +30,15 @@ If a feature below turns out to already exist upstream in Swiftgram, this README
 
 This is a living plan, not a fixed spec. Tiers are roughly in priority order — quick/self-contained wins first, riskier persistence-layer work later, the plugin system last because it's a project in its own right.
 
-Status legend: `[ ]` not started, `[~]` in progress, `[x]` done.
+Status legend: `[ ]` not started, `[x]` done. GitHub doesn't render a third checkbox state, so partial items stay unchecked with a note.
 
 ### Tier 1 — quick wins
 
 - [x] Ghost mode: skip read receipts (exposed as a real toggle; upstream's own hidden debug flag stays as a separate override)
 - [x] Ghost mode: skip online/last-seen presence updates
-- [~] Customizable "edited" / "deleted" message marks (edited label done; deleted half waits on Tier 3 anti-delete)
+- [ ] Customizable "edited" / "deleted" message marks (partial: edited label done; deleted half waits on Tier 3 anti-delete)
 - [x] Streamer mode (mask your own phone number in the UI)
-- [ ] Show User ID in profile
+- [x] Show User ID in profile (already existed upstream in Swiftgram, nothing to build)
 - [ ] Alternate app icon color themes
 - [x] Trimmed shipped extensions to Notification (Content + Service) and Broadcast Upload only — dropped Share, Siri Intents, and Widget
 - [x] Merged the separate "Swiftgram Pro" settings screen into the regular Swiftgram one, unlocked for everyone (no more paywall)
