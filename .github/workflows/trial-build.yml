@@ -61,6 +61,15 @@ jobs:
             --xcodeManagedCodesigning \
             --disableProvisioningProfiles
 
+      - name: Persist disableProvisioningProfiles for subsequent bazel builds
+        run: |
+          # --disableProvisioningProfiles only affects generateProject's own
+          # bazel invocation -- it isn't written into xcodeproj.bazelrc, which is
+          # what later standalone `xcodebuild build` calls actually read. Append
+          # it directly so it sticks for every bazel build triggered from Xcode.
+          echo "build --//Telegram:disableProvisioningProfiles" >> xcodeproj.bazelrc
+          cat xcodeproj.bazelrc
+
       - name: Disk usage after project generation
         run: df -h /
 
