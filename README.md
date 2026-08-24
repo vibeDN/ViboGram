@@ -42,7 +42,7 @@ Status legend: `[ ]` not started, `[x]` done. GitHub doesn't render a third chec
 - [ ] Alternate app icon color themes (mechanism already exists upstream and is trivial to extend — blocked on having a final logo to generate color variants from, not on engineering)
 - [x] Trimmed shipped extensions to Notification (Content + Service) and Broadcast Upload only — dropped Share, Siri Intents, and Widget
 - [x] Merged the separate "Swiftgram Pro" settings screen into the regular Swiftgram one, unlocked for everyone (no more paywall)
-- [ ] Remove in-app ads (sponsored messages, free-proxy sponsor-channel prompts)
+- [x] Remove in-app ads (sponsored messages, free-proxy sponsor-channel prompts — PSA messages stay, only proxy-sponsor kind is hidden)
 
 ### Tier 2 — medium
 

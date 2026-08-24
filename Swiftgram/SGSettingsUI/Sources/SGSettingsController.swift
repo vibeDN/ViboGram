@@ -62,6 +62,7 @@ private enum SGBoolSetting: String {
     case ghostModeSkipReadReceipts
     case ghostModeSkipPresence
     case streamerMode
+    case hideAds
     case hideStories
     case uploadSpeedBoost
     case showProfileId
@@ -226,6 +227,8 @@ private func SGControllerEntries(presentationData: PresentationData, callListSet
     entries.append(.toggle(id: id.count, section: .privacy, settingName: .ghostModeSkipPresence, value: SGSimpleSettings.shared.ghostModeSkipPresence, text: i18n("Settings.GhostMode.SkipPresence", lang), enabled: true))
     entries.append(.toggle(id: id.count, section: .privacy, settingName: .streamerMode, value: SGSimpleSettings.shared.streamerMode, text: i18n("Settings.StreamerMode", lang), enabled: true))
     entries.append(.notice(id: id.count, section: .privacy, text: i18n("Settings.StreamerMode.Notice", lang)))
+    entries.append(.toggle(id: id.count, section: .privacy, settingName: .hideAds, value: SGSimpleSettings.shared.hideAds, text: i18n("Settings.HideAds", lang), enabled: true))
+    entries.append(.notice(id: id.count, section: .privacy, text: i18n("Settings.HideAds.Notice", lang)))
 
     entries.append(.header(id: id.count, section: .stories, text: strings.AutoDownloadSettings_Stories.uppercased(), badge: nil))
     entries.append(.toggle(id: id.count, section: .stories, settingName: .hideStories, value: SGSimpleSettings.shared.hideStories, text: i18n("Settings.Stories.Hide", lang), enabled: true))
@@ -444,6 +447,8 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
             SGSimpleSettings.shared.ghostModeSkipPresence = value
         case .streamerMode:
             SGSimpleSettings.shared.streamerMode = value
+        case .hideAds:
+            SGSimpleSettings.shared.hideAds = value
         case .hideStories:
             SGSimpleSettings.shared.hideStories = value
         case .showProfileId:

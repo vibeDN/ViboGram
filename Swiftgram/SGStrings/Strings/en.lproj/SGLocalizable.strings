@@ -90,6 +90,8 @@
 "Settings.Save" = "Save";
 "Settings.StreamerMode" = "Streamer Mode";
 "Settings.StreamerMode.Notice" = "Masks your own phone number wherever it's shown in Settings, so it's safe to have on screen during a stream or screen share.";
+"Settings.HideAds" = "Hide Ads";
+"Settings.HideAds.Notice" = "Hides sponsored messages in chats/channels and the free-proxy sponsor-channel prompt in the chat list.";
 "Settings.GhostMode.SkipReadReceipts" = "Ghost Mode: Hide Read Receipts";
 "Settings.GhostMode.SkipPresence" = "Ghost Mode: Hide Online Status";
 "Settings.ShowProfileID" = "Show Profile ID";

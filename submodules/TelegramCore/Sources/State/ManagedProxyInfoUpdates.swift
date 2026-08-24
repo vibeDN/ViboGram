@@ -3,6 +3,7 @@ import TelegramApi
 import Postbox
 import SwiftSignalKit
 import MtProtoKit
+import SGSimpleSettings
 
 
 public final class PromoChatListItem: AdditionalChatListItem {
@@ -218,7 +219,8 @@ func _internal_fetchPromoInfo(accountPeerId: EnginePeer.Id, postbox: Postbox, ne
                 var kind: PromoChatListItem.Kind?
                 if let psaType {
                     kind = .psa(type: psaType, message: psaMessage)
-                } else if ((flags & 1) << 0) != 0 {
+                } else if ((flags & 1) << 0) != 0 && !SGSimpleSettings.shared.hideAds {
+                    // MARK: ViboGram - hide free-proxy sponsor-channel prompt (PSAs stay untouched above)
                     kind = .proxy
                 }
                 

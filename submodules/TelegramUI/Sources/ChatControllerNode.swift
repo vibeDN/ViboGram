@@ -773,7 +773,8 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                 break
             }
         }
-        if let displayAdPeer {
+        // MARK: ViboGram - hide sponsored messages entirely (skip the fetch)
+        if let displayAdPeer, !SGSimpleSettings.shared.hideAds {
             self.adMessagesContext = context.engine.messages.adMessages(peerId: displayAdPeer, activateManually: true)
         } else {
             self.adMessagesContext = nil

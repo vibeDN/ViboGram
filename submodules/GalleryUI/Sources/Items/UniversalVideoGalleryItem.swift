@@ -249,7 +249,11 @@ private final class UniversalVideoGalleryItemOverlayNode: GalleryOverlayContentN
             return
         }
         self.message = message
-        
+
+        // MARK: ViboGram - hide sponsored messages entirely (skip the fetch)
+        if SGSimpleSettings.shared.hideAds {
+            return
+        }
         let adContext = context.engine.messages.adMessages(peerId: message.id.peerId, messageId: message.id)
         self.adContext = adContext
         self.adDisposable.set((adContext.state
