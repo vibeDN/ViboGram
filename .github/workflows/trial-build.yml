@@ -129,40 +129,33 @@ jobs:
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
           set -o pipefail
-          # rules_xcodeproj's "Copy Bazel Outputs" script phases occasionally
+          # rules_xcodeproj's "Copy Bazel Outputs" script phases intermittently
           # race the underlying bazel build for the first few framework
           # targets ("No such file or directory" copying a .swiftmodule that
-          # hasn't landed yet). A separate BazelDependencies-only pre-build
-          # pass was tried to force that sync first, but it corrupts
-          # DerivedData state for the following -scheme build on Xcode 26.2
-          # (xcodebuild then rejects a well-formed -scheme invocation with
-          # "-scheme, -testProductsPath, or -xctestrun is required") --
-          # reverted. Plain in-job retry is the only thing that's reliably
-          # reached real compilation so far.
-          for attempt in 1 2 3; do
-            echo "=== xcodebuild attempt $attempt/3 ==="
-            if xcodebuild build \
-              -project "${{ steps.proj.outputs.path }}" \
-              -scheme "${{ steps.scheme.outputs.name }}" \
-              -sdk iphonesimulator \
-              -destination "generic/platform=iOS Simulator" \
-              -configuration Debug \
-              -derivedDataPath "$HOME/derived-sim" \
-              COMPILER_INDEX_STORE_ENABLE=NO \
-              CODE_SIGNING_ALLOWED=NO \
-              CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGN_IDENTITY="" \
-              DEVELOPMENT_TEAM="" \
-              PROVISIONING_PROFILE_SPECIFIER="" \
-              | tee -a build.log; then
-              break
-            fi
-            if [ "$attempt" = 3 ]; then
-              echo "All 3 attempts failed" >&2
-              exit 1
-            fi
-            echo "Attempt $attempt failed, retrying..."
-          done
+          # hasn't landed yet) -- looks like genuine GH Actions runner I/O
+          # flakiness (roughly half of cold single-attempt runs hit it,
+          # unrelated to any code/workflow change tried so far: a
+          # BazelDependencies-only pre-build pass, COMPILER_INDEX_STORE_ENABLE,
+          # and Bazel disk caching were all tried and ruled out). In-job retry
+          # against the SAME DerivedData made it *worse* (a killed xcodebuild
+          # mid-write leaves files a retry then gets "Permission denied" on) --
+          # removed. The only thing that's actually worked is re-running the
+          # whole job fresh, so a failure here should be treated as "retrigger
+          # the workflow," not chased further in-workflow.
+          xcodebuild build \
+            -project "${{ steps.proj.outputs.path }}" \
+            -scheme "${{ steps.scheme.outputs.name }}" \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -configuration Debug \
+            -derivedDataPath "$HOME/derived-sim" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            | tee build.log
 
       - name: Disk usage after build
         if: always()
@@ -224,25 +217,15 @@ jobs:
       - name: Build for device (signed)
         run: |
           set -o pipefail
-          for attempt in 1 2 3; do
-            echo "=== xcodebuild attempt $attempt/3 ==="
-            if xcodebuild build \
-              -project "${{ steps.proj.outputs.path }}" \
-              -scheme "${{ steps.scheme.outputs.name }}" \
-              -sdk iphoneos \
-              -configuration Debug \
-              -derivedDataPath "$HOME/derived-device" \
-              -destination "generic/platform=iOS" \
-              COMPILER_INDEX_STORE_ENABLE=NO \
-              | tee -a build-device.log; then
-              break
-            fi
-            if [ "$attempt" = 3 ]; then
-              echo "All 3 attempts failed" >&2
-              exit 1
-            fi
-            echo "Attempt $attempt failed, retrying..."
-          done
+          xcodebuild build \
+            -project "${{ steps.proj.outputs.path }}" \
+            -scheme "${{ steps.scheme.outputs.name }}" \
+            -sdk iphoneos \
+            -configuration Debug \
+            -derivedDataPath "$HOME/derived-device" \
+            -destination "generic/platform=iOS" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            | tee build-device.log
 
       - name: Package signed IPA
         id: ipa
