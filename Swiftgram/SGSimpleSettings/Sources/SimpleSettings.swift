@@ -186,6 +186,7 @@ public class SGSimpleSettings {
         case inputFieldFontSizeOverride
         case allowSecretMediaScreenshotsAndSaving
         case bypassIOSContentRestrictions
+        case antiDeleteEnabled
     }
     
     public enum DownloadSpeedBoostValues: String, CaseIterable {
@@ -392,7 +393,8 @@ public class SGSimpleSettings {
         Keys.inputFieldMaxLines.rawValue: InputFieldMaxLinesValues.defaultCase.rawValue,
         Keys.inputFieldFontSizeOverride.rawValue: InputFieldFontSizeValues.defaultCase.rawValue,
         Keys.allowSecretMediaScreenshotsAndSaving.rawValue: false,
-        Keys.bypassIOSContentRestrictions.rawValue: false
+        Keys.bypassIOSContentRestrictions.rawValue: false,
+        Keys.antiDeleteEnabled.rawValue: false
     ]
     
     public static let groupDefaultValues: [String: Any] = [
@@ -683,6 +685,12 @@ public class SGSimpleSettings {
 
     @UserDefault(key: Keys.bypassIOSContentRestrictions.rawValue)
     public var bypassIOSContentRestrictions: Bool
+
+    // MARK: ViboGram - anti-delete (Tier 3). Cloud-chat messages deleted by the
+    // other side are kept locally (tagged, not removed) instead of vanishing.
+    // Secret chats are intentionally excluded -- see AccountStateManagementUtils.swift.
+    @UserDefault(key: Keys.antiDeleteEnabled.rawValue)
+    public var antiDeleteEnabled: Bool
 }
 
 extension SGSimpleSettings {

@@ -202,6 +202,9 @@ public extension GlobalMessageTags {
 public extension LocalMessageTags {
     static let OutgoingLiveLocation = LocalMessageTags(rawValue: 1 << 0)
     static let OutgoingDeliveredToServer = LocalMessageTags(rawValue: 1 << 1)
+    // MARK: ViboGram - anti-delete: message content kept locally after the other
+    // side deleted it server-side, instead of being removed from history.
+    static let SGAntiDeleted = LocalMessageTags(rawValue: 1 << 2)
 }
 
 public extension PendingMessageActionType {

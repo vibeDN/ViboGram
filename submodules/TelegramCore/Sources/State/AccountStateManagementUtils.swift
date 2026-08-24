@@ -4,6 +4,7 @@ import SwiftSignalKit
 import TelegramApi
 import MtProtoKit
 import EncryptionProvider
+import SGSimpleSettings
 
 private func reactionGeneratedEvent(_ previousReactions: ReactionsMessageAttribute?, _ updatedReactions: ReactionsMessageAttribute?, message: Message, transaction: Transaction) -> (reactionAuthor: Peer, reaction: MessageReaction.Reaction, message: Message, timestamp: Int32)? {
     if let updatedReactions = updatedReactions, !message.flags.contains(.Incoming), message.id.peerId.namespace == Namespaces.Peer.CloudUser {
@@ -4449,7 +4450,39 @@ func replayFinalState(
                 }
                 deletedMessageIds.append(contentsOf: ids.map { .global($0) })
             case let .DeleteMessages(ids):
-                _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: { id, add, remove in
+                // MARK: ViboGram - anti-delete (Tier 3). When enabled, keep the
+                // message's content locally instead of actually removing it from
+                // history, for peers whose deletion we can meaningfully retain:
+                // real cloud chats/channels only. Secret chats are E2E and
+                // deliberately excluded (their own deletion semantics stay as-is,
+                // and there's no server-side copy to have "kept" in the first
+                // place); scheduled/quick-reply/other local namespaces are
+                // likewise left untouched. Unread-count/thread-stats bookkeeping
+                // (manualAddMessageThreadStatsDifference below) still only runs
+                // for ids actually passed to _internal_deleteMessages, so kept
+                // messages don't get double-counted -- read messages (the
+                // overwhelming common case for something that gets deleted after
+                // being seen) don't affect those stats anyway.
+                var idsToDelete = ids
+                if SGSimpleSettings.shared.antiDeleteEnabled {
+                    idsToDelete = []
+                    for id in ids {
+                        if id.peerId.namespace == Namespaces.Peer.SecretChat {
+                            idsToDelete.append(id)
+                            continue
+                        }
+                        guard let message = transaction.getMessage(id), !message.localTags.contains(.SGAntiDeleted) else {
+                            idsToDelete.append(id)
+                            continue
+                        }
+                        transaction.updateMessage(id) { current in
+                            var updatedLocalTags = current.localTags
+                            updatedLocalTags.insert(.SGAntiDeleted)
+                            return .update(current.withUpdatedLocalTags(updatedLocalTags))
+                        }
+                    }
+                }
+                _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: idsToDelete, manualAddMessageThreadStatsDifference: { id, add, remove in
                     addMessageThreadStatsDifference(threadKey: id, remove: remove, addedMessagePeer: nil, addedMessageId: nil, isOutgoing: false)
                 })
                 deletedMessageIds.append(contentsOf: ids.map { .messageId($0) })
