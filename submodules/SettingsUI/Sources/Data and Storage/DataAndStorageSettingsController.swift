@@ -4,6 +4,7 @@ import Display
 import SwiftSignalKit
 import TelegramCore
 import LegacyComponents
+import SGSimpleSettings
 import TelegramPresentationData
 import TelegramUIPreferences
 import ItemListUI
@@ -641,7 +642,8 @@ private func dataAndStorageControllerEntries(context: AccountContext, state: Dat
     entries.append(.raiseToListen(presentationData.theme, presentationData.strings.Settings_RaiseToListen, data.mediaInputSettings.enableRaiseToSpeak))
     entries.append(.raiseToListenInfo(presentationData.theme, presentationData.strings.Settings_RaiseToListenInfo))
 
-    if let contentSettingsConfiguration = contentSettingsConfiguration, contentSettingsConfiguration.canAdjustSensitiveContent && (showSensitiveContentSetting || requireAgeVerification(context: context)) {
+    // MARK: ViboGram - reveal the sensitive-content toggle even if the server didn't grant canAdjustSensitiveContent
+    if let contentSettingsConfiguration = contentSettingsConfiguration, (contentSettingsConfiguration.canAdjustSensitiveContent || SGSimpleSettings.shared.bypassIOSContentRestrictions) && (showSensitiveContentSetting || requireAgeVerification(context: context)) {
         entries.append(.sensitiveContent(presentationData.strings.Settings_SensitiveContent, contentSettingsConfiguration.sensitiveContentEnabled))
         entries.append(.sensitiveContentInfo(presentationData.strings.Settings_SensitiveContentInfo))
     }

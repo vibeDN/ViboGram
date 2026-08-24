@@ -1,6 +1,7 @@
 import Foundation
 import Postbox
 import TelegramApi
+import SGSimpleSettings
 
 public extension MessageFlags {
     var isSending: Bool {
@@ -403,6 +404,10 @@ public extension Message {
     }
     
     func isSensitiveContent(platform: String) -> Bool {
+        // MARK: ViboGram - bypass client-side iOS/App Store content restrictions
+        if SGSimpleSettings.shared.bypassIOSContentRestrictions {
+            return false
+        }
         if let rule = self.restrictedContentAttribute?.rules.first(where: { $0.reason == "sensitive" }) {
             if rule.platform == "all" || rule.platform == platform {
                 return true

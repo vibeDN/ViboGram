@@ -64,6 +64,7 @@ private enum SGBoolSetting: String {
     case streamerMode
     case hideAds
     case allowSecretMediaScreenshotsAndSaving
+    case bypassIOSContentRestrictions
     case hideStories
     case uploadSpeedBoost
     case showProfileId
@@ -234,6 +235,8 @@ private func SGControllerEntries(presentationData: PresentationData, callListSet
     entries.append(.notice(id: id.count, section: .privacy, text: i18n("Settings.HideAds.Notice", lang)))
     entries.append(.toggle(id: id.count, section: .privacy, settingName: .allowSecretMediaScreenshotsAndSaving, value: SGSimpleSettings.shared.allowSecretMediaScreenshotsAndSaving, text: i18n("Settings.AllowSecretMediaSaving", lang), enabled: true))
     entries.append(.notice(id: id.count, section: .privacy, text: i18n("Settings.AllowSecretMediaSaving.Notice", lang)))
+    entries.append(.toggle(id: id.count, section: .privacy, settingName: .bypassIOSContentRestrictions, value: SGSimpleSettings.shared.bypassIOSContentRestrictions, text: i18n("Settings.BypassContentRestrictions", lang), enabled: true))
+    entries.append(.notice(id: id.count, section: .privacy, text: i18n("Settings.BypassContentRestrictions.Notice", lang)))
 
     entries.append(.header(id: id.count, section: .stories, text: strings.AutoDownloadSettings_Stories.uppercased(), badge: nil))
     entries.append(.toggle(id: id.count, section: .stories, settingName: .hideStories, value: SGSimpleSettings.shared.hideStories, text: i18n("Settings.Stories.Hide", lang), enabled: true))
@@ -458,6 +461,8 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
             SGSimpleSettings.shared.hideAds = value
         case .allowSecretMediaScreenshotsAndSaving:
             SGSimpleSettings.shared.allowSecretMediaScreenshotsAndSaving = value
+        case .bypassIOSContentRestrictions:
+            SGSimpleSettings.shared.bypassIOSContentRestrictions = value
         case .hideStories:
             SGSimpleSettings.shared.hideStories = value
         case .showProfileId:

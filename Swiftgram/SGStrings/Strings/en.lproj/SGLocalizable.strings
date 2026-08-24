@@ -108,6 +108,8 @@
 "Settings.InputFieldFontSize.28" = "28";
 "Settings.AllowSecretMediaSaving" = "Allow Screenshots & Saving in Secret Chats";
 "Settings.AllowSecretMediaSaving.Notice" = "Stops reporting screenshots to the other party in secret chats and one-time-view photos/videos, and restores the Save/Copy options for that media. Only affects your own client.";
+"Settings.BypassContentRestrictions" = "Bypass iOS Content Restrictions";
+"Settings.BypassContentRestrictions.Notice" = "Client-side only: stops hiding channels/bots/messages that Telegram's server flags as restricted specifically for the iOS platform (App Store guidelines), and reveals the sensitive-content toggle in Settings > Data and Storage if the server allows adjusting it. Purely cosmetic filtering — the content was already reachable, this just stops the client from hiding it.";
 "Settings.GhostMode.SkipReadReceipts" = "Ghost Mode: Hide Read Receipts";
 "Settings.GhostMode.SkipPresence" = "Ghost Mode: Hide Online Status";
 "Settings.ShowProfileID" = "Show Profile ID";

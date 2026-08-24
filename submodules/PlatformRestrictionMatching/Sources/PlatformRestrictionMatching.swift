@@ -1,6 +1,7 @@
 import Foundation
 import Postbox
 import TelegramCore
+import SGSimpleSettings
 
 public extension EngineRawMessage {
     func isRestricted(platform: String, contentSettings: ContentSettings) -> Bool {
@@ -28,6 +29,10 @@ public extension EngineRawMessage {
 
 public extension RestrictedContentMessageAttribute {
     func platformText(platform: String, contentSettings: ContentSettings, chatId: Int64? = nil) -> String? {
+        // MARK: ViboGram - bypass client-side iOS/App Store content restrictions
+        if SGSimpleSettings.shared.bypassIOSContentRestrictions {
+            return nil
+        }
         // MARK: Swiftgram
         if let chatId = chatId {
             if contentSettings.appConfiguration.sgWebSettings.global.forceReasons.contains(chatId) {

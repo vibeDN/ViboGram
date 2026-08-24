@@ -42,6 +42,7 @@ Status legend: `[ ]` not started, `[x]` done. GitHub doesn't render a third chec
 - [x] Trimmed shipped extensions to Notification (Content + Service) and Broadcast Upload only — dropped Share, Siri Intents, and Widget
 - [x] Merged the separate "Swiftgram Pro" settings screen into the regular Swiftgram one, unlocked for everyone (no more paywall)
 - [x] Remove in-app ads (sponsored messages, free-proxy sponsor-channel prompts — PSA messages stay, only proxy-sponsor kind is hidden)
+- [x] Bypass client-side iOS/App Store content restrictions (not on the original list — added on request). Purely cosmetic filtering (`platform == "ios"` string checks); the content was always reachable, this just stops the client from hiding it.
 
 ### Tier 2 — medium
 

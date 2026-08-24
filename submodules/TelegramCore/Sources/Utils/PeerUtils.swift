@@ -38,6 +38,10 @@ public extension Peer {
         } else if contentSettings.appConfiguration.sgWebSettings.global.unforceReasons.contains(chatId) {
             return nil
         }
+        // MARK: ViboGram - bypass client-side iOS/App Store content restrictions
+        if SGSimpleSettings.shared.bypassIOSContentRestrictions {
+            return nil
+        }
         if let restrictionInfo = restrictionInfo {
             for rule in restrictionInfo.rules {
                 if rule.reason == "sensitive" {
@@ -271,6 +275,10 @@ public extension Peer {
     }
     
     func hasSensitiveContent(platform: String) -> Bool {
+        // MARK: ViboGram - bypass client-side iOS/App Store content restrictions
+        if SGSimpleSettings.shared.bypassIOSContentRestrictions {
+            return false
+        }
         var restrictionInfo: PeerAccessRestrictionInfo?
         switch self {
         case let user as TelegramUser:
