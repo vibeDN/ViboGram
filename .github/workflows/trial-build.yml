@@ -210,10 +210,15 @@ jobs:
         if: steps.ipa.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # A.B.C versioning: A = 0 (pre-release) / 1 (real release), B = number of
+          # completed roadmap tiers (bump by hand as tiers finish), C = release counter.
+          TIERS_DONE: "2"
         run: |
           set -euo pipefail
-          TAG="v0.0.${{ github.run_number }}"
-          gh release create "$TAG" "${{ steps.ipa.outputs.path }}" \
-            --title "$TAG ($(git rev-parse --short HEAD))" \
-            --notes "Unsigned device IPA, auto-published from trial-build.yml. Not signed — needs resigning (LiveContainer/AltStore/SideStore/ldid) before install. Development build, not v1.0.0 yet." \
+          RELEASE_COUNT=$(gh api "repos/${{ github.repository }}/releases" --jq 'length')
+          NEXT_C=$((RELEASE_COUNT + 1))
+          VERSION="0.${TIERS_DONE}.${NEXT_C}"
+          gh release create "$VERSION" "${{ steps.ipa.outputs.path }}" \
+            --title "$VERSION" \
+            --notes "Unsigned device IPA, auto-published from trial-build.yml ($(git rev-parse --short HEAD)). Not signed — needs resigning (LiveContainer/AltStore/SideStore/ldid) before install. Tier ${TIERS_DONE}/4 of the roadmap complete." \
             --prerelease
