@@ -74,17 +74,13 @@ is committed the same way, no LFS).
 
 ## What's built (`Swiftgram/SGPython/`)
 
-`SGPythonRuntime.swift` -- a thin wrapper around the embedding C API,
-following BeeWare's own documented Swift init snippet
-(`Python-Apple-support/USAGE.md`) exactly:
-
-```swift
-guard let pythonHome = Bundle.main.path(forResource: "python", ofType: nil) else { return }
-let appPath = Bundle.main.path(forResource: "app", ofType: nil)
-setenv("PYTHONHOME", pythonHome, 1)
-setenv("PYTHONPATH", appPath, 1)
-Py_Initialize()
-```
+`SGPythonRuntime.swift` -- a thin wrapper around the embedding C API. Uses
+`PyPreConfig`/`PyConfig` with `module_search_paths_set = 1` and explicit
+paths (`lib/python3.14`, `lib/python3.14/lib-dynload`, `app`), matching what
+`briefcase-iOS-Xcode-template` actually does -- **not** the simpler
+`setenv(PYTHONHOME)` + `Py_Initialize()` snippet from USAGE.md, which is
+confirmed broken on Apple platforms (see point 4 below). Also sets
+`write_bytecode = 0` since the app bundle is read-only at runtime.
 
 `start()` no-ops safely (returns `false`) if the `python` resource folder
 isn't present in the bundle -- which today it never is, since resource
@@ -138,15 +134,30 @@ this session -- each is a real unknown, not just unfinished busywork:
    simulator slice and treating Intel-Mac-simulator as unsupported is the
    pragmatic call, but this hasn't been implemented or tested.
 
-4. **iOS-specific `sys.path`/`getpath` behavior is unverified.** The
-   xcframework's `_sysconfigdata__ios_arm64-iphoneos.py` bakes in the CI
-   runner's *build-time* paths (`/Users/runner/work/...`), which are not
-   meant to be read directly -- CPython's runtime path resolution
-   (`getpath.c`) is supposed to relocate relative to `PYTHONHOME` at
-   startup, same as on desktop Unix, but this hasn't been confirmed
-   empirically for the iOS build specifically. If `Py_Initialize()` can't
-   locate/import `encodings` (the classic embedding failure mode), that's
-   the first thing to check.
+4. **RESOLVED (as of research, not yet as of an actual build): naive
+   `PYTHONHOME` auto-derivation is confirmed broken, `PyConfig` with
+   explicit paths is the fix.** `SGPythonRuntime.start()` originally used
+   the "bare minimum" `setenv("PYTHONHOME", ...)` + `Py_Initialize()`
+   sequence from Python-Apple-support's own USAGE.md. That's confirmed
+   unreliable on Apple platforms: **beeware/Python-Apple-support#142** hit
+   exactly this pattern and got exactly the classic failure symptom
+   (`ModuleNotFoundError: No module named 'encodings'`), and the
+   maintainers' response was that only what Briefcase's own generated
+   template does is actually supported. Fetched that template
+   (`briefcase-iOS-Xcode-template`'s `main.m`) directly: it uses
+   `PyPreConfig`/`PyConfig` with **`config.module_search_paths_set = 1`**,
+   which disables `getpath`'s automatic home-based search entirely, and
+   appends `lib/python3.14`, `lib/python3.14/lib-dynload`, and the app path
+   to `config.module_search_paths` by hand. It also sets
+   `config.write_bytecode = 0` (the app bundle is code-signed and read-only
+   at runtime -- CPython must not try to write `.pyc` caches into it, no
+   `PYTHONPYCACHEPREFIX` needed, just disable writing). `SGPythonRuntime.swift`
+   has been rewritten to match this. **Still unverified**: the exact Swift
+   translation of the C struct-field-pointer idioms (`&config.home`,
+   `PyWideStringList_Append(&config.module_search_paths, ...)`) and
+   `Py_DecodeLocale`-based wide-string conversion -- this is hand-translated
+   from Objective-C reference code and has never been compiled. Confirming
+   it compiles as written is step 1 below, not something to trust yet.
 
 ## Suggested order of attack once there's real build access
 
