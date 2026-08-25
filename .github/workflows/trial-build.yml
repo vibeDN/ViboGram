@@ -31,7 +31,16 @@ jobs:
         run: |
           sudo xcode-select -s /Applications/Xcode_26.2.app || \
           sudo xcode-select -s /Applications/Xcode.app
+          # MARK: ViboGram - toolchain diagnostics. Cheap, harmless, printed so a
+          # real Xcode/Bazel/swiftc version-mismatch theory can be confirmed or
+          # ruled out with hard evidence instead of assumption, if the
+          # SwiftSignalKitFramework copy race resurfaces.
+          echo "=== Toolchain diagnostics ==="
+          xcode-select -p
           xcodebuild -version
+          xcrun --find swift
+          xcrun swift --version
+          bazel --version || true
 
       - name: Write minimal development configuration
         env:
@@ -126,9 +135,41 @@ jobs:
           echo "Using scheme: $SCHEME"
           echo "name=$SCHEME" >> "$GITHUB_OUTPUT"
 
+      - name: Disable build parallelism for the app scheme (SwiftSignalKitFramework race mitigation)
+        run: |
+          set -euo pipefail
+          # MARK: ViboGram - the SwiftSignalKitFramework copy race is between
+          # rules_xcodeproj's "Copy Bazel Outputs" script phase and Xcode's own
+          # native compile/link for early framework targets. "Based on dependency
+          # analysis" is unchecked for these phases (seen in build logs), so Xcode
+          # can't establish a real file-level ordering for them -- it relies on
+          # target-level scheduling, which parallel target builds can still race.
+          # Forcing serial target builds is the closest lever we have to "give the
+          # race more breathing room" without being able to insert a literal sleep
+          # inside a single xcodebuild invocation's internal phase graph.
+          # UNVERIFIED -- confirm this actually helps (and doesn't just slow down
+          # every build for nothing) against a real run.
+          SCHEME_FILE=$(find "${{ steps.proj.outputs.path }}" -path "*xcschemes/${{ steps.scheme.outputs.name }}.xcscheme" | head -1)
+          if [ -z "$SCHEME_FILE" ]; then
+            echo "Could not find .xcscheme file for scheme ${{ steps.scheme.outputs.name }}, skipping (build will proceed with default parallelism)" >&2
+          else
+            echo "Patching $SCHEME_FILE"
+            sed -i '' 's/parallelizeBuildables *= *"YES"/parallelizeBuildables = "NO"/' "$SCHEME_FILE"
+            grep -o 'parallelizeBuildables = "[A-Z]*"' "$SCHEME_FILE" || echo "parallelizeBuildables attribute not found in scheme (may already be serial, or use a different default)"
+          fi
+
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
           set -o pipefail
+          # MARK: ViboGram - re-print toolchain diagnostics right before the build
+          # that actually hits the SwiftSignalKitFramework race, to catch any drift
+          # since the "Select Xcode" step (e.g. a later step resetting SDKROOT/
+          # TOOLCHAINS, or a different swiftc being picked up transitively).
+          echo "=== Toolchain diagnostics (pre-build) ===" | tee -a build.log
+          xcode-select -p | tee -a build.log
+          xcodebuild -version | tee -a build.log
+          xcrun --find swift | tee -a build.log
+          xcrun swift --version | tee -a build.log
           # rules_xcodeproj's "Copy Bazel Outputs" script phases intermittently
           # race the underlying bazel build for the first few framework
           # targets ("No such file or directory" copying a .swiftmodule that
@@ -164,6 +205,18 @@ jobs:
             # not empty) on a partial cleanup -- `|| true` so that alone doesn't abort
             # the whole script before the loop gets to retry.
             rm -rf "$HOME/derived-sim-$attempt" || true
+            # MARK: ViboGram - a fresh DerivedData alone was NOT a genuine from-scratch
+            # redo: rules_xcodeproj's "Copy Bazel Outputs" script phases run their OWN
+            # separate, self-managed Bazel invocation with its own output_base under
+            # /var/tmp/_bazel_<user>/*/rules_xcodeproj.noindex/ (confirmed from a real
+            # failure log's cwd: /var/tmp/_bazel_runner/<hash>/rules_xcodeproj.noindex/
+            # build_output_base/execroot/_main) -- that state persisted across attempts
+            # even with fresh DerivedData, which is the likely reason a second attempt
+            # previously hit the identical failure much faster than the first instead
+            # of actually re-running the race. Best-effort clear it too. UNVERIFIED --
+            # confirm this directory glob is right (and that clearing it actually
+            # changes attempt-2's behavior) against a real run before trusting this.
+            rm -rf /var/tmp/_bazel_*/*/rules_xcodeproj.noindex || true
             if [ "$attempt" = 2 ]; then
               echo "Both attempts failed" >&2
               exit 1
