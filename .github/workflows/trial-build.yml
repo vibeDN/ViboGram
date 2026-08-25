@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     runs-on: macos-26
-    timeout-minutes: 180
+    timeout-minutes: 340
     permissions:
       contents: write
     steps:
@@ -132,30 +132,40 @@ jobs:
           # rules_xcodeproj's "Copy Bazel Outputs" script phases intermittently
           # race the underlying bazel build for the first few framework
           # targets ("No such file or directory" copying a .swiftmodule that
-          # hasn't landed yet) -- looks like genuine GH Actions runner I/O
-          # flakiness (roughly half of cold single-attempt runs hit it,
-          # unrelated to any code/workflow change tried so far: a
-          # BazelDependencies-only pre-build pass, COMPILER_INDEX_STORE_ENABLE,
-          # and Bazel disk caching were all tried and ruled out). In-job retry
-          # against the SAME DerivedData made it *worse* (a killed xcodebuild
-          # mid-write leaves files a retry then gets "Permission denied" on) --
-          # removed. The only thing that's actually worked is re-running the
-          # whole job fresh, so a failure here should be treated as "retrigger
-          # the workflow," not chased further in-workflow.
-          xcodebuild build \
-            -project "${{ steps.proj.outputs.path }}" \
-            -scheme "${{ steps.scheme.outputs.name }}" \
-            -sdk iphonesimulator \
-            -destination "generic/platform=iOS Simulator" \
-            -configuration Debug \
-            -derivedDataPath "$HOME/derived-sim" \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            | tee build.log
+          # hasn't landed yet) -- genuine GH Actions runner I/O flakiness, not
+          # fixed by COMPILER_INDEX_STORE_ENABLE or Bazel disk caching (both
+          # ruled out). A prior attempt at in-job retry made it *worse*
+          # because it reused the SAME DerivedData across attempts -- a killed
+          # xcodebuild mid-write leaves files a retry then gets "Permission
+          # denied" on. This time each attempt gets its own fresh
+          # DerivedData, so a retry here is a genuine from-scratch redo, not
+          # a reuse of poisoned state.
+          for attempt in 1 2; do
+            echo "=== xcodebuild attempt $attempt/2 (fresh DerivedData) ==="
+            if xcodebuild build \
+              -project "${{ steps.proj.outputs.path }}" \
+              -scheme "${{ steps.scheme.outputs.name }}" \
+              -sdk iphonesimulator \
+              -destination "generic/platform=iOS Simulator" \
+              -configuration Debug \
+              -derivedDataPath "$HOME/derived-sim-$attempt" \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              DEVELOPMENT_TEAM="" \
+              PROVISIONING_PROFILE_SPECIFIER="" \
+              | tee -a build.log; then
+              ln -s "$HOME/derived-sim-$attempt" "$HOME/derived-sim"
+              break
+            fi
+            rm -rf "$HOME/derived-sim-$attempt"
+            if [ "$attempt" = 2 ]; then
+              echo "Both attempts failed" >&2
+              exit 1
+            fi
+            echo "Attempt $attempt failed, retrying with a fresh DerivedData..."
+          done
 
       - name: Disk usage after build
         if: always()
