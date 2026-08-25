@@ -14,6 +14,7 @@ swift_library(
         "//submodules/Display",
         "//submodules/TelegramCore",
         "//submodules/SSignalKit/SwiftSignalKit",
+        "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
         "//submodules/ComponentFlow",
         "//submodules/Components/ViewControllerComponent",
         "//submodules/Components/ComponentDisplayAdapters",

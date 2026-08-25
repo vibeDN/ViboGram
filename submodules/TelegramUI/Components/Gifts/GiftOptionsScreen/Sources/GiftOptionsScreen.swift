@@ -4,6 +4,7 @@ import Display
 import AsyncDisplayKit
 import SwiftSignalKit
 import TelegramCore
+import SGSimpleSettings
 import TelegramPresentationData
 import TelegramUIPreferences
 import TelegramNotices
@@ -474,6 +475,27 @@ final class GiftOptionsScreenComponent: Component {
                                     gift: gift
                                 )
                                 mainController.push(storeController)
+                            } else if availability.remains == 0 && gift.perUserLimit?.remains != 0 && component.peerId.namespace != Namespaces.Peer.CloudChannel && SGSimpleSettings.shared.restoreDeletedGifts {
+                                // MARK: ViboGram - restore deleted gifts. Only bypasses the
+                                // "no longer in the live catalog" gate (availability.remains == 0),
+                                // not a per-user purchase-limit gate or the channel-peer restriction --
+                                // those are different concerns. Server still re-validates on send.
+                                var forceUnique: Bool?
+                                if let disallowedGifts = self.state?.disallowedGifts {
+                                    if disallowedGifts.contains(.limited) && !disallowedGifts.contains(.unique) {
+                                        forceUnique = true
+                                    } else if !disallowedGifts.contains(.limited) && disallowedGifts.contains(.unique) {
+                                        forceUnique = false
+                                    }
+                                }
+
+                                let giftController = GiftSetupScreen(
+                                    context: component.context,
+                                    peerId: component.peerId,
+                                    subject: .starGift(gift, forceUnique),
+                                    completion: component.completion
+                                )
+                                mainController.push(giftController)
                             } else {
                                 let giftController = GiftViewScreen(
                                     context: component.context,

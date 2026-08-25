@@ -188,6 +188,7 @@ public class SGSimpleSettings {
         case bypassIOSContentRestrictions
         case antiDeleteEnabled
         case keepBannedChatsVisible
+        case restoreDeletedGifts
     }
     
     public enum DownloadSpeedBoostValues: String, CaseIterable {
@@ -396,7 +397,8 @@ public class SGSimpleSettings {
         Keys.allowSecretMediaScreenshotsAndSaving.rawValue: false,
         Keys.bypassIOSContentRestrictions.rawValue: false,
         Keys.antiDeleteEnabled.rawValue: false,
-        Keys.keepBannedChatsVisible.rawValue: false
+        Keys.keepBannedChatsVisible.rawValue: false,
+        Keys.restoreDeletedGifts.rawValue: false
     ]
     
     public static let groupDefaultValues: [String: Any] = [
@@ -698,6 +700,15 @@ public class SGSimpleSettings {
     // UpdatePeers.swift's shouldExcludePeerFromChatList.
     @UserDefault(key: Keys.keepBannedChatsVisible.rawValue)
     public var keepBannedChatsVisible: Bool
+
+    // MARK: ViboGram - restore deleted gifts (Tier 3). A gift the server still
+    // has on record (limited-edition, no longer in the live catalog -- NOT a
+    // unique gift with genuinely exhausted supply) can still be sent by id; the
+    // stock client just redirects to a dead-end info screen instead of the send
+    // flow. See GiftOptionsScreen.swift. The server independently re-validates
+    // on send, so this only lets the attempt through, it doesn't force a sale.
+    @UserDefault(key: Keys.restoreDeletedGifts.rawValue)
+    public var restoreDeletedGifts: Bool
 }
 
 extension SGSimpleSettings {
