@@ -3,6 +3,7 @@ import SGIAP
 import SGPayWall
 import SGProUI
 import SGSimpleSettings
+import SGBadges
 //
 import Foundation
 import UIKit
@@ -554,10 +555,8 @@ public final class SharedAccountContextImpl: SharedAccountContext {
             }
         })
         self.initSGIAP(isMainApp: applicationBindings.isMainApp)
-        // MARK: ViboGram - user badges (Tier 3): SGBadges.refresh() call temporarily
-        // removed here (and the module's BUILD dep on this target) to test whether
-        // it's related to a newly-100%-reproducing CI build flake -- see
-        // Swiftgram/SGBadges's own commit history / README Tier 3 notes.
+        // MARK: ViboGram - user badges (Tier 3)
+        SGBadges.refresh()
         //
         
         let _ = self.contactDataManager?.personNameDisplayOrder().start(next: { order in
