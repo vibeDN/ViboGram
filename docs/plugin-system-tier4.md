@@ -179,6 +179,122 @@ this session -- each is a real unknown, not just unfinished busywork:
    callbacks) -- no point finalizing that surface before the runtime is
    confirmed to boot at all.
 
+## Plugin-facing API design, ported from exteraGram
+
+exteraGram (an Android Telegram fork, Chaquopy-based) has official docs at
+<https://plugins.exteragram.app/docs> covering exactly this surface. Since
+its plugin API design is independent of the Python-embedding mechanism
+(Chaquopy vs. our own CPython.xcframework), it ports conceptually even
+though nothing about *how Python runs* carries over. Recorded here ahead of
+actually needing it, per the note in step 5 above -- this is reference
+material for that future design pass, not a committed API yet.
+
+**Plugin file shape** -- one Python file, metadata as plain top-level
+constants (parsed statically via AST on their side, so no dynamic
+construction), one class subclassing a base plugin class:
+
+```python
+from base_plugin import BasePlugin, HookResult, HookStrategy
+from ui.settings import Header, Input, Text
+
+__id__ = "hello_world"          # required: 2-32 chars, starts with a letter, [a-zA-Z0-9_-]
+__name__ = "Hello World"        # required
+__description__ = "..."
+__author__ = "Your Name"
+__version__ = "1.0.0"           # defaults to "1.0" if omitted
+__icon__ = "exteraPlugins/1"
+__app_version__ = ">=12.5.1"    # supports >=, <=, ==, >, <
+__sdk_version__ = ">=1.4.4.3"
+__requirements__ = ["mpmath"]   # PIP packages to install
+
+DEFAULT_TEMPLATE = "Hello, {name}!"
+
+class HelloWorldPlugin(BasePlugin):
+    def on_plugin_load(self):
+        self.add_on_send_message_hook()   # hooks must be explicitly registered
+        self.log("Hello World plugin loaded")
+
+    def create_settings(self) -> list:
+        return [
+            Header(text="Hello World"),
+            Input(key="template", text="Greeting template", default=DEFAULT_TEMPLATE),
+        ]
+
+    def on_send_message_hook(self, account: int, params) -> HookResult:
+        if not isinstance(getattr(params, "message", None), str):
+            return HookResult()
+        if not params.message.strip().startswith(".hello"):
+            return HookResult()
+        name = params.message.strip().split(" ", 1)[1] if " " in params.message else ""
+        template = self.get_setting("template", DEFAULT_TEMPLATE)
+        params.message = template.format(name=name)
+        return HookResult(strategy=HookStrategy.MODIFY, params=params)
+```
+
+**Lifecycle**: `on_plugin_load` / `on_plugin_unload` (enable/disable or app
+start/shutdown), `on_app_event(event_type: AppEvent)` with
+`START`/`STOP`/`PAUSE`/`RESUME`.
+
+**Event hooks** -- explicitly registered (`self.add_hook(name)`,
+`self.add_on_send_message_hook()`), then dispatched to one of these
+methods, each returning `HookResult(strategy=..., <field>=...)`:
+- `pre_request_hook(request_name, account, request)` / `post_request_hook(request_name, account, response, error)` -- intercept any Telegram API TL request/response by name (e.g. `"TL_messages_setTyping"`)
+- `on_update_hook(update_name, account, update)` / `on_updates_hook(container_name, account, updates)` -- intercept incoming updates
+- `on_send_message_hook(account, params)` -- intercept/rewrite outgoing messages before send
+
+`HookStrategy`: `DEFAULT` (no-op), `CANCEL` (stop the operation -- e.g. a
+real "ghost mode" that blocks `TL_messages_setTyping`/`TL_account_updateStatus`
+requests entirely, not just a client-side visual toggle), `MODIFY` (return
+an edited object), `MODIFY_FINAL` (edited + stop further plugin
+processing). Every hook fires per-`account` (multi-account apps), and the
+account a hook fires for is often not the one currently shown in the UI --
+worth remembering since this fork also has multi-account support.
+
+**Menu items**: `self.add_menu_item(MenuItemData(menu_type=MenuItemType.MESSAGE_CONTEXT_MENU, text=..., on_click=..., icon=..., priority=...))`.
+`MenuItemType`: `MESSAGE_CONTEXT_MENU`, `DRAWER_MENU`, `MAIN_MENU`,
+`CHAT_ACTION_MENU`, `PROFILE_ACTION_MENU`. The click callback receives a
+context dict (`account`, `message`/`user`/`chat` depending on menu type).
+Auto-removed on plugin unload.
+
+**Settings UI**: `create_settings(self) -> List[Any]` returns a list of
+dataclasses from a `ui.settings`-equivalent: `Header`, `Divider`, `Switch`,
+`Selector`, `Input`, `Text` (can nest a sub-page via `create_sub_fragment`),
+`EditText` (multiline), `Custom` (escape hatch for a fully custom row).
+Persisted via `self.get_setting(key, default)` / `self.set_setting(key,
+value, reload_settings=False)`, plus `export_settings()`/`import_settings()`
+for backup/restore. This maps fairly directly onto this fork's own
+`SGSettingsUI`/`ItemListUI` item-row system -- likely the most portable
+piece of the whole design, conceptually.
+
+**Host APIs exposed to plugins** (their `client_utils` module): background
+queue dispatch (`run_on_queue`), raw TL request sending (`send_request`),
+high-level send helpers (`send_text`/`send_photo`/`send_document`/`send_video`/`send_audio`,
+all take `parse_mode="HTML"|"Markdown"`), `edit_message`, and
+account-scoped accessors for the various Telegram internals controllers.
+Plus `ui.bulletin.BulletinHelper.show_info(...)` for toast-style
+notifications. The iOS equivalents for a comparable host-API surface would
+route through `AccountContext`/`TelegramEngine` (message send/edit already
+exist as engine calls used throughout this fork) and a bulletin-equivalent
+(`UndoOverlayController`, already used elsewhere in this fork, e.g. the
+Saved Music add/remove toasts).
+
+**Not portable, or not needed**: their `hook_utils`/"Xposed Method
+Hooking" page is Java reflection-based low-level method hooking
+(LSPosed/Xposed-style) -- an Android-specific concept with no iOS
+equivalent and no clear need here, since our plugins would call into a
+deliberately-exposed Swift API surface rather than hook into arbitrary
+compiled app internals. `Class Proxy` (generating Java proxy classes from
+Python) is likewise Java-interop-specific machinery, not something a
+CPython-on-iOS embed needs an equivalent of.
+
+**Distribution**: plugins are `.py` files shared via community
+repositories/catalogs (e.g. `github.com/0niel/exteraStore`) and Telegram
+channels (`@exteraplugins`), not an in-app "store" backed by their own
+infrastructure -- worth keeping in mind as the simpler bar to clear for a
+v1 (a folder the user drops `.py` files into, matching the "app" resource
+folder already planned for `PYTHONPATH`, rather than building a full
+in-app plugin browser/marketplace from day one).
+
 ## Two-app-target plan (Vibogram vs. "Vibogram: BETA")
 
 Separately decided (2026-08-25): plugin system + the JIT-unlock question
