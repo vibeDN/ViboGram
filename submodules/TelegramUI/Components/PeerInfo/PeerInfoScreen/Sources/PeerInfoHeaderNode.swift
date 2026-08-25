@@ -1177,7 +1177,12 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         // marker (no remote image / 3D detail view yet, deliberately deferred
         // -- see README). Tap opens a simple title/about popup.
         do {
-            let badge: SGBadge? = peer.flatMap { SGBadges.primaryBadge(for: $0.id.toInt64()) }
+            // MARK: ViboGram - bugfix: PeerId.toInt64() packs namespace bits into the
+            // result, which only coincidentally equals the plain numeric Telegram user
+            // id for older (pre-64-bit-id-expansion) accounts. badges.json is a
+            // human-curated config keyed by the plain id (e.g. copy-pasted from a
+            // bot), so this must use the unpacked raw id instead.
+            let badge: SGBadge? = peer.flatMap { SGBadges.primaryBadge(for: $0.id.id._internalGetInt64Value()) }
             self.currentBadge = badge
 
             if let badge, let color = UIColor(hexString: badge.color) {

@@ -709,6 +709,16 @@ open class ChatMessageItemView: ListViewItemNode, ChatMessageItemNodeProtocol {
             }
         }
         self.wasFilteredKeywordTested = true
+
+        // MARK: ViboGram - anti-delete (Tier 3): visually mark a message the
+        // other side deleted (kept locally, tagged .SGAntiDeleted) as
+        // semi-transparent, same alpha-based mechanism as the message-filter
+        // dimming just above. Less aggressive than the filter dim (0.2/0.3)
+        // since this is a legitimately kept message, not something being
+        // hidden from view.
+        if item.message.localTags.contains(.SGAntiDeleted) {
+            self.alpha = 0.5
+        }
     }
     
     open func updateAccessibilityData(_ accessibilityData: ChatMessageAccessibilityData) {

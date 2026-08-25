@@ -204,7 +204,10 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
         var canViewReactionList: Bool
         var animationCache: AnimationCache
         var animationRenderer: MultiAnimationRenderer
-        
+        // MARK: ViboGram - anti-delete (Tier 3). Defaulted so the other ~15
+        // call sites of this Arguments init don't need to change.
+        var isAntiDeleted: Bool
+
         public init(
             context: AccountContext,
             presentationData: ChatPresentationData,
@@ -229,7 +232,8 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
             hasAutoremove: Bool,
             canViewReactionList: Bool,
             animationCache: AnimationCache,
-            animationRenderer: MultiAnimationRenderer
+            animationRenderer: MultiAnimationRenderer,
+            isAntiDeleted: Bool = false
         ) {
             self.context = context
             self.presentationData = presentationData
@@ -255,6 +259,7 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
             self.canViewReactionList = canViewReactionList
             self.animationCache = animationCache
             self.animationRenderer = animationRenderer
+            self.isAntiDeleted = isAntiDeleted
         }
     }
     
@@ -539,7 +544,13 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
             }
             
             var updatedDateText = arguments.dateText
-            if arguments.edited {
+            if arguments.isAntiDeleted {
+                // MARK: ViboGram - anti-delete (Tier 3): replace the edited-label slot
+                // with a trash icon instead (a plain glyph, not a new ASImageNode
+                // subview -- keeps this low-risk given the layout math around this
+                // text is otherwise unchanged).
+                updatedDateText = "\u{1F5D1} \(updatedDateText)"
+            } else if arguments.edited {
                 if let useEditedTimestamp = arguments.context.getAppConfigValue("message_primary_edited_date") as? Bool, useEditedTimestamp {
                 } else {
                     // MARK: ViboGram - customizable edited label

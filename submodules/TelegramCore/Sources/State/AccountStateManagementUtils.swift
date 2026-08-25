@@ -5,6 +5,7 @@ import TelegramApi
 import MtProtoKit
 import EncryptionProvider
 import SGSimpleSettings
+import SGMessageArchive
 
 private func reactionGeneratedEvent(_ previousReactions: ReactionsMessageAttribute?, _ updatedReactions: ReactionsMessageAttribute?, message: Message, transaction: Transaction) -> (reactionAuthor: Peer, reaction: MessageReaction.Reaction, message: Message, timestamp: Int32)? {
     if let updatedReactions = updatedReactions, !message.flags.contains(.Incoming), message.id.peerId.namespace == Namespaces.Peer.CloudUser {
@@ -4471,10 +4472,29 @@ func replayFinalState(
                             idsToDelete.append(id)
                             continue
                         }
-                        guard let message = transaction.getMessage(id), !message.localTags.contains(.SGAntiDeleted) else {
+                        guard let message = transaction.getMessage(id) else {
                             idsToDelete.append(id)
                             continue
                         }
+                        if message.localTags.contains(.SGAntiDeleted) {
+                            // MARK: ViboGram - already archived: keep it forever, never
+                            // actually purge it even on a repeated delete request for
+                            // the same id (previously this branch re-added the id to
+                            // idsToDelete, so a second delete attempt silently undid
+                            // the "kept" state -- fixed per explicit design decision).
+                            continue
+                        }
+                        // MARK: ViboGram - permanent local backup, independent of
+                        // Postbox's own database/cache lifecycle (survives even if
+                        // Postbox's copy is later evicted/cleared).
+                        SGMessageArchive.recordDeleted(
+                            peerId: id.peerId.toInt64(),
+                            messageId: id.id,
+                            namespace: id.namespace,
+                            authorId: message.author?.id.toInt64(),
+                            text: message.text,
+                            timestamp: message.timestamp
+                        )
                         transaction.updateMessage(id) { current in
                             var updatedLocalTags = current.localTags
                             updatedLocalTags.insert(.SGAntiDeleted)
@@ -4543,6 +4563,20 @@ func replayFinalState(
                         return current
                     })
                     
+                    // MARK: ViboGram - edit history (Tier 3). Archive the pre-edit text
+                    // permanently (same local store as anti-delete, separate file) before
+                    // it's overwritten below, so a "История" view can show prior versions.
+                    if SGSimpleSettings.shared.antiDeleteEnabled && previousMessage.text != message.text && !previousMessage.text.isEmpty {
+                        let editTimestamp = (message.attributes.first(where: { $0 is EditedMessageAttribute }) as? EditedMessageAttribute)?.date ?? Int32(Date().timeIntervalSince1970)
+                        SGMessageArchive.recordEditVersion(
+                            peerId: id.peerId.toInt64(),
+                            messageId: id.id,
+                            namespace: id.namespace,
+                            previousText: previousMessage.text,
+                            editTimestamp: editTimestamp
+                        )
+                    }
+
                     if previousMessage.text == message.text {
                         let previousEntities = previousMessage.textEntitiesAttribute?.entities ?? []
                         let updatedEntities = (message.attributes.first(where: { $0 is TextEntitiesMessageAttribute }) as? TextEntitiesMessageAttribute)?.entities ?? []
