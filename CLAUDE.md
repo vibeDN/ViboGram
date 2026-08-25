@@ -206,6 +206,10 @@ This repo includes a tgcalls testbench (CLI tool, Go/Pion SFU, Docker build) lay
 - `submodules/TgVoipWebrtc/tgcalls/tools/go_sfu/CLAUDE.md` — Go SFU internals
 - `submodules/TgVoipWebrtc/CLAUDE.md` — tgcalls library internals + macOS/Linux build patches
 
+## Python plugin system (Tier 4, ViboGram fork, in progress)
+
+An embedded CPython interpreter for user-installable Python plugins (porting the idea from AyuGram4A/exteraGram's Android plugin systems, which have no direct iOS equivalent). `third-party/python/` vendors BeeWare's Python-Apple-support `Python.xcframework` + a pruned copy of CPython's stdlib; `Swiftgram/SGPython/` has a thin interpreter-lifecycle wrapper. Neither is wired into any app target yet — see [`docs/plugin-system-tier4.md`](docs/plugin-system-tier4.md) for what's confirmed vs. still open (resource bundling, dynamic-framework signing, `lib-dynload` architecture selection) before attempting the real wiring.
+
 Build the test binary from this directory with:
 
 `./build-input/bazel-8.4.2 build //submodules/TgVoipWebrtc/tgcalls/tools/cli:tgcalls_cli`

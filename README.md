@@ -63,7 +63,7 @@ Status legend: `[ ]` not started, `[x]` done. GitHub doesn't render a third chec
 
 ### Long-term / separate track
 
-- [ ] Python plugin system, merging the approaches used by AyuGram4A's and exteraGram's Android plugin systems (both Chaquopy/Python-based). This has no direct iOS-equivalent runtime, so it's a significant standalone effort on its own — tackled last, after everything above is stable.
+- [ ] Python plugin system, merging the approaches used by AyuGram4A's and exteraGram's Android plugin systems (both Chaquopy/Python-based). This has no direct iOS-equivalent runtime, so it's a significant standalone effort on its own. In progress — see [`docs/plugin-system-tier4.md`](docs/plugin-system-tier4.md) for the current status (CPython embedding is confirmed feasible and partially scaffolded; resource bundling and dynamic-framework signing are the open questions blocking a real build). Will ship in a separate "Vibogram: BETA" app alongside a JIT-unlock mechanism for experimental features, not the main app.
 
 ## Development builds
 
