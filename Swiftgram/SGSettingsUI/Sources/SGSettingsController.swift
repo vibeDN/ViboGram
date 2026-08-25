@@ -68,6 +68,7 @@ private enum SGBoolSetting: String {
     case antiDeleteEnabled
     case keepBannedChatsVisible
     case restoreDeletedGifts
+    case localPremiumUnlockEnabled
     case hideStories
     case uploadSpeedBoost
     case showProfileId
@@ -246,6 +247,8 @@ private func SGControllerEntries(presentationData: PresentationData, callListSet
     entries.append(.notice(id: id.count, section: .privacy, text: i18n("Settings.KeepBannedChatsVisible.Notice", lang)))
     entries.append(.toggle(id: id.count, section: .privacy, settingName: .restoreDeletedGifts, value: SGSimpleSettings.shared.restoreDeletedGifts, text: i18n("Settings.RestoreDeletedGifts", lang), enabled: true))
     entries.append(.notice(id: id.count, section: .privacy, text: i18n("Settings.RestoreDeletedGifts.Notice", lang)))
+    entries.append(.toggle(id: id.count, section: .privacy, settingName: .localPremiumUnlockEnabled, value: SGSimpleSettings.shared.localPremiumUnlockEnabled, text: i18n("Settings.LocalPremiumUnlock", lang), enabled: true))
+    entries.append(.notice(id: id.count, section: .privacy, text: i18n("Settings.LocalPremiumUnlock.Notice", lang)))
 
     entries.append(.header(id: id.count, section: .stories, text: strings.AutoDownloadSettings_Stories.uppercased(), badge: nil))
     entries.append(.toggle(id: id.count, section: .stories, settingName: .hideStories, value: SGSimpleSettings.shared.hideStories, text: i18n("Settings.Stories.Hide", lang), enabled: true))
@@ -478,6 +481,8 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
             SGSimpleSettings.shared.keepBannedChatsVisible = value
         case .restoreDeletedGifts:
             SGSimpleSettings.shared.restoreDeletedGifts = value
+        case .localPremiumUnlockEnabled:
+            SGSimpleSettings.shared.localPremiumUnlockEnabled = value
         case .hideStories:
             SGSimpleSettings.shared.hideStories = value
         case .showProfileId:

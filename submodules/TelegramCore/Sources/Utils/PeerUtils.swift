@@ -239,7 +239,14 @@ public extension Peer {
     var isPremium: Bool {
         switch self {
         case let user as TelegramUser:
-            return user.flags.contains(.isPremium)
+            if user.flags.contains(.isPremium) {
+                return true
+            }
+            // MARK: ViboGram - local Premium UI unlock (Tier 3). Only flips this
+            // for the app's own logged-in account(s) (registered by
+            // AccountContextImpl.init) -- never for other peers, so other
+            // people's premium status/badges stay accurate.
+            return SGSimpleSettings.shared.localPremiumUnlockEnabled && SGSimpleSettings.isOwnAccountPeerId(user.id.toInt64())
         default:
             return false
         }

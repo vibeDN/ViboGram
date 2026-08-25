@@ -280,6 +280,11 @@ public final class AccountContextImpl: AccountContext {
         self.sharedContextImpl = sharedContext
         self.account = account
         self.engine = TelegramEngine(account: account)
+
+        // MARK: ViboGram - local Premium UI unlock (Tier 3): register this
+        // account's own peer id so PeerUtils.swift's `Peer.isPremium` can scope
+        // the override to only the app's own logged-in account(s).
+        SGSimpleSettings.registerOwnAccountPeerId(account.peerId.toInt64())
         
         self.imageCache = DirectMediaImageCache(account: account)
         

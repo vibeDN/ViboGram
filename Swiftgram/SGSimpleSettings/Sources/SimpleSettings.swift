@@ -189,6 +189,7 @@ public class SGSimpleSettings {
         case antiDeleteEnabled
         case keepBannedChatsVisible
         case restoreDeletedGifts
+        case localPremiumUnlockEnabled
     }
     
     public enum DownloadSpeedBoostValues: String, CaseIterable {
@@ -398,7 +399,8 @@ public class SGSimpleSettings {
         Keys.bypassIOSContentRestrictions.rawValue: false,
         Keys.antiDeleteEnabled.rawValue: false,
         Keys.keepBannedChatsVisible.rawValue: false,
-        Keys.restoreDeletedGifts.rawValue: false
+        Keys.restoreDeletedGifts.rawValue: false,
+        Keys.localPremiumUnlockEnabled.rawValue: false
     ]
     
     public static let groupDefaultValues: [String: Any] = [
@@ -709,6 +711,46 @@ public class SGSimpleSettings {
     // on send, so this only lets the attempt through, it doesn't force a sale.
     @UserDefault(key: Keys.restoreDeletedGifts.rawValue)
     public var restoreDeletedGifts: Bool
+
+    // MARK: ViboGram - local Premium UI unlock (Tier 3), ported from AyuGram4A's
+    // `AyuConfig.localPremium` design: a single OR'd override on the same
+    // chokepoint every UI surface already reads (see `Peer.isPremium` in
+    // TelegramCore's PeerUtils.swift), scoped to only the app's own logged-in
+    // account(s) via `ownAccountPeerIds` below -- never other people's peers.
+    // Purely cosmetic: anything the server independently validates (real
+    // upload limits, sending premium-only content) still gets rejected
+    // server-side regardless of this flag.
+    @UserDefault(key: Keys.localPremiumUnlockEnabled.rawValue)
+    public var localPremiumUnlockEnabled: Bool
+
+    // In-memory only (not persisted): populated once per logged-in account
+    // by AccountContextImpl.init, so `Peer.isPremium` can tell "this is one of
+    // my own accounts" apart from any other peer without needing account
+    // context threaded through the Peer protocol itself.
+    private static let ownAccountPeerIdsLock = SGSimpleLock()
+    private static var _ownAccountPeerIds = Set<Int64>()
+
+    public static func registerOwnAccountPeerId(_ id: Int64) {
+        Self.ownAccountPeerIdsLock.locked {
+            Self._ownAccountPeerIds.insert(id)
+        }
+    }
+
+    public static func isOwnAccountPeerId(_ id: Int64) -> Bool {
+        return Self.ownAccountPeerIdsLock.locked {
+            Self._ownAccountPeerIds.contains(id)
+        }
+    }
+}
+
+private final class SGSimpleLock {
+    private let semaphore = DispatchSemaphore(value: 1)
+
+    func locked<T>(_ f: () -> T) -> T {
+        self.semaphore.wait()
+        defer { self.semaphore.signal() }
+        return f()
+    }
 }
 
 extension SGSimpleSettings {

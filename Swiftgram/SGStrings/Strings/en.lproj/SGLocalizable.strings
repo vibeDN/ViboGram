@@ -116,6 +116,8 @@
 "Settings.KeepBannedChatsVisible.Notice" = "Keeps a group/channel in your chat list after you're removed/banned from it, so you can still read the history. Voluntarily leaving still hides it as normal. Only applies going forward — a chat already hidden before you turn this on stays hidden.";
 "Settings.RestoreDeletedGifts" = "Restore Deleted Gifts";
 "Settings.RestoreDeletedGifts.Notice" = "Lets you try to send a limited-edition gift that's no longer in the live catalog (e.g. a past holiday gift) instead of only seeing a read-only info screen. Doesn't apply to unique gifts with genuinely exhausted supply, or per-person purchase limits. The server still independently checks on send, so this only lets you attempt it — it can't force a sale Telegram has actually closed out.";
+"Settings.LocalPremiumUnlock" = "Local Premium Unlock";
+"Settings.LocalPremiumUnlock.Notice" = "Makes the app treat your own account as Premium for client-side UI gates (extra reactions, animated emoji status, expanded folder limits, etc.), without an actual subscription. Only affects your own account — other people's Premium badges stay accurate. Purely cosmetic: anything the server checks independently (real upload size limits, sending Premium-only content to others) still gets rejected server-side regardless of this toggle.";
 "Chat.ExpireNow" = "Expire Now";
 "Settings.GhostMode.SkipReadReceipts" = "Ghost Mode: Hide Read Receipts";
 "Settings.GhostMode.SkipPresence" = "Ghost Mode: Hide Online Status";
