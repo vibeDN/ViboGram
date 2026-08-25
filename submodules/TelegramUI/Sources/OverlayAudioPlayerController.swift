@@ -9,6 +9,9 @@ import UndoUI
 import AttachmentFileController
 import LegacyMediaPickerUI
 import ICloudResources
+import TelegramPresentationData
+import PromptUI
+import SGStrings
 
 final class OverlayAudioPlayerControllerImpl: ViewController, OverlayAudioPlayerController {
     private let context: AccountContext
@@ -27,6 +30,10 @@ final class OverlayAudioPlayerControllerImpl: ViewController, OverlayAudioPlayer
     }
     
     private var accountInUseDisposable: Disposable?
+    // MARK: ViboGram - kept as a controller-lifetime property (not a local var
+    // inside the button action) so it isn't deallocated mid-flow; mirrors the
+    // existing AuthorizationSequenceSignUpController.presentLegacyAvatarPicker usage.
+    private let avatarPickerHolder = Atomic<NSObject?>(value: nil)
     
     init(
         context: AccountContext,
@@ -234,6 +241,149 @@ final class OverlayAudioPlayerControllerImpl: ViewController, OverlayAudioPlayer
                 dismissImpl = { [weak controller] in
                     controller?.dismiss()
                 }
+            },
+            // MARK: ViboGram - music file tag editing (Tier 3). Re-uploads the
+            // already-cached track as a standalone document with edited
+            // title/performer/cover, then swaps it into the profile (remove old,
+            // add new) via the node's existing addToSavedMusic/removeFromSavedMusic
+            // -- `account.saveMusic` itself has no tag-editing parameters, so a
+            // fresh upload is the only way to change tags on profile music.
+            requestEdit: { [weak self] fileReference in
+                guard let self else {
+                    return
+                }
+                let file = fileReference.media
+                var currentTitle = ""
+                var currentPerformer = ""
+                var currentDuration = 0
+                var currentWaveform: Data?
+                for attribute in file.attributes {
+                    if case let .Audio(_, duration, title, performer, waveform) = attribute {
+                        currentDuration = duration
+                        currentTitle = title ?? ""
+                        currentPerformer = performer ?? ""
+                        currentWaveform = waveform
+                    }
+                }
+                let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
+                let lang = presentationData.strings.baseLanguageCode
+
+                let finishEdit: (String, String, UIImage?) -> Void = { [weak self] newTitle, newPerformer, coverImage in
+                    guard let self else {
+                        return
+                    }
+                    var attributes: [TelegramMediaFileAttribute] = file.attributes.filter { attribute in
+                        if case .Audio = attribute {
+                            return false
+                        }
+                        return true
+                    }
+                    attributes.append(.Audio(isVoice: false, duration: currentDuration, title: newTitle.isEmpty ? nil : newTitle, performer: newPerformer.isEmpty ? nil : newPerformer, waveform: currentWaveform))
+
+                    let thumbnailData: Data?
+                    if let coverImage, let jpegData = coverImage.jpegData(compressionQuality: 0.8) {
+                        thumbnailData = jpegData
+                    } else {
+                        thumbnailData = file.immediateThumbnailData
+                    }
+
+                    let _ = (standaloneUploadedFile(
+                        postbox: self.context.account.postbox,
+                        network: self.context.account.network,
+                        peerId: self.context.account.peerId,
+                        text: "",
+                        source: .resource(.media(media: fileReference.abstract, resource: file.resource)),
+                        thumbnailData: thumbnailData,
+                        mimeType: file.mimeType,
+                        attributes: attributes,
+                        hintFileIsLarge: false
+                    )
+                    |> deliverOnMainQueue).start(next: { [weak self] value in
+                        guard let self else {
+                            return
+                        }
+                        switch value {
+                        case let .result(result):
+                            switch result {
+                            case let .media(resultMedia):
+                                if let resultFile = resultMedia.media as? TelegramMediaFile {
+                                    self.context.engine.resources.moveResourceData(from: EngineMediaResource.Id(file.resource.id), to: EngineMediaResource.Id(resultFile.resource.id), synchronous: true)
+                                    self.controllerNode.removeFromSavedMusic(file: fileReference)
+                                    self.controllerNode.addToSavedMusic(file: .standalone(media: resultFile))
+                                }
+                            }
+                        default:
+                            break
+                        }
+                    })
+                }
+
+                let showCoverStep: (String, String) -> Void = { [weak self] newTitle, newPerformer in
+                    guard let self else {
+                        return
+                    }
+                    let alert = standardTextAlertController(
+                        theme: AlertControllerTheme(presentationData: presentationData),
+                        title: i18n("MediaPlayer.SavedMusic.EditCoverTitle", lang),
+                        text: i18n("MediaPlayer.SavedMusic.EditCoverText", lang),
+                        actions: [
+                            TextAlertAction(type: .genericAction, title: i18n("MediaPlayer.SavedMusic.EditCoverKeep", lang), action: {
+                                finishEdit(newTitle, newPerformer, nil)
+                            }),
+                            TextAlertAction(type: .defaultAction, title: i18n("MediaPlayer.SavedMusic.EditCoverChange", lang), action: { [weak self] in
+                                guard let self else {
+                                    return
+                                }
+                                presentLegacyAvatarPicker(
+                                    holder: self.avatarPickerHolder,
+                                    signup: false,
+                                    theme: presentationData.theme,
+                                    present: { [weak self] c, _ in
+                                        self?.present(c, in: .window(.root))
+                                    },
+                                    openCurrent: nil,
+                                    completion: { image in
+                                        finishEdit(newTitle, newPerformer, image)
+                                    }
+                                )
+                            })
+                        ]
+                    )
+                    self.present(alert, in: .window(.root))
+                }
+
+                let showPerformerPrompt: (String) -> Void = { [weak self] newTitle in
+                    guard let self else {
+                        return
+                    }
+                    let controller = promptController(
+                        context: self.context,
+                        text: i18n("MediaPlayer.SavedMusic.EditPerformerPrompt", lang),
+                        value: currentPerformer,
+                        placeholder: i18n("MediaPlayer.SavedMusic.EditPerformerPlaceholder", lang),
+                        apply: { newPerformer in
+                            guard let newPerformer else {
+                                return
+                            }
+                            showCoverStep(newTitle, newPerformer)
+                        }
+                    )
+                    self.present(controller, in: .window(.root))
+                }
+
+                let titleController = promptController(
+                    context: self.context,
+                    text: i18n("MediaPlayer.SavedMusic.EditTitlePrompt", lang),
+                    value: currentTitle,
+                    placeholder: i18n("MediaPlayer.SavedMusic.EditTitlePlaceholder", lang),
+                    apply: { newTitle in
+                        guard let newTitle else {
+                            return
+                        }
+                        showPerformerPrompt(newTitle)
+                    }
+                )
+                self.present(titleController, in: .window(.root))
             },
             getParentController: { [weak self] in
                 return self

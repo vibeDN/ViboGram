@@ -31,6 +31,7 @@ final class OverlayAudioPlayerControllerNode: ViewControllerTracingNode, ASGestu
     private let requestShare: (ShareControllerSubject) -> Void
     private let requestSearchByArtist: (String) -> Void
     private let requestAdd: () -> Void
+    private let requestEdit: (FileMediaReference) -> Void
     private let playlistLocation: SharedMediaPlaylistLocation?
     private let isGlobalSearch: Bool
     
@@ -92,6 +93,7 @@ final class OverlayAudioPlayerControllerNode: ViewControllerTracingNode, ASGestu
         requestShare: @escaping (ShareControllerSubject) -> Void,
         requestSearchByArtist: @escaping (String) -> Void,
         requestAdd: @escaping () -> Void,
+        requestEdit: @escaping (FileMediaReference) -> Void,
         getParentController: @escaping () -> ViewController?
     ) {
         self.context = context
@@ -102,6 +104,7 @@ final class OverlayAudioPlayerControllerNode: ViewControllerTracingNode, ASGestu
         self.requestShare = requestShare
         self.requestSearchByArtist = requestSearchByArtist
         self.requestAdd = requestAdd
+        self.requestEdit = requestEdit
         self.playlistLocation = playlistLocation
         self.getParentController = getParentController
         
@@ -927,8 +930,24 @@ final class OverlayAudioPlayerControllerNode: ViewControllerTracingNode, ASGestu
                         }
                     )
                 )
+                // MARK: ViboGram - music file tag editing (Tier 3). Own-profile-only,
+                // same scoping as the "add" button above. Reads the current track
+                // fresh at tap time (not captured here) so it stays correct as the
+                // user navigates between tracks without needing a layout pass.
+                rightControlItems.append(
+                    GlassControlGroupComponent.Item(
+                        id: AnyHashable("edit"),
+                        content: .icon("Chat/Context Menu/Edit"),
+                        action: { [weak self] in
+                            guard let self, let currentFileReference = self.controlsNode.currentFileReference else {
+                                return
+                            }
+                            self.requestEdit(currentFileReference)
+                        }
+                    )
+                )
             }
-            
+
             let headerInset: CGFloat = 16.0
             let headerButtonsSize = self.headerButtons.update(
                 transition: ComponentTransition(transition),
