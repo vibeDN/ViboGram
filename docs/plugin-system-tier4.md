@@ -185,7 +185,31 @@ Separately decided (2026-08-25): plugin system + the JIT-unlock question
 ship in a second, separate installable app ("Vibogram: BETA"), not the main
 one -- keeps the stable app's blast radius at zero while this is being
 iterated on. That split is its own substantial scope (new bundle id, new App
-Group/provisioning profile registered on Apple's side by the project owner,
-a currently-nonexistent variant mechanism in `Telegram/BUILD` since the app
-display name is hardcoded there today) -- tracked separately, not detailed
-further in this doc.
+Group/provisioning profile registered on Apple's side by the project owner
+-- a new bundle id is expected within a couple of days of 2026-08-25 -- plus
+the currently-nonexistent variant mechanism in `Telegram/BUILD`) -- tracked
+separately, not detailed further in this doc.
+
+Progress so far: `CFBundleDisplayName`/`CFBundleName` in `Telegram/BUILD`'s
+`TelegramInfoPlist` are de-hardcoded to `{telegram_app_name}` (defaulted to
+`"ViboGram"` via the same `.format()` call as `telegram_bundle_id`, zero
+behavior change today) -- see that commit for why the *other* mechanism
+(`plist_fragment.bzl`'s own `ctx.var.get()`/`defaults` fallback) doesn't
+actually apply here, since Starlark's `.format()` already resolves every
+`{placeholder}` before the rule implementation ever sees the template
+string. A real second `ios_application` target (and a way to pass it a
+different `telegram_app_name`/`telegram_bundle_id` pair) still doesn't
+exist -- this only removes one blocker on the way there.
+
+The user supplied a BETA app icon (a flat, fully-composed PNG -- code
+brackets + a sparkle, purple/magenta gradient, small "β" badge). Staged as
+`Telegram/Telegram-iOS/SwiftgramBeta.icon.source/beta-icon-source.jpg` --
+deliberately named with a `.icon.source` suffix (not `.icon`) so it can't be
+accidentally picked up by `composer_icon_folders`'s glob. The real app icon
+format this repo uses is an Xcode 26 Icon Composer bundle (`icon.json` +
+vector layer assets under `Assets/`, with gradient/glass/translucency
+effects described in JSON -- see the existing `Swiftgram.icon/icon.json` for
+the shape), not a plain PNG. Converting this flat image into that layered
+format blind (without being able to open Icon Composer to preview it) risks
+producing something that looks wrong -- do that conversion once there's
+real Mac/Icon-Composer access, using the staged source image.
