@@ -1,6 +1,7 @@
 // MARK: Swiftgram
 import SGDebugUI
 import SGSimpleSettings
+import SGBadges
 import SGSettingsUI
 import SGStrings
 import CountrySelectionUI
@@ -2341,6 +2342,47 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
                 controller.present(tooltipController, in: .current)
             }
             
+            // MARK: ViboGram - user badges (Tier 3). Mirrors displayUniqueGiftInfo
+            // just above -- a plain title/about TooltipScreen popup. No badge
+            // image / 3D detail view yet, deliberately deferred (see README).
+            self.headerNode.openBadge = { [weak self] sourceView, badge in
+                guard let self, let controller = self.controller else {
+                    return
+                }
+                let sourceRect = sourceView.convert(sourceView.bounds, to: controller.view)
+                guard sourceRect.minY > 44.0 else {
+                    return
+                }
+
+                let backgroundColor: UIColor
+                if !self.headerNode.isAvatarExpanded, let contentButtonBackgroundColor = self.headerNode.contentButtonBackgroundColor {
+                    backgroundColor = contentButtonBackgroundColor
+                } else {
+                    backgroundColor = UIColor(rgb: 0x000000, alpha: 0.65)
+                }
+
+                var text = badge.title
+                if let about = badge.about, !about.isEmpty {
+                    text += "\n" + about
+                }
+
+                let tooltipController = TooltipScreen(
+                    context: self.context,
+                    account: self.context.account,
+                    sharedContext: self.context.sharedContext,
+                    text: .attributedString(text: NSAttributedString(string: text, font: Font.semibold(11.0), textColor: .white)),
+                    style: .customBlur(backgroundColor, -4.0),
+                    arrowStyle: .small,
+                    location: .point(sourceRect, .bottom),
+                    isShimmering: true,
+                    cornerRadius: 10.0,
+                    shouldDismissOnTouch: { _, _ in
+                        return .dismiss(consume: false)
+                    }
+                )
+                controller.present(tooltipController, in: .current)
+            }
+
             self.headerNode.displayStatusPremiumIntro = { [weak self] in
                 guard let self else {
                     return

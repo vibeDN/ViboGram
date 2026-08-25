@@ -4,6 +4,7 @@ import AsyncDisplayKit
 import Display
 import TelegramCore
 import SGSimpleSettings
+import SGBadges
 import AvatarNode
 import AccountContext
 import SwiftSignalKit
@@ -139,6 +140,14 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     var statusIconSize: CGSize?
     let titleExpandedStatusIconView: ComponentHostView<Empty>
     var titleExpandedStatusIconSize: CGSize?
+
+    // MARK: ViboGram - user badges (Tier 3). Plain colored marker (not a
+    // Component, unlike the icons above) since it's just a static color swatch
+    // for now -- no remote-image/3D detail view yet, deliberately deferred.
+    let titleBadgeIconView: UIView
+    var badgeIconSize: CGSize?
+    let titleExpandedBadgeIconView: UIView
+    var titleExpandedBadgeIconSize: CGSize?
     
     var subtitleRating: ComponentView<Empty>?
     
@@ -185,6 +194,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     var displayStatusPremiumIntro: (() -> Void)?
     var displayUniqueGiftInfo: ((UIView, String) -> Void)?
     var openUniqueGift: ((UIView, String) -> Void)?
+    var openBadge: ((UIView, SGBadge) -> Void)?
     
     var navigateToForum: (() -> Void)?
     
@@ -252,7 +262,17 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         
         self.titleExpandedStatusIconView = ComponentHostView<Empty>()
         self.titleNode.stateNode(forKey: TitleNodeStateExpanded)?.view.addSubview(self.titleExpandedStatusIconView)
-        
+
+        self.titleBadgeIconView = UIView()
+        self.titleBadgeIconView.isUserInteractionEnabled = true
+        self.titleBadgeIconView.clipsToBounds = true
+        self.titleNode.stateNode(forKey: TitleNodeStateRegular)?.view.addSubview(self.titleBadgeIconView)
+
+        self.titleExpandedBadgeIconView = UIView()
+        self.titleExpandedBadgeIconView.isUserInteractionEnabled = true
+        self.titleExpandedBadgeIconView.clipsToBounds = true
+        self.titleNode.stateNode(forKey: TitleNodeStateExpanded)?.view.addSubview(self.titleExpandedBadgeIconView)
+
         self.subtitleNodeContainer = ASDisplayNode()
         self.subtitleNodeRawContainer = ASDisplayNode()
         self.subtitleNode = MultiScaleTextNode(stateKeys: [TitleNodeStateRegular, TitleNodeStateExpanded])
@@ -311,7 +331,15 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         requestUpdateLayoutImpl = { [weak self] in
             self?.requestUpdateLayout?(false)
         }
-        
+
+        // MARK: ViboGram - user badges (Tier 3). Added here (after super.init(),
+        // unlike the credibility/status/verified icons above which are plain
+        // Component-hosted views with no selector-based target) because a
+        // UITapGestureRecognizer needs `self` as a valid target, which isn't
+        // safe before super.init() runs.
+        self.titleBadgeIconView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.titleBadgeTapped(_:))))
+        self.titleExpandedBadgeIconView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.titleBadgeTapped(_:))))
+
         self.view.addSubview(self.backgroundBannerView)
         self.titleNodeContainer.addSubnode(self.titleNode)
         self.subtitleNodeContainer.addSubnode(self.subtitleNode)
@@ -413,6 +441,13 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     @objc private func subtitleBackgroundPressed() {
         self.navigateToForum?()
     }
+
+    @objc private func titleBadgeTapped(_ gesture: UITapGestureRecognizer) {
+        guard let currentBadge = self.currentBadge, let view = gesture.view else {
+            return
+        }
+        self.openBadge?(view, currentBadge)
+    }
     
     func invokeDisplayPremiumIntro() {
         self.displayPremiumIntro?(self.isAvatarExpanded ? self.titleExpandedCredibilityIconView : self.titleCredibilityIconView, nil, .never(), self.isAvatarExpanded)
@@ -494,6 +529,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     private var currentCredibilityIcon: CredibilityIcon?
     private var currentVerifiedIcon: CredibilityIcon?
     private var currentStatusIcon: CredibilityIcon?
+    private var currentBadge: SGBadge?
     
     private var currentPanelStatusData: PeerInfoStatusData?
     func update(width: CGFloat, containerHeight: CGFloat, containerInset: CGFloat, statusBarHeight: CGFloat, navigationHeight: CGFloat, isModalOverlay: Bool, isMediaOnly: Bool, contentOffset: CGFloat, paneContainerY: CGFloat, presentationData: PresentationData, peer: EnginePeer?, cachedData: EngineCachedPeerData?, threadData: MessageHistoryThreadData?, peerNotificationSettings: TelegramPeerNotificationSettings?, threadNotificationSettings: TelegramPeerNotificationSettings?, globalNotificationSettings: EngineGlobalNotificationSettings?, statusData: PeerInfoStatusData?, panelStatusData: (PeerInfoStatusData?, PeerInfoStatusData?, CGFloat?), isSecretChat: Bool, isContact: Bool, isSettings: Bool, state: PeerInfoState, profileGiftsContext: ProfileGiftsContext?, screenData: PeerInfoScreenData?, isSearching: Bool, metrics: LayoutMetrics, deviceMetrics: DeviceMetrics, transition: ContainedViewLayoutTransition, additive: Bool, animateHeader: Bool) -> CGFloat {
@@ -1136,7 +1172,27 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             self.verifiedIconSize = iconSize
             self.titleExpandedVerifiedIconSize = expandedIconSize
         }
-        
+
+        // MARK: ViboGram - user badges (Tier 3). Plain colored rounded-square
+        // marker (no remote image / 3D detail view yet, deliberately deferred
+        // -- see README). Tap opens a simple title/about popup.
+        do {
+            let badge: SGBadge? = peer.flatMap { SGBadges.primaryBadge(for: $0.id.toInt64()) }
+            self.currentBadge = badge
+
+            if let badge, let color = UIColor(hexString: badge.color) {
+                self.titleBadgeIconView.backgroundColor = color
+                self.titleExpandedBadgeIconView.backgroundColor = color
+                self.titleBadgeIconView.layer.cornerRadius = 4.0
+                self.titleExpandedBadgeIconView.layer.cornerRadius = 4.0
+                self.badgeIconSize = CGSize(width: 14.0, height: 14.0)
+                self.titleExpandedBadgeIconSize = CGSize(width: 16.0, height: 16.0)
+            } else {
+                self.badgeIconSize = CGSize(width: 0.0, height: 0.0)
+                self.titleExpandedBadgeIconSize = CGSize(width: 0.0, height: 0.0)
+            }
+        }
+
         var actualNavigationContentsColor = navigationContentsAccentColor
         actualNavigationContentsColor = presentationData.theme.chat.inputPanel.panelControlColor
         
@@ -1628,7 +1684,26 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 nextExpandedIconX += 4.0 + titleExpandedVerifiedIconSize.width
             }
         }
-        
+
+        if let badgeIconSize = self.badgeIconSize, let titleExpandedBadgeIconSize = self.titleExpandedBadgeIconSize, badgeIconSize.width > 0.0 {
+            let offset = (badgeIconSize.width + 4.0) / 2.0
+
+            let leftOffset: CGFloat = nextIconX + 4.0
+            let leftExpandedOffset: CGFloat = nextExpandedIconX + 4.0
+            titleHorizontalOffset -= offset
+
+            var collapsedTransitionOffset: CGFloat = 0.0
+            if let navigationTransition = self.navigationTransition {
+                collapsedTransitionOffset = -10.0 * navigationTransition.fraction
+            }
+
+            transition.updateFrame(view: self.titleBadgeIconView, frame: CGRect(origin: CGPoint(x: leftOffset + collapsedTransitionOffset, y: floor((titleSize.height - badgeIconSize.height) / 2.0)), size: badgeIconSize))
+            transition.updateFrame(view: self.titleExpandedBadgeIconView, frame: CGRect(origin: CGPoint(x: leftExpandedOffset, y: floor((titleExpandedSize.height - titleExpandedBadgeIconSize.height) / 2.0) + 1.0), size: titleExpandedBadgeIconSize))
+
+            nextIconX += 4.0 + badgeIconSize.width
+            nextExpandedIconX += 4.0 + titleExpandedBadgeIconSize.width
+        }
+
         var titleFrame: CGRect
         var subtitleFrame: CGRect
         let usernameFrame: CGRect
@@ -2833,6 +2908,15 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 }
             default:
                 break
+            }
+            if self.currentBadge != nil {
+                let iconFrame = self.titleBadgeIconView.convert(self.titleBadgeIconView.bounds, to: self.view)
+                let expandedIconFrame = self.titleExpandedBadgeIconView.convert(self.titleExpandedBadgeIconView.bounds, to: self.view)
+                if expandedIconFrame.contains(point) && self.isAvatarExpanded {
+                    return self.titleExpandedBadgeIconView.hitTest(self.view.convert(point, to: self.titleExpandedBadgeIconView), with: event)
+                } else if iconFrame.contains(point) {
+                    return self.titleBadgeIconView.hitTest(self.view.convert(point, to: self.titleBadgeIconView), with: event)
+                }
             }
         }
         
