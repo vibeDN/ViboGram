@@ -137,7 +137,7 @@ jobs:
 
       - name: Disable build parallelism for the app scheme (SwiftSignalKitFramework race mitigation)
         run: |
-          set -euo pipefail
+          set -uo pipefail
           # MARK: ViboGram - the SwiftSignalKitFramework copy race is between
           # rules_xcodeproj's "Copy Bazel Outputs" script phase and Xcode's own
           # native compile/link for early framework targets. "Based on dependency
@@ -154,8 +154,15 @@ jobs:
             echo "Could not find .xcscheme file for scheme ${{ steps.scheme.outputs.name }}, skipping (build will proceed with default parallelism)" >&2
           else
             echo "Patching $SCHEME_FILE"
-            sed -i '' 's/parallelizeBuildables *= *"YES"/parallelizeBuildables = "NO"/' "$SCHEME_FILE"
-            grep -o 'parallelizeBuildables = "[A-Z]*"' "$SCHEME_FILE" || echo "parallelizeBuildables attribute not found in scheme (may already be serial, or use a different default)"
+            # rules_xcodeproj generates this file read-only; best-effort chmod, and
+            # don't fail the whole job if patching doesn't work out -- this is a
+            # race-mitigation optimization, not a correctness requirement.
+            chmod u+w "$SCHEME_FILE" || true
+            if sed -i '' 's/parallelizeBuildables *= *"YES"/parallelizeBuildables = "NO"/' "$SCHEME_FILE"; then
+              grep -o 'parallelizeBuildables = "[A-Z]*"' "$SCHEME_FILE" || echo "parallelizeBuildables attribute not found in scheme (may already be serial, or use a different default)"
+            else
+              echo "sed failed to patch $SCHEME_FILE (permissions?) -- proceeding with default parallelism" >&2
+            fi
           fi
 
       - name: Build for simulator (no code signing, just validating the pipeline)
