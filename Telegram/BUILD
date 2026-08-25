@@ -1737,11 +1737,11 @@ plist_fragment(
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleDisplayName</key>
-    <string>ViboGram</string>
+    <string>{telegram_app_name}</string>
     <key>CFBundleIdentifier</key>
     <string>{telegram_bundle_id}</string>
     <key>CFBundleName</key>
-    <string>ViboGram</string>
+    <string>{telegram_app_name}</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleSignature</key>
@@ -1899,6 +1899,13 @@ plist_fragment(
     <true/>
     """.format(
         telegram_bundle_id = telegram_bundle_id,
+        # MARK: ViboGram - the two-app-target plan ("Vibogram" vs "Vibogram:
+        # BETA", see docs/plugin-system-tier4.md) needs this parameterized;
+        # a real per-target override still needs a second ios_application
+        # target + a way to pass a different value in, neither of which
+        # exist yet -- this alone just de-hardcodes the literal so that
+        # follow-up doesn't also have to touch this plist template.
+        telegram_app_name = "ViboGram",
     )
 )
 
