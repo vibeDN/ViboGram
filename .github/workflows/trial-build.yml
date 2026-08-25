@@ -272,7 +272,11 @@ jobs:
           # flips to 1 for good. B = number of completed roadmap tiers (bump by
           # hand as tiers finish). C = release counter *within* the current A.B
           # (resets when B -- or the A flip -- changes, not a global counter).
-          TIERS_DONE: "2"
+          # Tier 3 is in progress, not finished -- TIERS_DONE here doubles as
+          # "how many Tier 3 items have shipped a release" per C, not "tiers
+          # fully complete" like it did for Tiers 1/2. Bump the roadmap wording
+          # below once Tier 3 (all 6 items + badges) is actually done.
+          TIERS_DONE: "3"
         run: |
           set -euo pipefail
           if [ "$TIERS_DONE" = "4" ]; then
@@ -291,7 +295,7 @@ jobs:
             NEXT_C=1
           fi
           VERSION="${MAJOR}.${TIERS_DONE}.${NEXT_C}"
-          NOTES="Signed device IPA, auto-published from trial-build.yml ($(git rev-parse --short HEAD)). Signed with a free-tier Apple ID cert/profile — install directly via LiveContainer/AltStore/SideStore (no resigning needed), but the cert expires after 7 days and the profile is locked to registered device UDIDs. No push notifications (free Apple ID can't get that entitlement). Tier ${TIERS_DONE}/4 of the roadmap complete."
+          NOTES="Signed device IPA, auto-published from trial-build.yml ($(git rev-parse --short HEAD)). Signed with a free-tier Apple ID cert/profile — install directly via LiveContainer/AltStore/SideStore (no resigning needed), but the cert expires after 7 days and the profile is locked to registered device UDIDs. No push notifications (free Apple ID can't get that entitlement). Tiers 1-2 of the roadmap complete, Tier 3 in progress."
           gh release create "$VERSION" "${{ steps.ipa.outputs.path }}" \
             --title "$VERSION" \
             --notes "$NOTES" \
