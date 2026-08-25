@@ -141,7 +141,7 @@ jobs:
           # DerivedData, so a retry here is a genuine from-scratch redo, not
           # a reuse of poisoned state.
           for attempt in 1 2; do
-            echo "=== xcodebuild attempt $attempt/2 (fresh DerivedData) ==="
+            echo "=== xcodebuild attempt $attempt/2 (fresh DerivedData) ===" | tee -a build.log
             if xcodebuild build \
               -project "${{ steps.proj.outputs.path }}" \
               -scheme "${{ steps.scheme.outputs.name }}" \
@@ -159,12 +159,16 @@ jobs:
               ln -s "$HOME/derived-sim-$attempt" "$HOME/derived-sim"
               break
             fi
-            rm -rf "$HOME/derived-sim-$attempt"
+            # GH Actions runs steps under `bash -e`. A killed xcodebuild can leave files
+            # locked, so `rm -rf` here may exit non-zero (Permission denied / Directory
+            # not empty) on a partial cleanup -- `|| true` so that alone doesn't abort
+            # the whole script before the loop gets to retry.
+            rm -rf "$HOME/derived-sim-$attempt" || true
             if [ "$attempt" = 2 ]; then
               echo "Both attempts failed" >&2
               exit 1
             fi
-            echo "Attempt $attempt failed, retrying with a fresh DerivedData..."
+            echo "Attempt $attempt failed, retrying with a fresh DerivedData..." | tee -a build.log
           done
 
       - name: Disk usage after build
