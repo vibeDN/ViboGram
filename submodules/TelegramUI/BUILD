@@ -572,6 +572,11 @@ swift_library(
     ] + select({
         "@build_bazel_rules_apple//apple:ios_arm64": appcenter_targets,
         "//build-system:ios_sim_arm64": [],
+        # MARK: ViboGram - this select had no case for Intel Macs' native
+        # simulator arch (ios_sim_x86_64) at all, so generateProject failed
+        # outright there ("doesn't match this configuration"). AppCenter isn't
+        # needed on any simulator, arm64 or not, so match the arm64 sim case.
+        "//conditions:default": [],
     }),
     visibility = [
         "//visibility:public",
