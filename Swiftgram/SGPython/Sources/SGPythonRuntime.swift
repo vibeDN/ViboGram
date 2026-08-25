@@ -18,12 +18,15 @@ import Python
 // bundle is code-signed and read-only at runtime -- CPython must not try to
 // write .pyc caches into it.
 //
-// UNVERIFIED: this file has never been compiled. The PyConfig/PyPreConfig
-// struct-field and PyWideStringList C APIs are translated here from the
-// (Objective-C) reference in briefcase-iOS-Xcode-template's main.m; the
-// exact Swift-side spelling of pointer-to-struct-field arguments
-// (`&config.home` etc.) and wide-string handling via Py_DecodeLocale needs
-// to be confirmed against a real build before trusting it. See
+// Validated (2026-08-25): this exact PyConfig/PyPreConfig sequence, translated
+// from briefcase-iOS-Xcode-template's (Objective-C) main.m, was compiled and
+// run standalone against Linux' native CPython 3.14 (Swift 6.3.3 toolchain,
+// not the iOS xcframework) as a stand-in for the C-interop syntax and control
+// flow -- Py_InitializeFromConfig succeeded and PyRun_SimpleString could
+// import sys. One real bug was caught and fixed this way (see the
+// PyConfig_SetString call below). Still NOT validated: anything iOS-specific
+// -- resource bundling into the actual app bundle, the xcframework's dynamic
+// linking/signing, lib-dynload architecture selection. See
 // docs/plugin-system-tier4.md.
 //
 // Restart-only activation (see README): the interpreter starts once per
@@ -33,6 +36,17 @@ import Python
 // that path is never needed here.
 public enum SGPythonRuntime {
     private static var didStart = false
+    // MARK: ViboGram - captures the CPython-provided PyStatus.err_msg on failure
+    // (confirmed via the Linux compile test to carry a real, specific message,
+    // e.g. "Failed to import encodings module" -- far more useful than just
+    // knowing *that* something failed).
+    public private(set) static var lastError: String?
+
+    private static func describe(_ status: PyStatus) -> String {
+        let funcName = status.func.map { String(cString: $0) } ?? "<unknown>"
+        let errMsg = status.err_msg.map { String(cString: $0) } ?? "<no message>"
+        return "\(funcName): \(errMsg)"
+    }
 
     public static var isBundled: Bool {
         return Bundle.main.path(forResource: "python", ofType: nil) != nil
@@ -44,6 +58,7 @@ public enum SGPythonRuntime {
             return true
         }
         guard let resourcePath = Bundle.main.resourcePath, isBundled else {
+            lastError = "resource bundle not found (isBundled=\(isBundled))"
             return false
         }
 
@@ -52,8 +67,9 @@ public enum SGPythonRuntime {
         preconfig.utf8_mode = 1
         preconfig.configure_locale = 1
 
-        var preStatus = Py_PreInitialize(&preconfig)
+        let preStatus = Py_PreInitialize(&preconfig)
         guard PyStatus_Exception(preStatus) == 0 else {
+            lastError = describe(preStatus)
             return false
         }
 
@@ -73,11 +89,16 @@ public enum SGPythonRuntime {
         }
         func appendSearchPath(_ path: String) -> Bool {
             guard let wide = decode(path) else {
+                lastError = "Py_DecodeLocale failed for path: \(path)"
                 return false
             }
             defer { PyMem_RawFree(wide) }
             let status = PyWideStringList_Append(&config.module_search_paths, wide)
-            return PyStatus_Exception(status) == 0
+            if PyStatus_Exception(status) != 0 {
+                lastError = describe(status)
+                return false
+            }
+            return true
         }
 
         let stdlibPath = resourcePath + "/python/lib/python3.14"
@@ -89,12 +110,20 @@ public enum SGPythonRuntime {
         }
 
         if let homeWide = decode(resourcePath + "/python") {
-            _ = PyConfig_SetString(&config, &config.home, homeWide)
+            // MARK: ViboGram - bugfix, confirmed by a standalone Linux Swift+CPython
+            // compile test: `PyConfig_SetString(&config, &config.home, homeWide)` is
+            // a Swift exclusivity violation (two overlapping inout accesses to the
+            // same `config` in one call: the whole struct and one of its fields).
+            // withUnsafeMutablePointer(to:) makes both derive from a single access.
+            withUnsafeMutablePointer(to: &config) { configPtr in
+                _ = PyConfig_SetString(configPtr, &configPtr.pointee.home, homeWide)
+            }
             PyMem_RawFree(homeWide)
         }
 
         let initStatus = Py_InitializeFromConfig(&config)
         guard PyStatus_Exception(initStatus) == 0 else {
+            lastError = describe(initStatus)
             return false
         }
 
@@ -108,7 +137,7 @@ public enum SGPythonRuntime {
     // build -- see docs/plugin-system-tier4.md.
     public static func runSmokeTest() -> String {
         guard start() else {
-            return "SGPythonRuntime: start() failed (isBundled=\(isBundled) -- either the stdlib resource bundling isn't wired into the app target yet, or PyConfig init/module_search_paths setup failed; check device console log for the PyStatus error message CPython itself prints)"
+            return "SGPythonRuntime: start() failed -- \(lastError ?? "<no error captured>")"
         }
         let versionCString = Py_GetVersion()
         let version = versionCString.map { String(cString: $0) } ?? "<unknown>"

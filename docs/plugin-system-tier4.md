@@ -159,11 +159,46 @@ this session -- each is a real unknown, not just unfinished busywork:
    from Objective-C reference code and has never been compiled. Confirming
    it compiles as written is step 1 below, not something to trust yet.
 
+## Linux smoke test (2026-08-25): the PyConfig code itself is now validated
+
+Xcode/iOS-specific integration aside, the actual *Swift ↔ CPython C API*
+code in `SGPythonRuntime.swift` no longer needs to be trusted on faith. Since
+this repo's own environment can't run Swift or build for iOS, a standalone
+Swift toolchain (6.3.3, official Linux release from swift.org) was installed
+into the scratch/session environment, paired with the system's native
+CPython 3.14.6 (`/usr/include/python3.14`, `/usr/lib64/libpython3.14.so`) via
+a hand-written Clang module map, to compile and run the *exact same*
+`PyPreConfig`/`PyConfig`/`Py_InitializeFromConfig` sequence as a standalone
+program.
+
+This caught one real bug immediately: `PyConfig_SetString(&config,
+&config.home, homeWide)` is a Swift **exclusivity violation** (two
+overlapping `inout` accesses to the same `config` value in a single call —
+the whole struct, and one of its own fields) and fails to compile at all.
+Fixed by routing both pointers through a single `withUnsafeMutablePointer(to:
+&config)` closure instead — now applied in the real file too. After that
+fix, the program compiled and ran successfully end to end (with the search
+paths pointed at this Linux system's own stdlib location, `/usr/lib/python3.14`, standing in for the iOS resource-bundle path): `Py_InitializeFromConfig`
+succeeded, `Py_IsInitialized()` returned 1, and `PyRun_SimpleString("import
+sys; ...")` executed and printed a real `sys.path`.
+
+This does **not** validate anything iOS-specific (resource bundling into the
+actual app bundle, the xcframework's dynamic linking/codesigning, or
+`lib-dynload` architecture selection — all still open, see above). But the
+single biggest previously-"unverified" risk — whether the hand-translated
+Swift/C-interop code even compiles and does the right thing — is now
+resolved. `SGPythonRuntime.swift` also gained a `lastError: String?`
+property (populated from `PyStatus.err_msg`/`.func`, confirmed to carry a
+real, specific message like `"Failed to import encodings module"` rather
+than just a bare failure) for actually-useful diagnostics once this runs on
+a real device/simulator.
+
 ## Suggested order of attack once there's real build access
 
 1. Get `//Swiftgram/SGPython` to actually compile as part of a real Bazel
    build (add it to some target's deps temporarily, confirm `import Python`
-   resolves and links).
+   resolves and links against the xcframework specifically — the Linux test
+   above validates the Swift code's own correctness, not this linking step).
 2. Solve resource bundling for the stdlib -- unzip a built `.app` and
    confirm `python/lib/python3.14/os.py` (or similar) actually lands where
    expected.
@@ -174,7 +209,7 @@ this session -- each is a real unknown, not just unfinished busywork:
 4. Call `SGPythonRuntime.runSmokeTest()` from a debug-only settings row
    (`SGDebugUI`, matching this project's existing convention for
    experimental/risky entry points) and confirm `Py_Initialize()` actually
-   succeeds and can import `sys`/`encodings`.
+   succeeds and can import `sys`/`encodings`. If it fails, `SGPythonRuntime.lastError` should now say specifically why.
 5. Only then design the actual plugin-facing API (hook points, host
    callbacks) -- no point finalizing that surface before the runtime is
    confirmed to boot at all.
