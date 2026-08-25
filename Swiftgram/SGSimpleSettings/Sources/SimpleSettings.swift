@@ -731,8 +731,13 @@ public class SGSimpleSettings {
     private static var _ownAccountPeerIds = Set<Int64>()
 
     public static func registerOwnAccountPeerId(_ id: Int64) {
+        // MARK: ViboGram - bugfix: Set.insert(_:) returns a discardable
+        // (inserted, memberAfterInsert) tuple, which became this closure's
+        // inferred return value, making the outer `locked` call's own (non-
+        // @discardableResult) return value unused -- a hard error under this
+        // project's -warnings-as-errors. Explicitly discard it.
         Self.ownAccountPeerIdsLock.locked {
-            Self._ownAccountPeerIds.insert(id)
+            _ = Self._ownAccountPeerIds.insert(id)
         }
     }
 
