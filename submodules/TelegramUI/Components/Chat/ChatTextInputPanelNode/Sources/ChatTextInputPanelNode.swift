@@ -362,9 +362,15 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
     
     private let hapticFeedback = HapticFeedback()
     
-    // MARK: Swiftgram
-    private var sendWithReturnKey: Bool
-    private var sendWithReturnKeyDisposable: Disposable?
+    // MARK: ViboGram - bugfix: was a stored Bool cached once at init (with a
+    // `sendWithReturnKeyDisposable` that was declared but never actually assigned
+    // anywhere, so it never live-updated the input panel), which meant toggling
+    // "Send with Return key" in Settings had no effect on an already-open chat.
+    // A computed property re-reads live on every use, no reactive plumbing needed
+    // since SGSimpleSettings is a plain synchronous UserDefaults-backed read.
+    private var sendWithReturnKey: Bool {
+        return SGSimpleSettings.shared.sendWithReturnKey
+    }
 //    private var toolbarHostingController: UIViewController? //Any? //  UIHostingController<ChatToolbarView>?
     private var toolbarNode: ASDisplayNode?
     
@@ -723,9 +729,8 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         self.textInputViewInternalInsets = UIEdgeInsets(top: 5.0, left: 12.0, bottom: 4.0, right: 11.0)
 
 
-        // MARK: Swiftgram
-        self.sendWithReturnKey = SGSimpleSettings.shared.sendWithReturnKey // MARK: Swiftgram
-        //
+        // MARK: ViboGram - sendWithReturnKey is now a computed property, nothing to
+        // initialize here.
 
         var hasSpoilers = true
         var hasQuotes = true
@@ -1150,7 +1155,6 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
     
     deinit {
         self.statusDisposable.dispose()
-        self.sendWithReturnKeyDisposable?.dispose()
         self.tooltipController?.dismiss()
         self.currentEmojiSuggestion?.disposable.dispose()
     }

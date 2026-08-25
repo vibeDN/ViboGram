@@ -446,6 +446,12 @@ public final class TextFieldComponent: Component {
             // MARK: Swiftgram
             self.sgToolbarActionObserver = NotificationCenter.default.addObserver(forName: Notification.Name("sgToolbarAction"), object: nil, queue: .main, using: { [weak self] notification in
                     guard let self = self else { return }
+                    // MARK: ViboGram - bugfix: this notification has no sender/target
+                    // identity, so every live TextFieldComponent.View was applying every
+                    // toolbar tap -- e.g. an attachment caption field still alive
+                    // alongside the chat's own input panel would also get the formatting
+                    // applied. Only the currently focused field should react.
+                    guard self.textView.isFirstResponder else { return }
                     if let action = notification.userInfo?["action"] as? String {
                         self.sgToolbarAction(action)
                     }

@@ -383,10 +383,6 @@ final class CameraOutput: NSObject {
                 AVVideoWidthKey: Int(dimensions.width),
                 AVVideoHeightKey: Int(dimensions.height)
             ]
-            // MARK: Swiftgram
-            if SGSimpleSettings.shared.startTelescopeWithRearCam {
-                self.currentPosition = .back
-            }
         } else {
             let codecType: AVVideoCodecType = hasHEVCHardwareEncoder ? .hevc : .h264
             if orientation == .landscapeLeft || orientation == .landscapeRight {

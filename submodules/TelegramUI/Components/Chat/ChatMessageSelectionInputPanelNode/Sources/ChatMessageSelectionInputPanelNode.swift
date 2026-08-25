@@ -650,18 +650,15 @@ public final class ChatMessageSelectionInputPanelNode: ChatInputPanelNode {
         
         let buttonSize = CGSize(width: 40.0, height: 40.0)
 
-        // MARK: Swiftgram
-        reportButton.isHidden = true
-        buttons = [
-            self.deleteButton,
-            self.reportButton,
-            self.tagButton,
-            self.shareButton,
-            self.cloudButton,
-            self.forwardHideNamesButton,
-            self.forwardButton
-        ].filter { !$0.isHidden }
-        //
+        // MARK: ViboGram - bugfix: this used to unconditionally hide Report and
+        // rebuild `buttons` from scratch with a hardcoded self.tagButton, discarding
+        // the report/tag visibility logic computed just above (including the
+        // broadcast-channel-owner Report exception, and the tagEditButton case).
+        // Append the two extra buttons this block actually wants, keep everything
+        // already correctly computed above.
+        buttons.append(self.cloudButton)
+        buttons.append(self.forwardHideNamesButton)
+        buttons = buttons.filter { !$0.isHidden }
         
         let availableWidth = width - leftInset - rightInset
         let spacing: CGFloat = floor((availableWidth - buttonSize.width * CGFloat(buttons.count)) / CGFloat(buttons.count - 1))

@@ -367,11 +367,15 @@ private func contentNodeMessagesAndClassesForItem(_ item: ChatMessageItem) -> ([
                     // MARK: Swiftgram
                     var message = message
                     if message.canRevealContent(contentSettings: item.context.currentContentSettings.with { $0 }) {
-                        let originalTextLength = message.text.count
+                        // MARK: ViboGram - bugfix: MessageTextEntity.range is consumed as an
+                        // NSRange (UTF-16 code units) by stringWithAppliedEntities, but this
+                        // was computed with Character counts -- undercounts for surrogate-pair
+                        // characters (most emoji), misplacing the blockquote highlight.
+                        let originalTextLength = message.text.utf16.count
                         let noticeString = i18n("Message.HoldToShowOrReport", item.presentationData.strings.baseLanguageCode)
-                        
+
                         message = message.withUpdatedText(message.text + "\n" + noticeString)
-                        let noticeStringLength = noticeString.count
+                        let noticeStringLength = noticeString.utf16.count
                         let startIndex = originalTextLength + 1 // +1 for the newline character
                         // Calculate the end index, which is the start index plus the length of noticeString
                         let endIndex = startIndex + noticeStringLength
