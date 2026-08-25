@@ -1,6 +1,7 @@
 import Foundation
 import Postbox
 import TelegramApi
+import SGSimpleSettings
 
 func isPeerHiddenByCollapsedCommunity(transaction: Transaction, peerId: PeerId, peer: Peer? = nil) -> Bool {
     if let channel = (peer ?? transaction.getPeer(peerId)) as? TelegramChannel, let linkedCommunityId = channel.linkedCommunityId {
@@ -24,6 +25,11 @@ func shouldExcludePeerFromChatList(transaction: Transaction, peerId: PeerId, pee
         switch group.membership {
         case .Member:
             return false
+        case .Removed where SGSimpleSettings.shared.keepBannedChatsVisible:
+            // MARK: ViboGram - keep banned/kicked chats visible (Tier 3).
+            // .Left (voluntary) still hides the chat as normal -- only being
+            // removed by someone else stays visible.
+            return false
         default:
             return true
         }
@@ -31,6 +37,10 @@ func shouldExcludePeerFromChatList(transaction: Transaction, peerId: PeerId, pee
         switch channel.participationStatus {
         case .member:
             return isPeerHiddenByCollapsedCommunity(transaction: transaction, peerId: peerId, peer: channel)
+        case .kicked where SGSimpleSettings.shared.keepBannedChatsVisible:
+            // MARK: ViboGram - keep banned/kicked chats visible (Tier 3).
+            // .left (voluntary) still hides the chat as normal.
+            return false
         default:
             return true
         }

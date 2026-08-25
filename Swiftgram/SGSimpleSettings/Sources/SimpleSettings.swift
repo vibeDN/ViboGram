@@ -187,6 +187,7 @@ public class SGSimpleSettings {
         case allowSecretMediaScreenshotsAndSaving
         case bypassIOSContentRestrictions
         case antiDeleteEnabled
+        case keepBannedChatsVisible
     }
     
     public enum DownloadSpeedBoostValues: String, CaseIterable {
@@ -394,7 +395,8 @@ public class SGSimpleSettings {
         Keys.inputFieldFontSizeOverride.rawValue: InputFieldFontSizeValues.defaultCase.rawValue,
         Keys.allowSecretMediaScreenshotsAndSaving.rawValue: false,
         Keys.bypassIOSContentRestrictions.rawValue: false,
-        Keys.antiDeleteEnabled.rawValue: false
+        Keys.antiDeleteEnabled.rawValue: false,
+        Keys.keepBannedChatsVisible.rawValue: false
     ]
     
     public static let groupDefaultValues: [String: Any] = [
@@ -691,6 +693,11 @@ public class SGSimpleSettings {
     // Secret chats are intentionally excluded -- see AccountStateManagementUtils.swift.
     @UserDefault(key: Keys.antiDeleteEnabled.rawValue)
     public var antiDeleteEnabled: Bool
+
+    // MARK: ViboGram - keep banned/kicked chats visible (Tier 3). See
+    // UpdatePeers.swift's shouldExcludePeerFromChatList.
+    @UserDefault(key: Keys.keepBannedChatsVisible.rawValue)
+    public var keepBannedChatsVisible: Bool
 }
 
 extension SGSimpleSettings {
