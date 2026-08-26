@@ -135,12 +135,12 @@ jobs:
           echo "Using scheme: $SCHEME"
           echo "name=$SCHEME" >> "$GITHUB_OUTPUT"
 
-      - name: Live SSH debug session (tmate) for the SwiftSignalKitFramework race
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 90
-        with:
-          limit-access-to-actor: false
-
+      # MARK: ViboGram - tried mxschmitt/action-tmate@v3 here for a free live SSH
+      # debug session on the actual runner. It hung indefinitely after installing
+      # the tmate binary via Homebrew (never printed a connection string, even
+      # after a full 90-minute timeout window and a page reload) -- action-tmate
+      # itself flags the upstream tmate project as deprecated/unmaintained, likely
+      # a dead or overloaded public relay. Removed; a rented Mac is the fallback.
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
           set -o pipefail
