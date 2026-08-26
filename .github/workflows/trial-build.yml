@@ -362,6 +362,36 @@ jobs:
             echo "NOTESEOF"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Update source.json from the published release
+        if: steps.release.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+          IPA_PATH: ${{ steps.ipa.outputs.path }}
+        run: |
+          set -euo pipefail
+          DOWNLOAD_URL=$(gh api "repos/${{ github.repository }}/releases/tags/$VERSION" --jq '.assets[0].browser_download_url')
+          SIZE=$(stat -f%z "$IPA_PATH")
+          SHA256=$(shasum -a 256 "$IPA_PATH" | cut -d' ' -f1)
+          VERSION_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          export SG_VERSION="$VERSION" SG_VERSION_DATE="$VERSION_DATE" SG_SIZE="$SIZE" SG_SHA256="$SHA256" SG_DOWNLOAD_URL="$DOWNLOAD_URL"
+          # MARK: ViboGram - every statement here is a single physical line on
+          # purpose (no embedded newlines/indentation in the -c string). A
+          # multi-line python -c string previously broke this workflow's YAML
+          # parsing (unindented continuation lines look like a new mapping key
+          # to the block-scalar scanner), and a heredoc's closing delimiter
+          # can't simultaneously satisfy YAML's block-indentation requirement
+          # and bash's exact-match terminator requirement without switching to
+          # tabs. One line sidesteps all of that, and also Python's own
+          # top-level-statements-can't-be-indented rule.
+          python3 -c "import json, os; data = json.load(open('source.json')); next(a for a in data['apps'] if a['name'] == 'ViboGram').update(version=os.environ['SG_VERSION'], versionDate=os.environ['SG_VERSION_DATE'], size=int(os.environ['SG_SIZE']), sha256=os.environ['SG_SHA256'], downloadURL=os.environ['SG_DOWNLOAD_URL']); open('source.json', 'w').write(json.dumps(data, indent=2, ensure_ascii=False) + '\n')"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add source.json
+          git commit -m "Update source.json for $VERSION [skip ci]"
+          git push origin HEAD:main
+
       - name: Announce release in Telegram
         if: steps.release.outcome == 'success'
         continue-on-error: true
