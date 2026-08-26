@@ -146,11 +146,19 @@ jobs:
           NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
         run: |
           set -euo pipefail
+          # MARK: ViboGram - password auth via `dscl . -passwd` failed here
+          # ("Permission denied ... eDSAuthFailed") -- the GH Actions runner
+          # image apparently restricts Directory Services password changes even
+          # under sudo. SSH key auth sidesteps that entirely (just an
+          # authorized_keys file write) and also avoids relaying a password
+          # through chat at all -- the public key below is a fixed, throwaway
+          # keypair generated once for this debugging session, not a secret.
           sudo systemsetup -setremotelogin on
-          sudo sed -i '' 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo launchctl kickstart -k system/com.openssh.sshd || true
-          RUNNER_PASS=$(openssl rand -hex 12)
-          sudo dscl . -passwd "/Users/$(whoami)" "$RUNNER_PASS"
+          mkdir -p ~/.ssh
+          echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEDiHA9Oa24au4lm62k3Lyg29pVbCNZA2GoZCD46rKK3 ci-debug" >> ~/.ssh/authorized_keys
+          chmod 700 ~/.ssh
+          chmod 600 ~/.ssh/authorized_keys
           brew install ngrok >/tmp/ngrok_install.log 2>&1 || cat /tmp/ngrok_install.log
           ngrok config add-authtoken "$NGROK_AUTHTOKEN"
           ngrok tcp 22 --log=stdout > /tmp/ngrok.log 2>&1 &
@@ -161,8 +169,6 @@ jobs:
           NGROK_PORT="${HOST_PORT##*:}"
           echo "############################################"
           echo "SSH CONNECT COMMAND: ssh -p $NGROK_PORT $(whoami)@$NGROK_HOST"
-          echo "SSH USER: $(whoami)"
-          echo "SSH PASSWORD: $RUNNER_PASS"
           echo "############################################"
           sleep 5400
 
