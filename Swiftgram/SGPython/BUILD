@@ -17,6 +17,18 @@ swift_library(
     deps = [
         "//third-party/python:Python",
     ],
+    # MARK: ViboGram - resources (data), not deps: rules_apple docs are
+    # explicit that resource bundles attach to a library's `data` attribute,
+    # propagating up to whatever app target eventually links this in. The
+    # lib-dynload bundle is select()-ed per build config since device and
+    # simulator ship different compiled .so files under the same in-bundle
+    # name (see third-party/python/BUILD) -- only one can be present at once.
+    data = [
+        "//third-party/python:PythonStdlib",
+    ] + select({
+        "@build_bazel_rules_apple//apple:ios_arm64": ["//third-party/python:PythonLibDynloadDevice"],
+        "//build-system:ios_sim_arm64": ["//third-party/python:PythonLibDynloadSimulator"],
+    }),
     visibility = [
         "//visibility:public",
     ],

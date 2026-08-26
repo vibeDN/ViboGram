@@ -1,11 +1,17 @@
 # Tier 4: Python plugin system
 
-Status as of 2026-08-25: early scaffolding only. Nothing in this doc's scope
-is wired into any app target yet -- `//Swiftgram/SGPython` builds in
-isolation but nothing depends on it, so it isn't part of `//Telegram:Telegram`
-today. Treat everything below as "confirmed feasible on paper, unverified
-against a real build" until it's actually been through a device/simulator
-build on the rented Mac.
+Status as of 2026-08-26: `//Swiftgram/SGPython` is now wired into
+`//submodules/TelegramUI` (via `sgdeps`), so it's part of a real
+`//Telegram:Telegram` build for the first time -- but this has **not been
+through an actual build yet** (CI is out of free Actions minutes until
+2026-09-01; see the project memory/README for why). Items 1-3 below, listed
+as "genuinely unresolved" as of 2026-08-25, now have a concrete implemented
+design (resource bundling done via `apple_resource_bundle`, confirmed against
+rules_apple's own docs; the vendored `Python.xcframework` itself turned out
+to be carrying ~65MB of non-payload cruft, now cleaned up -- see "Vendoring
+cleanup" below). Treat all of it as "confirmed feasible on paper and now
+actually implemented, still unverified against a real build" until it's
+actually been through a device/simulator build.
 
 ## Why this is hard, and why it's still doable
 
@@ -48,15 +54,27 @@ no scenario in this design that calls for it.
   [Python-Apple-support](https://github.com/beeware/Python-Apple-support)
   release `3.14-b10`, iOS artifact only (CPython 3.14.6 final). Device
   (`ios-arm64`) and simulator (`ios-arm64_x86_64-simulator`) slices. This is
-  the compiled runtime (`Python.framework/Python`, a **dynamic** library --
-  confirmed via `file`, not static) + C headers + compiled stdlib extension
-  modules (`lib-dynload/*.so`). It does **not** include the pure-Python
-  standard library source.
+  now (see "Vendoring cleanup" below) **only** the compiled runtime
+  (`Python.framework/Python`, a **dynamic** library -- confirmed via `file`,
+  not static) + C headers, i.e. exactly what `Info.plist`'s
+  `AvailableLibraries` actually declares per slice. It does **not** include
+  the pure-Python standard library source or the compiled extension modules
+  -- both are vendored and bundled separately, below.
   - The framework ships its own `Headers/module.modulemap` (`module Python { umbrella header "Python.h" ... }`), so `import Python` works directly from
     Swift with zero hand-written bridging header -- confirmed by inspecting
     the shipped modulemap, not yet confirmed by an actual Swift build.
   - Wrapped in `third-party/python/BUILD` via `apple_dynamic_xcframework_import`, mirroring the existing `third-party/recaptcha/BUILD` precedent in this repo (same rule family, that one uses the static variant since
-    RecaptchaEnterprise ships static).
+    RecaptchaEnterprise ships static). Per rules_apple's own
+    `doc/frameworks.md`, a dynamic xcframework/framework import is added via
+    a **library's `deps`** (already how `SGPython/BUILD` references it) --
+    it then propagates automatically to whatever `ios_application` links
+    that library, landing in the bundle's `Frameworks/` directory with no
+    separate `frameworks = [...]` entry needed at the app target level. An
+    earlier revision of this doc assumed the opposite (that it'd need
+    explicit `frameworks = [...]` wiring like the first-party
+    `SwiftSignalKitFramework`-style targets) -- that assumption was wrong,
+    confirmed against rules_apple's docs directly, not tested against a real
+    build.
 - `stdlib/lib/python3.14/` -- CPython 3.14.6's pure-Python standard library,
   fetched from `python.org/ftp/python/3.14.6/Python-3.14.6.tgz`'s `Lib/`
   directory (matching the xcframework's exact build version, confirmed via
@@ -65,12 +83,67 @@ no scenario in this design that calls for it.
   runtime), `idlelib`/`tkinter`/`turtledemo` (all require Tk, which isn't
   bundled and can't function on iOS regardless), and `ensurepip` (bundles
   pip wheels for bootstrapping `pip install`, irrelevant with no on-device
-  package installation planned).
+  package installation planned). Bundled into the app via
+  `apple_resource_bundle(name = "PythonStdlib", bundle_name = "python", ...)`
+  in `third-party/python/BUILD` -- lands at `<bundle>/python.bundle/stdlib/lib/python3.14/...`
+  (see "Resource bundling" below for why the extra `stdlib/` path segment is
+  there and why that's fine).
+- `lib-dynload/ios-arm64/` and `lib-dynload/ios-sim-arm64/` -- CPython's
+  compiled stdlib extension modules (`_socket`, `_ssl`, `_asyncio`, 70 `.so`
+  files each), extracted from BeeWare's release archive (they shipped nested
+  inside `Python.xcframework/<slice>/lib-arm64/python3.14/lib-dynload/`,
+  which is **not** part of the xcframework's declared payload -- see below).
+  Only the `arm64` host-arch variant is vendored for the simulator slice;
+  there is no `lib-x86_64` (Intel-Mac-simulator is treated as unsupported,
+  per the already-made call further down this doc -- virtually all current
+  Macs are Apple Silicon). Each also carries its `_sysconfigdata__*.py` /
+  `_sysconfig_vars__*.json` / `build-details.json` (kept, in case anything in
+  the stdlib calls into `sysconfig` at runtime -- small, low-risk to keep).
+  Bundled via two `apple_resource_bundle` targets sharing one `bundle_name`
+  (`"python-lib-dynload"`) so exactly one is ever present in a given build --
+  `select()`-ed in `SGPython/BUILD`'s `data` attribute between
+  `@build_bazel_rules_apple//apple:ios_arm64` (device) and
+  `//build-system:ios_sim_arm64` (simulator), the same config_setting labels
+  `submodules/TelegramUI/BUILD`'s own `sgdeps` select already uses.
 
-Total vendored size: ~145MB (`Python.xcframework` ~133MB + stdlib ~12MB).
-Committed directly to git, matching this repo's existing convention for
-vendored native SDKs (`third-party/recaptcha/RecaptchaEnterprise.xcframework`
-is committed the same way, no LFS).
+Total vendored size: ~72MB (`Python.xcframework` ~23MB + stdlib ~12MB +
+lib-dynload ~19MB device + ~18MB simulator) -- down from ~199MB before the
+2026-08-26 cleanup (see below). Committed directly to git, matching this
+repo's existing convention for vendored native SDKs
+(`third-party/recaptcha/RecaptchaEnterprise.xcframework` is committed the
+same way, no LFS).
+
+## Vendoring cleanup (2026-08-26)
+
+While designing the actual resource-bundling wiring (item 1 below), reading
+`Python.xcframework/Info.plist` directly turned up something the original
+vendoring pass had gotten wrong: BeeWare's release archive extracts a lot
+more than the real XCFramework payload into the same directory tree, and all
+of it had been swept up by `glob(["Python.xcframework/**"])` along with the
+real thing. `Info.plist`'s `AvailableLibraries` only declares
+`<Identifier>/Python.framework` per slice -- everything else sitting
+alongside it (`lib/` at the xcframework root -- a full **unpruned** 53MB
+copy of the same stdlib already vendored separately and pruned; each slice's
+own `bin/` -- host cross-compilation toolchain wrapper scripts; `include/` --
+C headers for building extensions *from source*, not needed since no
+on-device compilation is planned; `platform-config/` -- `sysconfig`/build
+backend metadata for cross-compiling wheels for this platform; a
+`lib -> Python.framework/Python` symlink) is leftover cruft from BeeWare's
+own support-package archive layout, not something Xcode's own
+xcframework-consuming tooling or `apple_dynamic_xcframework_import` treats as
+meaningful. All of it has been deleted. `lib-dynload/` (the one genuinely
+necessary thing that had been sitting in the wrong place, nested inside each
+slice's now-deleted `lib-arm64/`/`lib-x86_64/`) was relocated out to its own
+top-level `third-party/python/lib-dynload/` first, before the deletion pass,
+and is now bundled as a resource rather than living inside the framework
+import's glob (see above -- it's not something the linker needs, it's Python
+extension modules loaded by CPython's own import machinery at runtime).
+
+Net effect: ~127MB removed (~199MB -> ~72MB), and the xcframework import's
+glob now only contains what `Info.plist` actually declares -- lower risk of
+`apple_dynamic_xcframework_import` tripping on unexpected top-level content,
+though whether it would have actually done so was never confirmed (no real
+build to test it against either way).
 
 ## What's built (`Swiftgram/SGPython/`)
 
@@ -88,51 +161,80 @@ bundling isn't wired up (see below). `runSmokeTest()` calls `Py_GetVersion()`
 and runs a trivial `PyRun_SimpleString` as a first real signal once resource
 bundling exists. Neither is called from anywhere yet.
 
-## What's genuinely unresolved (needs a real Bazel build to get right)
+## Resource bundling and framework embedding (implemented 2026-08-26, unverified against a real build)
 
-These are the reasons the actual app-target wiring wasn't attempted blind
-this session -- each is a real unknown, not just unfinished busywork:
+These were listed as "genuinely unresolved, needs a real Bazel build to get
+right" as of 2026-08-25. They now have a concrete implementation, reasoned
+through from rules_apple's own documentation (fetched and read directly, not
+guessed from memory) rather than from an actual build's output -- that
+confirmation still doesn't exist. Recorded here so the next session (or the
+first real build attempt) isn't starting from scratch, and so it's clear
+exactly what's confirmed-by-docs vs. confirmed-by-build (still nothing in
+the latter category).
 
-1. **Resource bundling structure.** `PYTHONHOME` needs to resolve to
-   `<bundle>/python/lib/python3.14/...` at runtime with directory structure
-   intact. rules_apple's `resources` attribute on `ios_application` is
-   expected to preserve relative paths (vs. flattening), but this hasn't
-   been confirmed against this repo's exact rules_apple/rules_swift version
-   for a multi-hundred-file glob rooted outside the app's own package
-   (`third-party/python/stdlib/**` vs. `Telegram/BUILD`'s package). May need
-   `structured_resources` instead of `resources`, or a dedicated
-   `apple_resource_bundle`/filegroup wrapper -- needs iteration with real
-   build output inspection (unzip the built `.app` and check where the `.py`
-   files actually landed), not something to guess correctly from reading
-   `.bzl` sources alone.
+1. **Resource bundling structure -- resolved via `apple_resource_bundle`,
+   not `structured_resources` on the app target directly.** The earlier
+   worry was a multi-hundred-file glob rooted outside the app's own package
+   (`third-party/python/stdlib/**` vs. `Telegram/BUILD`'s package) --
+   framed as if the resource declaration itself would need to live in (or
+   relative to) `Telegram/BUILD`'s package. It doesn't have to: rules_apple's
+   `doc/resources.md` documents `structured_resources` preserving each
+   file's path *relative to the package that declares the resource rule*,
+   not the consuming app target. So `PythonStdlib`/`PythonLibDynloadDevice`/
+   `PythonLibDynloadSimulator` (`apple_resource_bundle` targets) are declared
+   directly in `third-party/python/BUILD`, right next to the vendored files
+   -- an exact match for every example in rules_apple's own docs, no
+   cross-package ambiguity. They're referenced via `SGPython/BUILD`'s
+   `data` attribute (rules_apple: resources attach to a library's `data`,
+   not `deps`), and propagate up automatically from there. Landing paths:
+   `<bundle>/python.bundle/stdlib/lib/python3.14/...` and
+   `<bundle>/python-lib-dynload.bundle/lib-dynload/<ios-arm64|ios-sim-arm64>/...`
+   -- `SGPythonRuntime.swift`'s search paths were updated to match. **Still
+   unverified**: that rules_apple's actual path-preservation behavior really
+   matches what the docs describe for this specific multi-hundred-file glob
+   case -- the docs' own examples are all single-file, not "glob a whole
+   pruned stdlib tree." First real build should unzip the `.app` and confirm
+   `python.bundle/stdlib/lib/python3.14/os.py` actually exists at that exact
+   path before debugging anything else Python-related.
 
-2. **Dynamic framework embedding + signing.** `Python.framework` is dynamic,
-   so it needs to go in the app target's `frameworks = [...]` list (like
-   `MtProtoKitFramework`/`SwiftSignalKitFramework` etc. already are in
-   `Telegram/BUILD:1958-1963`), not just as a `swift_library` dep -- a dep
-   alone would link against it without embedding the dylib into the app
-   bundle, and it would fail to load at runtime. There is in-repo precedent
-   for signing a nested embedded framework (the watch app's
-   `TDLibFramework.framework`, see this repo's root `CLAUDE.md` "Embedded
-   watch app" section), so this is solvable, but needs to be threaded
-   through the existing codesigning pipeline (`Make.py`/`BuildConfiguration.py`) the same way.
+2. **Dynamic framework embedding + signing -- resolved, and turned out to be
+   simpler than assumed.** The 2026-08-25 revision of this doc assumed
+   `Python.framework` would need explicit `frameworks = [...]` wiring on the
+   app target, the same way first-party `ios_framework` targets like
+   `SwiftSignalKitFramework` are. That's wrong for an *imported* dynamic
+   framework specifically: rules_apple's `doc/frameworks.md` states plainly
+   that `apple_dynamic_framework_import`/`apple_dynamic_xcframework_import`
+   targets are added via a **library's `deps`** (already true here --
+   `SGPython/BUILD` has depended on `//third-party/python:Python` since it
+   was first written) and "are propagated downstream to the top-level
+   bundling rule" automatically, with no `frameworks = [...]` entry needed
+   at all. Codesigning of the embedded dylib is therefore also just
+   rules_apple's completely standard, well-trodden handling for any embedded
+   dynamic framework dependency -- not something needing the watch app's
+   bespoke separate-process signing workaround (that one exists because the
+   watch app is compiled by a *different tool*, `xcodebuild` outside Bazel
+   entirely; Python.xcframework is a normal Bazel-tracked dependency).
+   **Still unverified**: that the app actually launches with this embedded
+   before `Py_Initialize()` is ever called (step 3 in "suggested order of
+   attack" below) -- a bad embed or signature would crash on launch
+   regardless of anything Python-specific.
 
-3. **`lib-dynload` architecture selection is a real per-build AND
-   per-runtime-host problem, not just per-platform.** The device slice has
-   one `lib-dynload` (arm64). The **simulator** slice has two --
-   `ios-arm64_x86_64-simulator/lib-arm64/python3.14/lib-dynload/` (Apple
-   Silicon Mac host) and `.../lib-x86_64/python3.14/lib-dynload/` (Intel Mac
-   host) -- as separate directories with likely-identically-named `.so`
-   files (not merged into universal binaries the way `Python.framework/Python`
-   itself is). Picking the right one for the *device build* is a normal
-   Bazel `select()` on the existing `@build_bazel_rules_apple//apple:ios_arm64` / `//build-system:ios_sim_arm64` config settings (same pattern already
-   used in `submodules/TelegramUI/BUILD`'s `sgdeps` select, fixed earlier
-   this Tier). But for the *simulator build specifically*, the correct
-   choice additionally depends on which Mac the simulator is actually
-   running on -- not knowable at Bazel build time. Given virtually all
-   current Macs are Apple Silicon, defaulting to `lib-arm64` for the
-   simulator slice and treating Intel-Mac-simulator as unsupported is the
-   pragmatic call, but this hasn't been implemented or tested.
+3. **`lib-dynload` architecture selection -- implemented via `select()`,
+   simulator scope narrowed to arm64-only.** Device gets one `.so` set
+   (`ios-arm64`); simulator gets two host-arch variants upstream
+   (`lib-arm64`, Apple Silicon Mac host, vs. `lib-x86_64`, Intel Mac host --
+   not merged into a universal directory the way `Python.framework/Python`
+   itself is). Only `lib-arm64` was vendored (see "Vendoring cleanup" above)
+   -- Intel-Mac-simulator is out of scope, matching the already-made
+   pragmatic call that virtually all current Macs are Apple Silicon.
+   `SGPython/BUILD`'s `data` attribute `select()`s between
+   `PythonLibDynloadDevice`/`PythonLibDynloadSimulator` on the same
+   `@build_bazel_rules_apple//apple:ios_arm64` /
+   `//build-system:ios_sim_arm64` config settings `submodules/TelegramUI/BUILD`'s own `sgdeps` select already uses, and
+   `SGPythonRuntime.swift` picks the matching literal bundle sub-path via
+   `#if targetEnvironment(simulator)`. **Still unverified**: that this
+   actually links/bundles/resolves correctly end to end -- no build has run
+   with either variant selected.
 
 4. **RESOLVED (as of research, not yet as of an actual build): naive
    `PYTHONHOME` auto-derivation is confirmed broken, `PyConfig` with
@@ -195,21 +297,27 @@ a real device/simulator.
 
 ## Suggested order of attack once there's real build access
 
-1. Get `//Swiftgram/SGPython` to actually compile as part of a real Bazel
-   build (add it to some target's deps temporarily, confirm `import Python`
-   resolves and links against the xcframework specifically — the Linux test
-   above validates the Swift code's own correctness, not this linking step).
-2. Solve resource bundling for the stdlib -- unzip a built `.app` and
-   confirm `python/lib/python3.14/os.py` (or similar) actually lands where
-   expected.
-3. Wire `Python.xcframework` into `Telegram/BUILD`'s `frameworks = [...]`,
-   confirm the app launches at all with it embedded (before ever calling
-   `Py_Initialize()` -- a bad embed/signature would crash on launch
-   regardless of Python-specific code).
-4. Call `SGPythonRuntime.runSmokeTest()` from a debug-only settings row
-   (`SGDebugUI`, matching this project's existing convention for
-   experimental/risky entry points) and confirm `Py_Initialize()` actually
-   succeeds and can import `sys`/`encodings`. If it fails, `SGPythonRuntime.lastError` should now say specifically why.
+Steps 1-4 below are now implemented (2026-08-26) as far as they can be
+without a real build -- what's left for each is verification, not design.
+
+1. ~~Get `//Swiftgram/SGPython` to actually compile as part of a real Bazel
+   build~~ **Done**: added to `submodules/TelegramUI/BUILD`'s `sgdeps`. Not
+   yet confirmed to actually compile/link -- no build has run since this was
+   added.
+2. ~~Solve resource bundling for the stdlib~~ **Done, on paper** -- see
+   "Resource bundling and framework embedding" above. First real build
+   should unzip the `.app` and confirm `python.bundle/stdlib/lib/python3.14/os.py`
+   lands where expected before debugging anything else.
+3. ~~Wire `Python.xcframework` into the app target's embedding~~ **Turned
+   out to already be correct** -- no `frameworks = [...]` entry needed for
+   an *imported* dynamic framework, see above. Still needs confirming the
+   app actually launches with it embedded, before ever calling
+   `Py_Initialize()`.
+4. ~~Call `SGPythonRuntime.runSmokeTest()` from a debug-only settings
+   row~~ **Done**: `Swiftgram/SGDebugUI`'s debug menu has a "Python Smoke
+   Test" row (`SGDebugUI.swift`, `.pythonSmokeTest` action) that calls it and
+   surfaces the result (or `SGPythonRuntime.lastError` on failure) via the
+   same `UndoOverlayController` toast this menu already uses elsewhere.
 5. Only then design the actual plugin-facing API (hook points, host
    callbacks) -- no point finalizing that surface before the runtime is
    confirmed to boot at all.

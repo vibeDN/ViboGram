@@ -26,6 +26,12 @@ sgdeps = [
     "//Swiftgram/SGKeychainBackupManager:SGKeychainBackupManager",
     "//Swiftgram/SGGHSettings:SGGHSettings",
     # "//Swiftgram/SGContentAnalysis:SGContentAnalysis"
+    # MARK: ViboGram - Tier 4 plugin system, first real wiring into an app
+    # target (see docs/plugin-system-tier4.md "Suggested order of attack",
+    # step 1). Only pulls in the interpreter-lifecycle wrapper + its
+    # resource/framework deps -- nothing calls SGPythonRuntime.start() yet
+    # (that's step 4, from a debug-only settings row).
+    "//Swiftgram/SGPython:SGPython",
 ]
 
 sgsrcs = [

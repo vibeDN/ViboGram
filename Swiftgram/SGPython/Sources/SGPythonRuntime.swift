@@ -48,8 +48,13 @@ public enum SGPythonRuntime {
         return "\(funcName): \(errMsg)"
     }
 
+    // MARK: ViboGram - the stdlib and lib-dynload are each their own
+    // apple_resource_bundle (see third-party/python/BUILD), landing at the
+    // app bundle's root as `python.bundle` / `python-lib-dynload.bundle` --
+    // not a plain `python` folder like earlier revisions of this file
+    // assumed before the resource-bundling wiring was actually designed.
     public static var isBundled: Bool {
-        return Bundle.main.path(forResource: "python", ofType: nil) != nil
+        return Bundle.main.path(forResource: "python", ofType: "bundle") != nil
     }
 
     @discardableResult
@@ -101,15 +106,28 @@ public enum SGPythonRuntime {
             return true
         }
 
-        let stdlibPath = resourcePath + "/python/lib/python3.14"
-        let dynloadPath = stdlibPath + "/lib-dynload"
+        // MARK: ViboGram - two separate apple_resource_bundle targets (see
+        // third-party/python/BUILD): `python.bundle` for the pure-Python
+        // stdlib (structured_resources preserves the full package-relative
+        // glob path, hence the "stdlib/lib/python3.14" segment), and
+        // `python-lib-dynload.bundle` for the compiled extension modules,
+        // which is select()-ed per build config so exactly one of
+        // ios-arm64/ios-sim-arm64 is ever actually present on disk --
+        // #if targetEnvironment(simulator) picks the matching literal path
+        // to match whichever one Bazel actually bundled.
+        let stdlibPath = resourcePath + "/python.bundle/stdlib/lib/python3.14"
+        #if targetEnvironment(simulator)
+        let dynloadPath = resourcePath + "/python-lib-dynload.bundle/lib-dynload/ios-sim-arm64"
+        #else
+        let dynloadPath = resourcePath + "/python-lib-dynload.bundle/lib-dynload/ios-arm64"
+        #endif
         let appPath = resourcePath + "/app"
 
         guard appendSearchPath(stdlibPath), appendSearchPath(dynloadPath), appendSearchPath(appPath) else {
             return false
         }
 
-        if let homeWide = decode(resourcePath + "/python") {
+        if let homeWide = decode(resourcePath + "/python.bundle") {
             // MARK: ViboGram - bugfix, confirmed by a standalone Linux Swift+CPython
             // compile test: `PyConfig_SetString(&config, &config.home, homeWide)` is
             // a Swift exclusivity violation (two overlapping inout accesses to the

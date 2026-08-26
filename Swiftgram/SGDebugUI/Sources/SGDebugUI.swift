@@ -16,6 +16,7 @@ import TelegramUIPreferences
 import SGSimpleSettings
 import SGLogging
 import SGPayWall
+import SGPython
 import OverlayStatusController
 #if DEBUG
 import FLEX
@@ -41,6 +42,7 @@ private enum SGDebugActions: String {
     case restorePurchases
     case setIAP
     case resetIAP
+    case pythonSmokeTest
 }
 
 private enum SGDebugToggles: String {
@@ -75,6 +77,11 @@ private func SGDebugControllerEntries(presentationData: PresentationData) -> [SG
     entries.append(.action(id: id.count, section: .base, actionType: .setIAP, text: "Set Pro", kind: .generic))
     #endif
     entries.append(.action(id: id.count, section: .base, actionType: .resetIAP, text: "Reset Pro", kind: .destructive))
+    // MARK: ViboGram - Tier 4 plugin system, step 4 of docs/plugin-system-tier4.md's
+    // "Suggested order of attack": first real call to SGPythonRuntime.start(),
+    // gated behind this debug-only row rather than normal app startup until
+    // it's confirmed to actually boot on a real device/simulator.
+    entries.append(.action(id: id.count, section: .base, actionType: .pythonSmokeTest, text: "Python Smoke Test", kind: .generic))
 
     entries.append(.toggle(id: id.count, section: .notifications, settingName: .legacyNotificationsFix, value: SGSimpleSettings.shared.legacyNotificationsFix, text: "[OLD] Fix empty notifications", enabled: true))
     return entries
@@ -193,6 +200,16 @@ public func sgDebugController(context: AccountContext) -> ViewController {
                 ),
                 nil)
             })
+        case .pythonSmokeTest:
+            let result = SGPythonRuntime.runSmokeTest()
+            SGLogger.shared.log("SGDebug", result)
+            presentControllerImpl?(UndoOverlayController(
+                presentationData: presentationData,
+                content: .info(title: nil, text: result, timeout: nil, customUndoText: nil),
+                elevatedLayout: false,
+                action: { _ in return false }
+            ),
+            nil)
         }
     })
     

@@ -42,6 +42,7 @@ swift_library(
         "//Swiftgram/SGSwiftUI:SGSwiftUI",
         "//Swiftgram/SGIAP:SGIAP",
         "//Swiftgram/SGPayWall:SGPayWall",
+        "//Swiftgram/SGPython:SGPython",
         "//submodules/TelegramUIPreferences:TelegramUIPreferences",
         "//submodules/LegacyUI:LegacyUI",
         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
