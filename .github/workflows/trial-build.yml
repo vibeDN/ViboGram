@@ -135,59 +135,6 @@ jobs:
           echo "Using scheme: $SCHEME"
           echo "name=$SCHEME" >> "$GITHUB_OUTPUT"
 
-      # MARK: ViboGram - action-tmate hung indefinitely here (deprecated/dead
-      # relay), replaced with our own sshd + ngrok tcp tunnel. The public
-      # ngrok address still has to be copied out of the live GH Actions log by
-      # hand (GitHub's job-logs API only returns logs for a COMPLETED job, so
-      # this session can't read it live) -- print it clearly and sleep so
-      # there's a real window to connect.
-      - name: Enable SSH and expose via ngrok (live debug for SwiftSignalKitFramework race)
-        env:
-          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
-        run: |
-          set -euo pipefail
-          # MARK: ViboGram - password auth via `dscl . -passwd` failed here
-          # ("Permission denied ... eDSAuthFailed") -- the GH Actions runner
-          # image apparently restricts Directory Services password changes even
-          # under sudo. SSH key auth sidesteps that entirely (just an
-          # authorized_keys file write) and also avoids relaying a password
-          # through chat at all -- the public key below is a fixed, throwaway
-          # keypair generated once for this debugging session, not a secret.
-          sudo systemsetup -setremotelogin on
-          sudo launchctl kickstart -k system/com.openssh.sshd || true
-          mkdir -p ~/.ssh
-          echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEDiHA9Oa24au4lm62k3Lyg29pVbCNZA2GoZCD46rKK3 ci-debug" >> ~/.ssh/authorized_keys
-          chmod 700 ~/.ssh
-          chmod 600 ~/.ssh/authorized_keys
-          brew install ngrok >/tmp/ngrok_install.log 2>&1 || cat /tmp/ngrok_install.log
-          ngrok config add-authtoken "$NGROK_AUTHTOKEN"
-          ngrok tcp 22 --log=stdout > /tmp/ngrok.log 2>&1 &
-          TUNNEL_URL=""
-          for i in $(seq 1 15); do
-            sleep 2
-            TUNNEL_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['tunnels'][0]['public_url'] if d.get('tunnels') else '')" 2>/dev/null || true)
-            if [ -n "$TUNNEL_URL" ]; then
-              break
-            fi
-          done
-          if [ -z "$TUNNEL_URL" ]; then
-            echo "ngrok tunnel never came up after 30s. ngrok log:" >&2
-            cat /tmp/ngrok.log >&2
-            exit 1
-          fi
-          HOST_PORT="${TUNNEL_URL#tcp://}"
-          NGROK_HOST="${HOST_PORT%:*}"
-          NGROK_PORT="${HOST_PORT##*:}"
-          # MARK: ViboGram - GH Actions masks ANY log substring matching ANY repo
-          # secret's value, anywhere, even a short coincidental match -- this repo
-          # has several long base64-encoded secrets (cert, provisioning profile),
-          # so printing this in the GH Actions log (even re-encoded, same risk)
-          # isn't reliable. Send it directly to ntfy.sh instead -- bypasses GH's
-          # log storage/masking entirely, never touches it.
-          curl -s -d "ssh -p $NGROK_PORT $(whoami)@$NGROK_HOST" https://ntfy.sh/vibogram-ci-debug-1681f0c3f7bb252643f655133caa5d52 >/dev/null
-          echo "Connection info sent to ntfy.sh topic (not printed here to avoid GH log masking)."
-          sleep 5400
-
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
           set -o pipefail
