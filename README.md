@@ -257,15 +257,22 @@ for experimental features, not the main app.
 <details>
 <summary><b>Log in from a session file</b></summary>
 
-Not started — no code written. The plan is `.session` (Telethon/Pyrogram)
-first, then TData and a generic `.json` export, so accounts can be carried
-around as files and switched between instead of going through the SMS-code
-flow every time. Deferred to the same "Vibogram: BETA" work as the plugin
-system: it means directly injecting a raw `auth_key` into MTProtoKit's
-`MTContext` and getting `TelegramCore`'s unauthorized-account flow to accept
-it without a real `auth.signIn` response — real MTProto-authentication-
-internals territory, meaningfully riskier than everything else on this list,
-and not something to rush blind.
+Partial. `.session` (Telethon/Pyrogram) file parsing is implemented and
+validated (`Swiftgram/SGSessionImport`) — reads the auth_key straight out of
+either format's SQLite schema, cross-checked against synthetic fixture files
+with a standalone Linux build the same way the plugin system's CPython code
+was. The actual login half — injecting that key into MTProtoKit's
+`MTContext` and getting `TelegramCore` to treat the result as a normal
+logged-in account without a real `auth.signIn` — is researched and designed
+(exact API calls identified, including the `auth_key_id` derivation pulled
+straight from this project's own key-generation code) but deliberately not
+implemented yet: unlike the parsing half, it can only be verified against a
+real account over the real network, and a mistake there risks that account,
+not just a broken feature. Full writeup in
+[`docs/session-import.md`](docs/session-import.md). TData and a generic
+`.json` export remain untouched, per the original ordering. Deferred to the
+same "Vibogram: BETA" work as the plugin system for the actual injection
+step.
 </details>
 
 ## Building it yourself
