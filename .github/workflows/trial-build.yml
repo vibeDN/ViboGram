@@ -135,6 +135,12 @@ jobs:
           echo "Using scheme: $SCHEME"
           echo "name=$SCHEME" >> "$GITHUB_OUTPUT"
 
+      - name: Live SSH debug session (tmate) for the SwiftSignalKitFramework race
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 90
+        with:
+          limit-access-to-actor: false
+
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
           set -o pipefail
