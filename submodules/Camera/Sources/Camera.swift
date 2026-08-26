@@ -384,6 +384,19 @@ private final class CameraContext {
                 
                 self.mainDeviceContext = CameraDeviceContext(session: self.session, exclusive: true, additional: false, ciContext: self.ciContext, colorSpace: self.colorSpace, isRoundVideo: self.initialConfiguration.isRoundVideo)
                 self.mainDeviceContext?.configure(position: self.positionValue, previewView: self.simplePreviewView, audio: self.initialConfiguration.audio, photo: self.initialConfiguration.photo, metadata: self.initialConfiguration.metadata, preferWide: preferWide, preferLowerFramerate: preferLowerFramerate)
+                // MARK: ViboGram - bugfix: CameraDeviceContext's output tracks its
+                // own separate `currentPosition` (defaults to .front, used by
+                // startRecording's round-video crossfade/mirroring logic), which
+                // was never synced to the position this context was actually just
+                // configured with. togglePosition() correctly calls
+                // markPositionChange after changing position, but this initial
+                // setup path never did -- harmless when the starting position
+                // happens to be .front (the coincidental default), but wrong
+                // whenever it isn't, e.g. this fork's own "start round video with
+                // rear camera" setting (positionValue is set from
+                // initialConfiguration.position at Camera.init, above the
+                // isRoundVideo-driven VideoMessageCameraScreen call site).
+                self.mainDeviceContext?.output.markPositionChange(position: self.positionValue)
             }
             self.mainDeviceContext?.output.processSampleBuffer = { [weak self] sampleBuffer, pixelBuffer, connection in
                 guard let self, let mainDeviceContext = self.mainDeviceContext else {

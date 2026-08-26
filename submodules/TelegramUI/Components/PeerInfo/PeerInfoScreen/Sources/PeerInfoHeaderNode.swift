@@ -1182,7 +1182,22 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             // id for older (pre-64-bit-id-expansion) accounts. badges.json is a
             // human-curated config keyed by the plain id (e.g. copy-pasted from a
             // bot), so this must use the unpacked raw id instead.
-            let badge: SGBadge? = peer.flatMap { SGBadges.primaryBadge(for: $0.id.id._internalGetInt64Value()) }
+            // MARK: ViboGram - bugfix: this always looked up the plain positive
+            // id, regardless of peer type. SGBadges' own documented convention
+            // (see SGBadges.swift's SGBadge doc-comment and the chatPeer(chatId:)
+            // helper, which existed but was never actually called from
+            // anywhere) is that groups/channels are keyed by the *negated* id
+            // in badges.json -- so a badge configured for a channel/group could
+            // never match here.
+            let badge: SGBadge? = peer.flatMap { peer -> SGBadge? in
+                let rawId = peer.id.id._internalGetInt64Value()
+                switch peer {
+                case .user, .secretChat:
+                    return SGBadges.primaryBadge(for: rawId)
+                case .legacyGroup, .channel, .community:
+                    return SGBadges.primaryBadge(for: SGBadges.chatPeer(chatId: rawId))
+                }
+            }
             self.currentBadge = badge
 
             if let badge, let color = UIColor(hexString: badge.color) {

@@ -90,6 +90,12 @@ public enum SGBadges {
         }.resume()
     }
 
+    // MARK: ViboGram - `ourBadges`/`margeletBadges` are mutated only via
+    // `DispatchQueue.main.async` in `fetch` above; these two accessors have
+    // no synchronization of their own, so they must only be called from the
+    // main thread (true of the current call site, PeerInfoHeaderNode's UI
+    // code -- if a future caller needs a background thread, this needs a
+    // real lock first, not just a comment).
     /// The single badge to show next to a name -- first match in "ours", then
     /// Margelet's, matching each source's own priority-by-order convention.
     public static func primaryBadge(for peerId: Int64) -> SGBadge? {

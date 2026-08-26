@@ -4509,7 +4509,16 @@ func replayFinalState(
                 _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: idsToDelete, manualAddMessageThreadStatsDifference: { id, add, remove in
                     addMessageThreadStatsDifference(threadKey: id, remove: remove, addedMessagePeer: nil, addedMessageId: nil, isOutgoing: false)
                 })
-                deletedMessageIds.append(contentsOf: ids.map { .messageId($0) })
+                // MARK: ViboGram - bugfix: this used to report `ids` (every id the
+                // server told us to delete) rather than `idsToDelete` (the ones
+                // actually purged above). An anti-delete-kept message was never
+                // added to `idsToDelete`, but was still being reported here as
+                // deleted -- `deletedMessageIds` feeds `AccountStateManager`'s
+                // `deletedMessages` signal, whose only consumer
+                // (ChatListSearchListPaneNode) hides matching ids from search
+                // results, so a "kept" message became permanently unsearchable
+                // even though it's still visible in the chat itself.
+                deletedMessageIds.append(contentsOf: idsToDelete.map { .messageId($0) })
             case let .UpdateMinAvailableMessage(id):
                 if let message = transaction.getMessage(id) {
                     updatePeerChatInclusionWithMinTimestamp(transaction: transaction, id: id.peerId, minTimestamp: message.timestamp, forceRootGroupIfNotExists: false)

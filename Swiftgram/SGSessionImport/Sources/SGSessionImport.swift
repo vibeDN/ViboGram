@@ -91,11 +91,24 @@ public enum SGSessionImport {
     // unmodified -- this never writes to it.
     public static func importSession(atPath path: String) throws -> SGImportedSession {
         var db: OpaquePointer?
-        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK, let db = db else {
+        let openResult = sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, nil)
+        // MARK: ViboGram - bugfix: sqlite3_open_v2 can populate `db` with a
+        // valid (error-bearing) handle even when it returns non-SQLITE_OK --
+        // that's the documented reason sqlite3_errmsg(db) below works at all.
+        // The `defer` used to be declared only after this guard, so it never
+        // ran on the failure path, leaking the native connection object on
+        // every invalid/corrupt/locked .session file. Deferring the close
+        // immediately after the open call, regardless of outcome, covers both
+        // paths.
+        defer {
+            if let db {
+                sqlite3_close(db)
+            }
+        }
+        guard openResult == SQLITE_OK, let db else {
             let message = db.map { String(cString: sqlite3_errmsg($0)) } ?? "sqlite3_open_v2 failed"
             throw SGSessionImportError.cannotOpen(message)
         }
-        defer { sqlite3_close(db) }
 
         let columns = columnNames(db, table: "sessions")
         let format: SGSessionFormat

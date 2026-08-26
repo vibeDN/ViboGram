@@ -695,7 +695,17 @@ open class ChatMessageItemView: ListViewItemNode, ChatMessageItemNodeProtocol {
     
     open func setupItem(_ item: ChatMessageItem, synchronousLoad: Bool) {
         self.item = item
-        
+
+        // MARK: ViboGram - bugfix: neither of the two alpha-dimming branches
+        // below ever reset `self.alpha` back to 1.0 for a message that
+        // matches neither condition. Since this node is reused across
+        // different messages as the list scrolls (see `reuse()` above), a
+        // node that once displayed a filtered-keyword or anti-deleted
+        // message could stay stuck at 0.2/0.3/0.5 alpha forever after being
+        // recycled for a normal, unrelated message. Reset unconditionally
+        // here, before either branch can re-dim it.
+        self.alpha = 1.0
+
         // MARK: ViboGram - the ephemeralStatus > 1 gate here was the old Swiftgram
         // Pro paywall check; Pro was merged into the free tier for everyone, but
         // this specific gate was missed, so the filter silently never applied.
