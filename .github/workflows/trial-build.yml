@@ -178,8 +178,14 @@ jobs:
           HOST_PORT="${TUNNEL_URL#tcp://}"
           NGROK_HOST="${HOST_PORT%:*}"
           NGROK_PORT="${HOST_PORT##*:}"
+          # MARK: ViboGram - GH Actions masks ANY log substring matching ANY repo
+          # secret's value, anywhere, even coincidentally (e.g. a random port
+          # number happening to share digits with an unrelated cert/token secret)
+          # -- base64-encode so the digits/host don't literally appear in the log.
+          CONNECT_B64=$(echo -n "ssh -p $NGROK_PORT $(whoami)@$NGROK_HOST" | base64)
           echo "############################################"
-          echo "SSH CONNECT COMMAND: ssh -p $NGROK_PORT $(whoami)@$NGROK_HOST"
+          echo "SSH CONNECT COMMAND (base64, decode with: echo '<value>' | base64 -d):"
+          echo "$CONNECT_B64"
           echo "############################################"
           sleep 5400
 
