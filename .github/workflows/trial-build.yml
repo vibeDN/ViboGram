@@ -135,36 +135,6 @@ jobs:
           echo "Using scheme: $SCHEME"
           echo "name=$SCHEME" >> "$GITHUB_OUTPUT"
 
-      - name: Disable build parallelism for the app scheme (SwiftSignalKitFramework race mitigation)
-        run: |
-          set -uo pipefail
-          # MARK: ViboGram - the SwiftSignalKitFramework copy race is between
-          # rules_xcodeproj's "Copy Bazel Outputs" script phase and Xcode's own
-          # native compile/link for early framework targets. "Based on dependency
-          # analysis" is unchecked for these phases (seen in build logs), so Xcode
-          # can't establish a real file-level ordering for them -- it relies on
-          # target-level scheduling, which parallel target builds can still race.
-          # Forcing serial target builds is the closest lever we have to "give the
-          # race more breathing room" without being able to insert a literal sleep
-          # inside a single xcodebuild invocation's internal phase graph.
-          # UNVERIFIED -- confirm this actually helps (and doesn't just slow down
-          # every build for nothing) against a real run.
-          SCHEME_FILE=$(find "${{ steps.proj.outputs.path }}" -path "*xcschemes/${{ steps.scheme.outputs.name }}.xcscheme" | head -1)
-          if [ -z "$SCHEME_FILE" ]; then
-            echo "Could not find .xcscheme file for scheme ${{ steps.scheme.outputs.name }}, skipping (build will proceed with default parallelism)" >&2
-          else
-            echo "Patching $SCHEME_FILE"
-            # rules_xcodeproj generates this file read-only; best-effort chmod, and
-            # don't fail the whole job if patching doesn't work out -- this is a
-            # race-mitigation optimization, not a correctness requirement.
-            chmod u+w "$SCHEME_FILE" || true
-            if sed -i '' 's/parallelizeBuildables *= *"YES"/parallelizeBuildables = "NO"/' "$SCHEME_FILE"; then
-              grep -o 'parallelizeBuildables = "[A-Z]*"' "$SCHEME_FILE" || echo "parallelizeBuildables attribute not found in scheme (may already be serial, or use a different default)"
-            else
-              echo "sed failed to patch $SCHEME_FILE (permissions?) -- proceeding with default parallelism" >&2
-            fi
-          fi
-
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
           set -o pipefail
@@ -180,14 +150,20 @@ jobs:
           # rules_xcodeproj's "Copy Bazel Outputs" script phases intermittently
           # race the underlying bazel build for the first few framework
           # targets ("No such file or directory" copying a .swiftmodule that
-          # hasn't landed yet) -- genuine GH Actions runner I/O flakiness, not
-          # fixed by COMPILER_INDEX_STORE_ENABLE or Bazel disk caching (both
-          # ruled out). A prior attempt at in-job retry made it *worse*
-          # because it reused the SAME DerivedData across attempts -- a killed
-          # xcodebuild mid-write leaves files a retry then gets "Permission
-          # denied" on. This time each attempt gets its own fresh
-          # DerivedData, so a retry here is a genuine from-scratch redo, not
-          # a reuse of poisoned state.
+          # hasn't landed yet). Ruled out so far: COMPILER_INDEX_STORE_ENABLE,
+          # Bazel disk caching, reusing the same DerivedData across retries
+          # (worse -- leaves locked files), and Xcode target-build parallelism
+          # (forcing parallelizeBuildables=NO still hit the identical race on
+          # a real run, just ~2x slower). Each retry attempt below at least
+          # gets a fresh DerivedData, which is a genuine partial redo, but not
+          # a full one -- Bazel's own execroot/disk-cache state is still
+          # shared across attempts, and (confirmed the hard way) blindly
+          # nuking rules_xcodeproj's separate internal bazel output_base to
+          # "fix" that breaks the retry worse (deletes generated scaffolding
+          # it depends on, not just stale outputs). Root cause is still
+          # unresolved -- this loop is a mitigation, not a fix. See
+          # docs/plugin-system-tier4.md-adjacent history / commit log for the
+          # full list of tried-and-reverted theories before adding a new one.
           for attempt in 1 2; do
             echo "=== xcodebuild attempt $attempt/2 (fresh DerivedData) ===" | tee -a build.log
             if xcodebuild build \
@@ -212,18 +188,18 @@ jobs:
             # not empty) on a partial cleanup -- `|| true` so that alone doesn't abort
             # the whole script before the loop gets to retry.
             rm -rf "$HOME/derived-sim-$attempt" || true
-            # MARK: ViboGram - a fresh DerivedData alone was NOT a genuine from-scratch
-            # redo: rules_xcodeproj's "Copy Bazel Outputs" script phases run their OWN
-            # separate, self-managed Bazel invocation with its own output_base under
-            # /var/tmp/_bazel_<user>/*/rules_xcodeproj.noindex/ (confirmed from a real
-            # failure log's cwd: /var/tmp/_bazel_runner/<hash>/rules_xcodeproj.noindex/
-            # build_output_base/execroot/_main) -- that state persisted across attempts
-            # even with fresh DerivedData, which is the likely reason a second attempt
-            # previously hit the identical failure much faster than the first instead
-            # of actually re-running the race. Best-effort clear it too. UNVERIFIED --
-            # confirm this directory glob is right (and that clearing it actually
-            # changes attempt-2's behavior) against a real run before trusting this.
-            rm -rf /var/tmp/_bazel_*/*/rules_xcodeproj.noindex || true
+            # MARK: ViboGram - TRIED AND REVERTED: also clearing rules_xcodeproj's own
+            # separate bazel output_base (/var/tmp/_bazel_*/*/rules_xcodeproj.noindex/)
+            # here on the theory that it persisted stale state across attempts. It does
+            # persist, but this directory also holds the *generated external repo*
+            # rules_xcodeproj's own "Generate Bazel Dependencies" script phase depends
+            # on (rules_xcodeproj_generated//generator/Telegram/Telegram_xcodeproj),
+            # which is NOT regenerated by a bare xcodebuild retry -- confirmed via a
+            # real run: attempt 2 failed near-instantly with "no such package
+            # ...Telegram_xcodeproj: BUILD file not found", a different and strictly
+            # worse failure than the SwiftSignalKitFramework race it was meant to fix.
+            # Do not re-add this without a way to distinguish stale build outputs from
+            # essential generated scaffolding within that directory.
             if [ "$attempt" = 2 ]; then
               echo "Both attempts failed" >&2
               exit 1
