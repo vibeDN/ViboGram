@@ -165,11 +165,7 @@ jobs:
           TUNNEL_URL=""
           for i in $(seq 1 15); do
             sleep 2
-            TUNNEL_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | python3 -c "import json,sys
-try:
-    print(json.load(sys.stdin)['tunnels'][0]['public_url'])
-except Exception:
-    pass" 2>/dev/null || true)
+            TUNNEL_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['tunnels'][0]['public_url'] if d.get('tunnels') else '')" 2>/dev/null || true)
             if [ -n "$TUNNEL_URL" ]; then
               break
             fi
