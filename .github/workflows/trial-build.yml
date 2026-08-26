@@ -135,12 +135,37 @@ jobs:
           echo "Using scheme: $SCHEME"
           echo "name=$SCHEME" >> "$GITHUB_OUTPUT"
 
-      # MARK: ViboGram - tried mxschmitt/action-tmate@v3 here for a free live SSH
-      # debug session on the actual runner. It hung indefinitely after installing
-      # the tmate binary via Homebrew (never printed a connection string, even
-      # after a full 90-minute timeout window and a page reload) -- action-tmate
-      # itself flags the upstream tmate project as deprecated/unmaintained, likely
-      # a dead or overloaded public relay. Removed; a rented Mac is the fallback.
+      # MARK: ViboGram - action-tmate hung indefinitely here (deprecated/dead
+      # relay), replaced with our own sshd + ngrok tcp tunnel. The public
+      # ngrok address still has to be copied out of the live GH Actions log by
+      # hand (GitHub's job-logs API only returns logs for a COMPLETED job, so
+      # this session can't read it live) -- print it clearly and sleep so
+      # there's a real window to connect.
+      - name: Enable SSH and expose via ngrok (live debug for SwiftSignalKitFramework race)
+        env:
+          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+        run: |
+          set -euo pipefail
+          sudo systemsetup -setremotelogin on
+          sudo sed -i '' 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo launchctl kickstart -k system/com.openssh.sshd || true
+          RUNNER_PASS=$(openssl rand -hex 12)
+          sudo dscl . -passwd "/Users/$(whoami)" "$RUNNER_PASS"
+          brew install ngrok >/tmp/ngrok_install.log 2>&1 || cat /tmp/ngrok_install.log
+          ngrok config add-authtoken "$NGROK_AUTHTOKEN"
+          ngrok tcp 22 --log=stdout > /tmp/ngrok.log 2>&1 &
+          sleep 8
+          TUNNEL_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | python3 -c "import json,sys; print(json.load(sys.stdin)['tunnels'][0]['public_url'])")
+          HOST_PORT="${TUNNEL_URL#tcp://}"
+          NGROK_HOST="${HOST_PORT%:*}"
+          NGROK_PORT="${HOST_PORT##*:}"
+          echo "############################################"
+          echo "SSH CONNECT COMMAND: ssh -p $NGROK_PORT $(whoami)@$NGROK_HOST"
+          echo "SSH USER: $(whoami)"
+          echo "SSH PASSWORD: $RUNNER_PASS"
+          echo "############################################"
+          sleep 5400
+
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
           set -o pipefail
