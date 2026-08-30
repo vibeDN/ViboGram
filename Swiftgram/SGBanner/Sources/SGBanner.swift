@@ -99,8 +99,18 @@ public enum SGBanner {
             previousSignal = find(context: context, peerId: accountPeerId) |> map { $0?.id }
         }
 
-        let uploadSignal = standaloneUploadedImage(postbox: context.account.postbox, network: context.account.network, peerId: accountPeerId, text: "", source: .data(imageData), dimensions: dimensions)
-        |> mapToSignal { event -> Signal<AnyMediaReference?, NoError> in
+        // MARK: ViboGram - bugfix, caught by the first real CI build to get
+        // past the SwiftSignalKitFramework race: standaloneUploadedImage's
+        // error type is StandaloneUploadMediaError, not NoError -- the
+        // mapToSignal closure has to keep that same error type (it can't
+        // just declare a different one), so the conversion down to NoError
+        // (needed to combineLatest this with the NoError-typed
+        // previousSignal below) happens afterward via `catch`, treating any
+        // upload/send failure the same way post() returning nil already
+        // does elsewhere in this function -- as "no media reference", not a
+        // hard failure.
+        let uploadSignal: Signal<AnyMediaReference?, NoError> = standaloneUploadedImage(postbox: context.account.postbox, network: context.account.network, peerId: accountPeerId, text: "", source: .data(imageData), dimensions: dimensions)
+        |> mapToSignal { event -> Signal<AnyMediaReference?, StandaloneUploadMediaError> in
             switch event {
             case .progress:
                 return .complete()
@@ -112,6 +122,9 @@ public enum SGBanner {
             }
         }
         |> take(1)
+        |> `catch` { _ -> Signal<AnyMediaReference?, NoError> in
+            return .single(nil)
+        }
 
         let _ = (combineLatest(previousSignal, uploadSignal)
         |> mapToSignal { previous, mediaReference -> Signal<(MessageId?, MessageId?), NoError> in
