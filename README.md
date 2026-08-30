@@ -19,10 +19,14 @@ over it. Built for my own daily use, not a commercial product or an attempt to
 compete with anything. It's public mostly so I don't lose it, and in case it's
 useful to someone else with the same itch.
 
-Every CI run publishes an **unsigned** device IPA on the [Releases
-page](https://github.com/vibeDN/ViboGram/releases), tagged `v0.0.<build
-number>`. You resign it yourself (LiveContainer, AltStore/SideStore, `ldid`,
-etc.) before it'll install on a real device.
+Each shipped feature/fix gets a tagged pre-release on the [Releases
+page](https://github.com/vibeDN/ViboGram/releases) (`MAJOR.TIER.COUNTER`, e.g.
+`0.4.0` — `MAJOR` flips to `1` once every tier on the roadmap below is done).
+When CI can actually build, the release carries a real device IPA, signed
+with a free-tier Apple ID cert (expires after 7 days — re-signing it yourself
+via LiveContainer/AltStore/SideStore/`ldid` still works after that, same as
+any expired ad-hoc signature). When CI can't run, the release still goes
+out — just source-only, with notes on what changed, until the next build.
 
 ## What this is (and isn't)
 
@@ -361,9 +365,10 @@ pinning, the usual Bazel/Xcode troubleshooting).
 
 - **`api_id` / `api_hash`.** The build owner's own keys. Get yours at
   my.telegram.org — never committed here.
-- **A code-signing certificate or provisioning profile.** Released builds are
-  deliberately unsigned (see the *Development builds* note above); anything
-  distributed beyond your own device is on you to sign.
+- **A code-signing certificate or provisioning profile.** CI holds its own
+  (free-tier, 7-day) cert as a repo secret, not committed here; a source-only
+  release (see *Development builds* above) has nothing signed at all, and
+  anything you distribute yourself beyond your own device is on you to sign.
 
 ## Files here
 
