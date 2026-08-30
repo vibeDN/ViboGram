@@ -135,42 +135,6 @@ jobs:
           echo "Using scheme: $SCHEME"
           echo "name=$SCHEME" >> "$GITHUB_OUTPUT"
 
-      # MARK: ViboGram - re-added for one more live-debug session, testing
-      # the -parseable-output protocol fix. Remove again right after.
-      - name: Enable SSH and expose via ngrok (live debug for SwiftSignalKitFramework race)
-        env:
-          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
-        run: |
-          set -euo pipefail
-          sudo systemsetup -setremotelogin on
-          sudo launchctl kickstart -k system/com.openssh.sshd || true
-          mkdir -p ~/.ssh
-          echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPrBdNC237YN7GU0fouj94fLn1MGL9nramJpz79Y+TIz ci-debug" >> ~/.ssh/authorized_keys
-          chmod 700 ~/.ssh
-          chmod 600 ~/.ssh/authorized_keys
-          brew install ngrok >/tmp/ngrok_install.log 2>&1 || cat /tmp/ngrok_install.log
-          ngrok config add-authtoken "$NGROK_AUTHTOKEN"
-          ngrok tcp 22 --log=stdout > /tmp/ngrok.log 2>&1 &
-          TUNNEL_URL=""
-          for i in $(seq 1 15); do
-            sleep 2
-            TUNNEL_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['tunnels'][0]['public_url'] if d.get('tunnels') else '')" 2>/dev/null || true)
-            if [ -n "$TUNNEL_URL" ]; then
-              break
-            fi
-          done
-          if [ -z "$TUNNEL_URL" ]; then
-            echo "ngrok tunnel never came up after 30s. ngrok log:" >&2
-            cat /tmp/ngrok.log >&2
-            exit 1
-          fi
-          HOST_PORT="${TUNNEL_URL#tcp://}"
-          NGROK_HOST="${HOST_PORT%:*}"
-          NGROK_PORT="${HOST_PORT##*:}"
-          curl -s -d "ssh -p $NGROK_PORT $(whoami)@$NGROK_HOST" https://ntfy.sh/vibogram-ci-debug-1681f0c3f7bb252643f655133caa5d52 >/dev/null
-          echo "Connection info sent to ntfy.sh topic (not printed here to avoid GH log masking)."
-          sleep 5400
-
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
           set -o pipefail
@@ -211,8 +175,22 @@ jobs:
           # unresolved -- this loop is a mitigation, not a fix. See
           # docs/plugin-system-tier4.md-adjacent history / commit log for the
           # full list of tried-and-reverted theories before adding a new one.
-          for attempt in 1 2; do
-            echo "=== xcodebuild attempt $attempt/2 (fresh DerivedData) ===" | tee -a build.log
+          # MARK: ViboGram - bumped from 2 to 5 attempts (not more -- this
+          # job's overall timeout-minutes still has to leave room for the
+          # device build + packaging + publish steps that come after this
+          # one in the same job). Live SSH debugging
+          # (see the issue thread) traced the race down to something inside
+          # Xcode's own closed-source SwiftBuild engine -- a speculative/
+          # planning-time probe against a target whose near-instant BwB
+          # stub compile hasn't produced anything yet, which looks like it
+          # poisons the build's final status even when the real copy
+          # succeeds moments later. Not fixable from this repo's side.
+          # Since it's genuinely probabilistic and CI is free on this public
+          # repo, more attempts is a cheap way to just get lucky more often
+          # while a real fix is pursued separately.
+          MAX_ATTEMPTS=5
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "=== xcodebuild attempt $attempt/$MAX_ATTEMPTS (fresh DerivedData) ===" | tee -a build.log
             if xcodebuild build \
               -project "${{ steps.proj.outputs.path }}" \
               -scheme "${{ steps.scheme.outputs.name }}" \
@@ -247,8 +225,8 @@ jobs:
             # worse failure than the SwiftSignalKitFramework race it was meant to fix.
             # Do not re-add this without a way to distinguish stale build outputs from
             # essential generated scaffolding within that directory.
-            if [ "$attempt" = 2 ]; then
-              echo "Both attempts failed" >&2
+            if [ "$attempt" = "$MAX_ATTEMPTS" ]; then
+              echo "All $MAX_ATTEMPTS attempts failed" >&2
               exit 1
             fi
             echo "Attempt $attempt failed, retrying with a fresh DerivedData..." | tee -a build.log
@@ -314,15 +292,32 @@ jobs:
       - name: Build for device (signed)
         run: |
           set -o pipefail
-          xcodebuild build \
-            -project "${{ steps.proj.outputs.path }}" \
-            -scheme "${{ steps.scheme.outputs.name }}" \
-            -sdk iphoneos \
-            -configuration Debug \
-            -derivedDataPath "$HOME/derived-device" \
-            -destination "generic/platform=iOS" \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            | tee build-device.log
+          # MARK: ViboGram - same retry treatment as the simulator build
+          # above, for the same reason (see MobileNativeFoundation/rules_xcodeproj#3183)
+          # -- this wasn't retried at all before, so a single unlucky hit
+          # here would waste a simulator build that already got past it.
+          MAX_ATTEMPTS=3
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "=== xcodebuild (device) attempt $attempt/$MAX_ATTEMPTS (fresh DerivedData) ===" | tee -a build-device.log
+            if xcodebuild build \
+              -project "${{ steps.proj.outputs.path }}" \
+              -scheme "${{ steps.scheme.outputs.name }}" \
+              -sdk iphoneos \
+              -configuration Debug \
+              -derivedDataPath "$HOME/derived-device-$attempt" \
+              -destination "generic/platform=iOS" \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              | tee -a build-device.log; then
+              ln -s "$HOME/derived-device-$attempt" "$HOME/derived-device"
+              break
+            fi
+            rm -rf "$HOME/derived-device-$attempt" || true
+            if [ "$attempt" = "$MAX_ATTEMPTS" ]; then
+              echo "All $MAX_ATTEMPTS device build attempts failed" >&2
+              exit 1
+            fi
+            echo "Device build attempt $attempt failed, retrying with a fresh DerivedData..." | tee -a build-device.log
+          done
 
       - name: Package signed IPA
         id: ipa
@@ -439,7 +434,12 @@ jobs:
           git push origin HEAD:main
 
       - name: Announce release in Telegram
-        if: steps.release.outcome == 'success'
+        # MARK: ViboGram - temporarily disabled (`&& false`) overnight per
+        # explicit request: let the build/release/IPA/source.json pipeline
+        # run autonomously, but hold the public Telegram channel post for
+        # morning review before anything goes out to real users. Remove
+        # `&& false` once reviewed.
+        if: steps.release.outcome == 'success' && false
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
