@@ -46,6 +46,7 @@ swift_library(
         "//Swiftgram/SGCommunityGroup:SGCommunityGroup",
         "//Swiftgram/SGBanner:SGBanner",
         "//Swiftgram/SGGradient:SGGradient",
+        "//Swiftgram/SGWall:SGWall",
         "//submodules/TelegramUIPreferences:TelegramUIPreferences",
         "//submodules/LegacyUI:LegacyUI",
         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",

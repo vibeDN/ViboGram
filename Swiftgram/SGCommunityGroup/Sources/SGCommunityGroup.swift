@@ -55,8 +55,13 @@ public enum SGCommunityGroup {
     /// whose text contains `tag`. Newest first (Telegram's own search order).
     /// Callers apply whatever further filtering their feature needs (has a
     /// photo, matches a stricter pattern, etc.) -- this only does the
-    /// sender+tag half, which is common to both banner and gradient.
-    public static func find(context: AccountContext, tag: String, fromId: PeerId, limit: Int32 = 20) -> Signal<[Message], NoError> {
+    /// tag half (and, when `fromId` is given, the sender half too).
+    ///
+    /// `fromId` is nil for the wall (many different authors write about one
+    /// subject -- the subject's identity is encoded in the tag itself, e.g.
+    /// `#margy_wall_123`, not the sender), and non-nil for banner/gradient
+    /// (exactly one author: the subject posting about themselves).
+    public static func find(context: AccountContext, tag: String, fromId: PeerId?, limit: Int32 = 20) -> Signal<[Message], NoError> {
         return resolveGroup(context: context)
         |> mapToSignal { groupPeerId -> Signal<[Message], NoError> in
             guard let groupPeerId else {

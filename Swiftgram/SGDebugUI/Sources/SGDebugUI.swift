@@ -20,6 +20,7 @@ import SGPython
 import SGCommunityGroup
 import SGBanner
 import SGGradient
+import SGWall
 import OverlayStatusController
 #if DEBUG
 import FLEX
@@ -227,12 +228,13 @@ public func sgDebugController(context: AccountContext) -> ViewController {
             let _ = (combineLatest(
                 SGCommunityGroup.resolveGroup(context: context),
                 SGBanner.find(context: context, peerId: accountPeerId),
-                SGGradient.find(context: context, peerId: accountPeerId)
+                SGGradient.find(context: context, peerId: accountPeerId),
+                SGWall.entries(context: context, peerId: accountPeerId)
             )
-            |> deliverOnMainQueue).start(next: { groupPeerId, banner, gradient in
+            |> deliverOnMainQueue).start(next: { groupPeerId, banner, gradient, wallEntries in
                 let text: String
                 if let groupPeerId {
-                    text = "Group resolved: \(groupPeerId). Own banner: \(banner != nil ? "found" : "none"). Own gradient: \(gradient.map { String(format: "#%06X-#%06X", $0.from, $0.to) } ?? "none")."
+                    text = "Group resolved: \(groupPeerId). Own banner: \(banner != nil ? "found" : "none"). Own gradient: \(gradient.map { String(format: "#%06X-#%06X", $0.from, $0.to) } ?? "none"). Own wall entries: \(wallEntries.count)."
                 } else {
                     text = "Failed to resolve @\(SGCommunityGroup.username) -- see logs."
                 }
