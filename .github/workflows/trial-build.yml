@@ -234,9 +234,14 @@ jobs:
             # own attempt (and its own retry) still gets a fair shot same as
             # before.
             echo "=== Pre-building SwiftSignalKitFramework in isolation (attempt $attempt/2, mitigation for the race above) ===" | tee -a build.log
+            # `-derivedDataPath` requires `-scheme` (or -testProductsPath/-xctestrun) --
+            # `-target` alone errors ("xcodebuild: error: The flag -scheme... is
+            # required when specifying -derivedDataPath"), confirmed live. rules_xcodeproj
+            # auto-generates a scheme per Bazel target (see the `awk` matching below), so
+            # a scheme literally named after this framework target already exists.
             xcodebuild build \
               -project "${{ steps.proj.outputs.path }}" \
-              -target SwiftSignalKitFramework \
+              -scheme SwiftSignalKitFramework \
               -sdk iphonesimulator \
               -destination "generic/platform=iOS Simulator" \
               -configuration Debug \
