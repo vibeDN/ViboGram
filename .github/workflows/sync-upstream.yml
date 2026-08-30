@@ -63,7 +63,7 @@ jobs:
           gh pr create \
             --title "Sync upstream Swiftgram (${{ steps.check.outputs.behind }} commits)" \
             --body "Automated merge of Swiftgram/Telegram-iOS master into this fork. Clean merge, no conflicts. Review before merging — run trial-build on this branch first." \
-            --base master \
+            --base main \
             --head "${{ steps.merge.outputs.branch }}"
 
       - name: Open issue (conflicted merge)
