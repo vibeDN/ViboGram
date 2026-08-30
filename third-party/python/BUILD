@@ -1,6 +1,15 @@
 load(
     "@build_bazel_rules_apple//apple:apple.bzl",
     "apple_dynamic_xcframework_import",
+)
+# MARK: ViboGram - bugfix, caught by the first real Bazel analysis of this
+# file: apple_resource_bundle lives in apple:resources.bzl, not apple.bzl
+# (confirmed against the vendored rules_apple source itself,
+# build-system/bazel-rules/rules_apple/apple/resources.bzl). Wrong load path
+# is a bazel analysis-time failure, not something a Linux-side review could
+# have caught -- this is exactly the kind of thing only a real build finds.
+load(
+    "@build_bazel_rules_apple//apple:resources.bzl",
     "apple_resource_bundle",
 )
 
