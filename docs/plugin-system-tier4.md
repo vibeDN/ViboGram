@@ -295,6 +295,25 @@ real, specific message like `"Failed to import encodings module"` rather
 than just a bare failure) for actually-useful diagnostics once this runs on
 a real device/simulator.
 
+**Re-validated on the actual Xcode 26.2 Swift version (2026-08-30).** The
+2026-08-25 validation above used Swift 6.3.3, and the whole approach is
+translated from `briefcase-iOS-Xcode-template`'s `main.m` -- a template
+whose own CI only runs on `macos-15` (bundling Xcode ~16.x), not 26.2. Both
+of those are real gaps between what was actually checked and what this
+project targets, flagged directly (one independently, one via a second
+opinion the project owner got from another model on the same logs/issue)
+rather than assumed away. Re-ran the identical PyConfig/PyPreConfig/
+Py_InitializeFromConfig sequence against Swift **6.2.3** specifically --
+`xcrun swift --version` on the real CI runner earlier this project
+confirmed Xcode 26.2 bundles exactly that version, not 6.3.3. Compiled and
+ran cleanly, identical output to the first pass (`Py_IsInitialized() == 1`,
+`sys.path` printed correctly). This still doesn't touch the other half of
+the gap -- whether CPython's own C API or the vendored xcframework binary
+behave any differently under the actual iOS 26 SDK/toolchain versus
+whatever Python-Apple-support built `Python.xcframework` against -- that
+remains genuinely unverifiable without a real Xcode 26.2 build, which is
+exactly what's still blocked on CI access.
+
 ## Suggested order of attack once there's real build access
 
 Steps 1-4 below are now implemented (2026-08-26) as far as they can be
