@@ -237,6 +237,32 @@ real device access.
 </details>
 
 <details>
+<summary><b>Profile banner and gradient</b></summary>
+
+Two more Margelet interop pieces, in progress. Both use the same trick as
+badges but taken further: instead of a file someone publishes, the "database"
+is Margelet's own live public group (`@margy_underground`) — by explicit
+arrangement between this fork and Margelet's author, not just reading their
+data format. Set a banner or gradient here and it shows up in Margelet too,
+and vice versa.
+
+A banner is a photo behind the avatar; a gradient is two colors instead of
+Telegram's own profile-header look, with text/button/card colors derived from
+it (perceived-brightness math matched to this app's own light/dark-button
+threshold, so a gradient choice never disagrees with it). Setting either is
+just sending a tagged message to the group; clearing is deleting your own
+message there — doable by hand, in the group itself, with no dependency on
+this app at all. Data layer only so far (finding, setting, clearing all work)
+— actually painting a banner/gradient onto the profile screen is a separate
+UI pass, not done yet.
+
+Margelet also has a "Wall" (others write about you there, you can't remove
+it) built on the same group. Deliberately not ported — real,
+undecided harassment-risk question with no server-side moderation, not
+something to ship without actually deciding it first.
+</details>
+
+<details>
 <summary><b>Python plugins</b></summary>
 
 In progress, not wired into any app target yet. The idea is the same one
