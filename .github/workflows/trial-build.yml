@@ -135,6 +135,52 @@ jobs:
           echo "Using scheme: $SCHEME"
           echo "name=$SCHEME" >> "$GITHUB_OUTPUT"
 
+      # MARK: ViboGram - re-added for one more live-debug session, new
+      # keypair (the previous session's private half was lost locally, so
+      # the old authorized_keys entry is useless -- swap it for the new
+      # pubkey each time this step comes back). Static analysis of the
+      # swiftc_stub patch + the failing job log couldn't settle whether the
+      # race is really inside touch() or a graph-ordering issue between the
+      # Copy phase and CompileSwiftSources (see session notes); need to
+      # watch the exact file with a tight poll loop through the actual
+      # build to catch it live instead of guessing from logs after the
+      # fact. Remove this step again immediately after the session, same as
+      # last time -- it adds an unconditional 90-minute sleep and exposes
+      # live SSH to the runner via ntfy.sh for that whole window.
+      - name: Enable SSH and expose via ngrok (live debug for SwiftSignalKitFramework race)
+        env:
+          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+        run: |
+          set -euo pipefail
+          sudo systemsetup -setremotelogin on
+          sudo launchctl kickstart -k system/com.openssh.sshd || true
+          mkdir -p ~/.ssh
+          echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPrBdNC237YN7GU0fouj94fLn1MGL9nramJpz79Y+TIz ci-debug" >> ~/.ssh/authorized_keys
+          chmod 700 ~/.ssh
+          chmod 600 ~/.ssh/authorized_keys
+          brew install ngrok >/tmp/ngrok_install.log 2>&1 || cat /tmp/ngrok_install.log
+          ngrok config add-authtoken "$NGROK_AUTHTOKEN"
+          ngrok tcp 22 --log=stdout > /tmp/ngrok.log 2>&1 &
+          TUNNEL_URL=""
+          for i in $(seq 1 15); do
+            sleep 2
+            TUNNEL_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['tunnels'][0]['public_url'] if d.get('tunnels') else '')" 2>/dev/null || true)
+            if [ -n "$TUNNEL_URL" ]; then
+              break
+            fi
+          done
+          if [ -z "$TUNNEL_URL" ]; then
+            echo "ngrok tunnel never came up after 30s. ngrok log:" >&2
+            cat /tmp/ngrok.log >&2
+            exit 1
+          fi
+          HOST_PORT="${TUNNEL_URL#tcp://}"
+          NGROK_HOST="${HOST_PORT%:*}"
+          NGROK_PORT="${HOST_PORT##*:}"
+          curl -s -d "ssh -p $NGROK_PORT $(whoami)@$NGROK_HOST" https://ntfy.sh/vibogram-ci-debug-1681f0c3f7bb252643f655133caa5d52 >/dev/null
+          echo "Connection info sent to ntfy.sh topic (not printed here to avoid GH log masking)."
+          sleep 5400
+
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
           set -o pipefail
