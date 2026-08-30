@@ -211,6 +211,43 @@ jobs:
           # docs/plugin-system-tier4.md-adjacent history / commit log for the
           # full list of tried-and-reverted theories before adding a new one.
           for attempt in 1 2; do
+            # MARK: ViboGram - live SSH debugging (fs_usage trace during a real
+            # failure) caught the actual mechanism: at the moment of failure, TWO
+            # separate "swiftc" processes are concurrently touching the exact same
+            # target's OutputFileMap.json and swiftmodule/swiftdoc paths for
+            # SwiftSignalKitFramework -- one wins a race against Xcode's own
+            # native Copy step for that target's module artifacts. Root cause of
+            # *why* something schedules a second concurrent invocation is still
+            # open upstream (see MobileNativeFoundation/rules_xcodeproj#3183) --
+            # ruled out Index-While-Building specifically (IDEIndexDisable=YES
+            # didn't change anything) and a duplicate PBXNativeTarget (checked the
+            # generated pbxproj -- only one target GID for it).
+            #
+            # This isn't a fix, just cheap mitigation: pre-build the one
+            # known-racy framework target IN ISOLATION (nothing else competing
+            # for the runner's cores, no other target's build actions scheduled
+            # concurrently) before the full scheme build reaches it. If it
+            # succeeds here, the full build below should see it already
+            # up-to-date and skip recompiling it entirely, sidestepping whatever
+            # concurrent-scheduling condition triggers the race. Best-effort --
+            # `|| true` because if this itself hits the race, the full build's
+            # own attempt (and its own retry) still gets a fair shot same as
+            # before.
+            echo "=== Pre-building SwiftSignalKitFramework in isolation (attempt $attempt/2, mitigation for the race above) ===" | tee -a build.log
+            xcodebuild build \
+              -project "${{ steps.proj.outputs.path }}" \
+              -target SwiftSignalKitFramework \
+              -sdk iphonesimulator \
+              -destination "generic/platform=iOS Simulator" \
+              -configuration Debug \
+              -derivedDataPath "$HOME/derived-sim-$attempt" \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              DEVELOPMENT_TEAM="" \
+              PROVISIONING_PROFILE_SPECIFIER="" \
+              | tee -a build.log || true
             echo "=== xcodebuild attempt $attempt/2 (fresh DerivedData) ===" | tee -a build.log
             if xcodebuild build \
               -project "${{ steps.proj.outputs.path }}" \
