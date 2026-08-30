@@ -198,9 +198,20 @@ jobs:
           # targets ("No such file or directory" copying a .swiftmodule that
           # hasn't landed yet). Ruled out so far: COMPILER_INDEX_STORE_ENABLE,
           # Bazel disk caching, reusing the same DerivedData across retries
-          # (worse -- leaves locked files), and Xcode target-build parallelism
+          # (worse -- leaves locked files), Xcode target-build parallelism
           # (forcing parallelizeBuildables=NO still hit the identical race on
-          # a real run, just ~2x slower). Each retry attempt below at least
+          # a real run, just ~2x slower), IDEIndexDisable=YES (live-tested,
+          # no change), and cross-target scheduling contention -- live-tested
+          # building ONLY the racy target (SwiftSignalKitFramework) via its
+          # own auto-generated scheme, nothing else in flight on the runner
+          # at all, and it hit the identical failure anyway. So this isn't
+          # about concurrency between unrelated targets; whatever the real
+          # cause is, it reproduces within this one target's own build graph
+          # in isolation. See MobileNativeFoundation/rules_xcodeproj#3183 for
+          # the live fs_usage trace showing two concurrent "swiftc" processes
+          # touching the same OutputFileMap/swiftmodule paths at once -- root
+          # cause of why a second one gets scheduled at all is still open.
+          # Each retry attempt below at least
           # gets a fresh DerivedData, which is a genuine partial redo, but not
           # a full one -- Bazel's own execroot/disk-cache state is still
           # shared across attempts, and (confirmed the hard way) blindly
@@ -211,48 +222,6 @@ jobs:
           # docs/plugin-system-tier4.md-adjacent history / commit log for the
           # full list of tried-and-reverted theories before adding a new one.
           for attempt in 1 2; do
-            # MARK: ViboGram - live SSH debugging (fs_usage trace during a real
-            # failure) caught the actual mechanism: at the moment of failure, TWO
-            # separate "swiftc" processes are concurrently touching the exact same
-            # target's OutputFileMap.json and swiftmodule/swiftdoc paths for
-            # SwiftSignalKitFramework -- one wins a race against Xcode's own
-            # native Copy step for that target's module artifacts. Root cause of
-            # *why* something schedules a second concurrent invocation is still
-            # open upstream (see MobileNativeFoundation/rules_xcodeproj#3183) --
-            # ruled out Index-While-Building specifically (IDEIndexDisable=YES
-            # didn't change anything) and a duplicate PBXNativeTarget (checked the
-            # generated pbxproj -- only one target GID for it).
-            #
-            # This isn't a fix, just cheap mitigation: pre-build the one
-            # known-racy framework target IN ISOLATION (nothing else competing
-            # for the runner's cores, no other target's build actions scheduled
-            # concurrently) before the full scheme build reaches it. If it
-            # succeeds here, the full build below should see it already
-            # up-to-date and skip recompiling it entirely, sidestepping whatever
-            # concurrent-scheduling condition triggers the race. Best-effort --
-            # `|| true` because if this itself hits the race, the full build's
-            # own attempt (and its own retry) still gets a fair shot same as
-            # before.
-            echo "=== Pre-building SwiftSignalKitFramework in isolation (attempt $attempt/2, mitigation for the race above) ===" | tee -a build.log
-            # `-derivedDataPath` requires `-scheme` (or -testProductsPath/-xctestrun) --
-            # `-target` alone errors ("xcodebuild: error: The flag -scheme... is
-            # required when specifying -derivedDataPath"), confirmed live. rules_xcodeproj
-            # auto-generates a scheme per Bazel target (see the `awk` matching below), so
-            # a scheme literally named after this framework target already exists.
-            xcodebuild build \
-              -project "${{ steps.proj.outputs.path }}" \
-              -scheme SwiftSignalKitFramework \
-              -sdk iphonesimulator \
-              -destination "generic/platform=iOS Simulator" \
-              -configuration Debug \
-              -derivedDataPath "$HOME/derived-sim-$attempt" \
-              COMPILER_INDEX_STORE_ENABLE=NO \
-              CODE_SIGNING_ALLOWED=NO \
-              CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGN_IDENTITY="" \
-              DEVELOPMENT_TEAM="" \
-              PROVISIONING_PROFILE_SPECIFIER="" \
-              | tee -a build.log || true
             echo "=== xcodebuild attempt $attempt/2 (fresh DerivedData) ===" | tee -a build.log
             if xcodebuild build \
               -project "${{ steps.proj.outputs.path }}" \
