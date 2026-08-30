@@ -17,6 +17,9 @@ import SGSimpleSettings
 import SGLogging
 import SGPayWall
 import SGPython
+import SGCommunityGroup
+import SGBanner
+import SGGradient
 import OverlayStatusController
 #if DEBUG
 import FLEX
@@ -43,6 +46,7 @@ private enum SGDebugActions: String {
     case setIAP
     case resetIAP
     case pythonSmokeTest
+    case communityGroupSmokeTest
 }
 
 private enum SGDebugToggles: String {
@@ -82,6 +86,14 @@ private func SGDebugControllerEntries(presentationData: PresentationData) -> [SG
     // gated behind this debug-only row rather than normal app startup until
     // it's confirmed to actually boot on a real device/simulator.
     entries.append(.action(id: id.count, section: .base, actionType: .pythonSmokeTest, text: "Python Smoke Test", kind: .generic))
+    // MARK: ViboGram - banner/gradient (Margelet-interop, shared
+    // @margy_underground group). Read-only smoke test: resolves the group
+    // and searches for this account's OWN banner/gradient. Deliberately
+    // does NOT post or delete anything -- SGBanner.set/clear and
+    // SGGradient.set/clear are only reachable from here manually until a
+    // real settings UI exists, to avoid ever touching the live group from
+    // an unattended/automated path.
+    entries.append(.action(id: id.count, section: .base, actionType: .communityGroupSmokeTest, text: "Community Group Smoke Test (read-only)", kind: .generic))
 
     entries.append(.toggle(id: id.count, section: .notifications, settingName: .legacyNotificationsFix, value: SGSimpleSettings.shared.legacyNotificationsFix, text: "[OLD] Fix empty notifications", enabled: true))
     return entries
@@ -210,6 +222,29 @@ public func sgDebugController(context: AccountContext) -> ViewController {
                 action: { _ in return false }
             ),
             nil)
+        case .communityGroupSmokeTest:
+            let accountPeerId = context.account.peerId
+            let _ = (combineLatest(
+                SGCommunityGroup.resolveGroup(context: context),
+                SGBanner.find(context: context, peerId: accountPeerId),
+                SGGradient.find(context: context, peerId: accountPeerId)
+            )
+            |> deliverOnMainQueue).start(next: { groupPeerId, banner, gradient in
+                let text: String
+                if let groupPeerId {
+                    text = "Group resolved: \(groupPeerId). Own banner: \(banner != nil ? "found" : "none"). Own gradient: \(gradient.map { String(format: "#%06X-#%06X", $0.from, $0.to) } ?? "none")."
+                } else {
+                    text = "Failed to resolve @\(SGCommunityGroup.username) -- see logs."
+                }
+                SGLogger.shared.log("SGDebug", text)
+                presentControllerImpl?(UndoOverlayController(
+                    presentationData: presentationData,
+                    content: .info(title: nil, text: text, timeout: nil, customUndoText: nil),
+                    elevatedLayout: false,
+                    action: { _ in return false }
+                ),
+                nil)
+            })
         }
     })
     
