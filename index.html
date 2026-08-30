@@ -21,14 +21,36 @@
   a:hover { color: #c9ebda; }
   ::selection { background: rgba(141,209,176,.25); }
   @keyframes vgGlow { 0%,100% { opacity: .45; } 50% { opacity: .8; } }
+
+  /* MARK: ViboGram - fluid type via clamp() so headings scale down smoothly
+     on narrow viewports instead of the fixed desktop px sizes overflowing.
+     Targeted by class since the rest of this page's styling is inline. */
+  .vg-h1 { font-size: clamp(40px, 12vw, 76px); }
+  .vg-tagline { font-size: clamp(20px, 5.6vw, 30px); }
+  .vg-h2-lg { font-size: clamp(30px, 7vw, 46px); }
+  .vg-h2-md { font-size: clamp(26px, 6vw, 40px); }
+  .vg-h2-sm { font-size: clamp(24px, 5.5vw, 38px); }
+  .vg-cta-h2 { font-size: clamp(28px, 7.5vw, 48px); }
+
+  @media (max-width: 760px) {
+    .vg-nav-links { display: none; }
+    .vg-hero-shot { margin-top: 40px !important; }
+    .vg-section { padding-left: 18px !important; padding-right: 18px !important; }
+    .vg-build-grid { grid-template-columns: 1fr !important; }
+    .vg-roadmap-row { grid-template-columns: 1fr !important; }
+    .vg-roadmap-badge { justify-self: start; margin-top: 0 !important; }
+  }
+  @media (max-width: 420px) {
+    .vg-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  }
 </style>
 </helmet>
 
 <div style="background: #12161a; color: #e9edeb; font-family: Inter, system-ui, sans-serif; font-weight: 400; -webkit-font-smoothing: antialiased; min-height: 100vh; overflow-x: hidden;">
 
   <header style="position: sticky; top: 0; z-index: 40; backdrop-filter: blur(14px); background: rgba(18,22,26,.82); border-bottom: 1px solid rgba(141,209,176,.12);">
-    <div style="max-width: 1120px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; gap: 20px;">
-      <a href="https://github.com/vibeDN/ViboGram" style="display: flex; align-items: center; gap: 10px; color: #e9edeb;">
+    <div style="max-width: 1120px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; gap: 16px;">
+      <a href="https://github.com/vibeDN/ViboGram" style="display: flex; align-items: center; gap: 10px; color: #e9edeb; flex: none;">
         <span style="width: 30px; height: 30px; border-radius: 9px; overflow: hidden; display: grid; place-items: center; background: linear-gradient(160deg, #8dd1b0, #35604e); font-size: 15px; font-weight: 600; color: #0f1512; letter-spacing: -.02em;">
           <sc-if value="{{ hasLogo }}" hint-placeholder-val="{{ false }}">
             <img src="{{ logoSrc }}" alt="ViboGram" style="width: 100%; height: 100%; object-fit: cover; display: block;">
@@ -37,61 +59,62 @@
         </span>
         <span style="font-size: 15px; font-weight: 500; letter-spacing: -.01em;">ViboGram</span>
       </a>
-      <nav style="display: flex; gap: 22px; margin-left: auto; font-size: 13.5px; color: #9aa5a0;">
-        <a href="#features" style="color: #9aa5a0;" style-hover="color: #e9edeb;">Функции</a>
-        <a href="#roadmap" style="color: #9aa5a0;" style-hover="color: #e9edeb;">Статус</a>
-        <a href="#build" style="color: #9aa5a0;" style-hover="color: #e9edeb;">Сборка</a>
-        <a href="#faq" style="color: #9aa5a0;" style-hover="color: #e9edeb;">FAQ</a>
-        <a href="#honest" style="color: #9aa5a0;" style-hover="color: #e9edeb;">Что это не</a>
+      <nav class="vg-nav-links" style="display: flex; gap: 22px; margin-left: auto; font-size: 13.5px; color: #9aa5a0; white-space: nowrap;">
+        <a href="#features" style="color: #9aa5a0;" style-hover="color: #e9edeb;">{{ t.navFeatures }}</a>
+        <a href="#roadmap" style="color: #9aa5a0;" style-hover="color: #e9edeb;">{{ t.navRoadmap }}</a>
+        <a href="#build" style="color: #9aa5a0;" style-hover="color: #e9edeb;">{{ t.navBuild }}</a>
+        <a href="#faq" style="color: #9aa5a0;" style-hover="color: #e9edeb;">{{ t.navFaq }}</a>
+        <a href="#honest" style="color: #9aa5a0;" style-hover="color: #e9edeb;">{{ t.navHonest }}</a>
       </nav>
-      <a href="https://github.com/vibeDN/ViboGram/releases" style="border: 1px solid #8dd1b0; color: #8dd1b0; border-radius: 8px; padding: 7px 15px; font-size: 13.5px; font-weight: 500; white-space: nowrap; display: flex; align-items: center; gap: 6px;" style-hover="background: rgba(141,209,176,.12); color: #c9ebda;"><i class="ph-bold ph-download-simple" style="font-size: 15px;"></i>Скачать IPA</a>
+      <button onclick="{{ toggleLang }}" style="margin-left: auto; background: none; border: 1px solid rgba(233,237,235,.16); color: #9aa5a0; border-radius: 7px; padding: 6px 10px; font-size: 12.5px; font-weight: 500; font-family: inherit; cursor: pointer; flex: none;" style-hover="border-color: rgba(141,209,176,.4); color: #e9edeb;">{{ langLabel }}</button>
+      <a href="https://github.com/vibeDN/ViboGram/releases" style="border: 1px solid #8dd1b0; color: #8dd1b0; border-radius: 8px; padding: 7px 15px; font-size: 13.5px; font-weight: 500; white-space: nowrap; display: flex; align-items: center; gap: 6px; flex: none;" style-hover="background: rgba(141,209,176,.12); color: #c9ebda;"><i class="ph-bold ph-download-simple" style="font-size: 15px;"></i>{{ t.navDownload }}</a>
     </div>
   </header>
 
-  <section style="position: relative; max-width: 1120px; margin: 0 auto; padding: 96px 24px 0;">
+  <section class="vg-section" style="position: relative; max-width: 1120px; margin: 0 auto; padding: 72px 24px 0;">
     <div style="position: absolute; top: -140px; left: 8%; width: 520px; height: 520px; border-radius: 50%; background: radial-gradient(circle, rgba(141,209,176,.16), transparent 68%); filter: blur(30px); pointer-events: none; animation: vgGlow 9s ease-in-out infinite;"></div>
-    <div style="position: relative; display: flex; flex-direction: column; gap: 26px; max-width: 720px;">
+    <div style="position: relative; display: flex; flex-direction: column; gap: 24px; max-width: 720px;">
       <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-        <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #8dd1b0; border: 1px solid rgba(141,209,176,.35); border-radius: 999px; padding: 4px 11px; display: flex; align-items: center; gap: 6px;"><i class="ph-bold ph-flask" style="font-size: 13px;"></i>экспериментально</span>
-        <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #9aa5a0; border: 1px solid rgba(233,237,235,.14); border-radius: 999px; padding: 4px 11px; display: flex; align-items: center; gap: 6px;"><i class="ph-bold ph-apple-logo" style="font-size: 13px;"></i>iOS · форк Swiftgram</span>
-        <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #9aa5a0; border: 1px solid rgba(233,237,235,.14); border-radius: 999px; padding: 4px 11px; display: flex; align-items: center; gap: 6px;"><i class="ph-bold ph-seal-warning" style="font-size: 13px;"></i>сборка не через App Store</span>
-        <!-- MARK: ViboGram - live from GitHub Releases (componentDidMount above), not hand-edited on every version bump. -->
+        <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #8dd1b0; border: 1px solid rgba(141,209,176,.35); border-radius: 999px; padding: 4px 11px; display: flex; align-items: center; gap: 6px;"><i class="ph-bold ph-flask" style="font-size: 13px;"></i>{{ t.tagExperimental }}</span>
+        <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #9aa5a0; border: 1px solid rgba(233,237,235,.14); border-radius: 999px; padding: 4px 11px; display: flex; align-items: center; gap: 6px;"><i class="ph-bold ph-apple-logo" style="font-size: 13px;"></i>{{ t.tagFork }}</span>
+        <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #9aa5a0; border: 1px solid rgba(233,237,235,.14); border-radius: 999px; padding: 4px 11px; display: flex; align-items: center; gap: 6px;"><i class="ph-bold ph-seal-warning" style="font-size: 13px;"></i>{{ t.tagNoStore }}</span>
+        <!-- MARK: ViboGram - live from GitHub Releases (componentDidMount below), not hand-edited on every version bump. -->
         <sc-if value="{{ hasVersion }}" hint-placeholder-val="{{ false }}">
           <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #8dd1b0; border: 1px solid rgba(141,209,176,.35); border-radius: 999px; padding: 4px 11px; display: flex; align-items: center; gap: 6px;"><i class="ph-bold ph-tag" style="font-size: 13px;"></i>{{ latestVersion }}</span>
         </sc-if>
       </div>
-      <h1 style="margin: 0; font-size: 76px; line-height: .95; font-weight: 500; letter-spacing: -.035em;">ViboGram</h1>
-      <p style="margin: 0; font-size: 30px; line-height: 1.22; font-weight: 400; letter-spacing: -.02em; color: #e9edeb; max-width: 620px; text-wrap: pretty;">Гибридный форк Telegram для iOS — лучшее из Ayugram, Swiftgram и немного vibe<span style="color: #8dd1b0;">✨</span></p>
-      <p style="margin: 0; font-size: 16.5px; line-height: 1.6; color: #9aa5a0; max-width: 560px; text-wrap: pretty;">Собран из Swiftgram/Telegram-iOS с отобранным набором функций, портированных из двух Android-форков — AyuGram4A и Margelet. Личная сборка для ежедневного использования, а не коммерческий продукт.</p>
+      <h1 class="vg-h1" style="margin: 0; line-height: .95; font-weight: 500; letter-spacing: -.035em;">ViboGram</h1>
+      <p class="vg-tagline" style="margin: 0; line-height: 1.22; font-weight: 400; letter-spacing: -.02em; color: #e9edeb; max-width: 620px; text-wrap: pretty;">{{ t.tagline }}<span style="color: #8dd1b0;">✨</span></p>
+      <p style="margin: 0; font-size: 16.5px; line-height: 1.6; color: #9aa5a0; max-width: 560px; text-wrap: pretty;">{{ t.heroDesc }}</p>
       <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
-        <a href="https://github.com/vibeDN/ViboGram/releases" style="border: 1px solid #8dd1b0; color: #8dd1b0; border-radius: 8px; padding: 12px 24px; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px;" style-hover="background: rgba(141,209,176,.13); color: #c9ebda;"><i class="ph-bold ph-download-simple" style="font-size: 17px;"></i>Все релизы</a>
-        <a href="https://t.me/ViboGramNews" style="border: 1px solid rgba(233,237,235,.16); color: #e9edeb; border-radius: 8px; padding: 12px 24px; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px;" style-hover="border-color: rgba(233,237,235,.4);"><i class="ph-bold ph-telegram-logo" style="font-size: 17px;"></i>Канал новостей</a>
-        <a href="https://github.com/vibeDN/ViboGram" style="color: #9aa5a0; font-size: 15px; padding: 12px 4px; display: flex; align-items: center; gap: 6px;" style-hover="color: #8dd1b0;"><i class="ph-bold ph-github-logo" style="font-size: 17px;"></i>Исходники →</a>
+        <a href="https://github.com/vibeDN/ViboGram/releases" style="border: 1px solid #8dd1b0; color: #8dd1b0; border-radius: 8px; padding: 12px 24px; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px;" style-hover="background: rgba(141,209,176,.13); color: #c9ebda;"><i class="ph-bold ph-download-simple" style="font-size: 17px;"></i>{{ t.btnReleases }}</a>
+        <a href="https://t.me/ViboGramNews" style="border: 1px solid rgba(233,237,235,.16); color: #e9edeb; border-radius: 8px; padding: 12px 24px; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px;" style-hover="border-color: rgba(233,237,235,.4);"><i class="ph-bold ph-telegram-logo" style="font-size: 17px;"></i>{{ t.btnNews }}</a>
+        <a href="https://github.com/vibeDN/ViboGram" style="color: #9aa5a0; font-size: 15px; padding: 12px 4px; display: flex; align-items: center; gap: 6px;" style-hover="color: #8dd1b0;"><i class="ph-bold ph-github-logo" style="font-size: 17px;"></i>{{ t.btnSource }}</a>
       </div>
-      <p style="margin: 0; font-size: 13.5px; line-height: 1.6; color: #6f7a76; max-width: 560px;">Фиксированного bundle id нет — вы генерируете случайный сами при сборке, поэтому приложение ставится <em style="font-style: normal; color: #9aa5a0;">рядом</em> с официальным Telegram, а не поверх него.</p>
+      <p style="margin: 0; font-size: 13.5px; line-height: 1.6; color: #6f7a76; max-width: 560px;">{{ t.bundleNote }}</p>
     </div>
 
-    <div style="margin: 64px 0 0; border-radius: 14px; overflow: hidden; border: 1px solid rgba(141,209,176,.14); box-shadow: 0 30px 80px -40px rgba(0,0,0,.9); background: #0e1114;">
+    <div class="vg-hero-shot" style="margin: 64px 0 0; border-radius: 14px; overflow: hidden; border: 1px solid rgba(141,209,176,.14); box-shadow: 0 30px 80px -40px rgba(0,0,0,.9); background: #0e1114;">
       <img src="https://github.com/vibeDN/ViboGram/raw/main/assets/banner.jpg" alt="ViboGram" style="width: 100%; display: block; mix-blend-mode: lighten;">
     </div>
   </section>
 
-  <section style="max-width: 1120px; margin: 0 auto; padding: 56px 24px 0;">
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1px; background: rgba(233,237,235,.1); border: 1px solid rgba(233,237,235,.1); border-radius: 12px; overflow: hidden;">
+  <section class="vg-section" style="max-width: 1120px; margin: 0 auto; padding: 56px 24px 0;">
+    <div class="vg-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: rgba(233,237,235,.1); border: 1px solid rgba(233,237,235,.1); border-radius: 12px; overflow: hidden;">
       <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
-        <div style="background: #14191d; padding: 24px 22px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="background: #14191d; padding: 22px 20px; display: flex; flex-direction: column; gap: 6px;">
           <i class="{{ s.icon }}" style="font-size: 20px; color: #8dd1b0;"></i>
-          <span style="font-size: 30px; font-weight: 500; letter-spacing: -.03em; color: #8dd1b0;">{{ s.v }}</span>
+          <span style="font-size: clamp(22px, 5vw, 30px); font-weight: 500; letter-spacing: -.03em; color: #8dd1b0;">{{ s.v }}</span>
           <span style="font-size: 13px; color: #9aa5a0; line-height: 1.4;">{{ s.k }}</span>
         </div>
       </sc-for>
     </div>
   </section>
 
-  <section id="features" style="max-width: 1120px; margin: 0 auto; padding: 112px 24px 0;">
-    <h2 style="margin: 0 0 14px; font-size: 46px; line-height: 1.06; font-weight: 500; letter-spacing: -.03em; max-width: 620px; text-wrap: pretty;">Что добавлено к Telegram</h2>
-    <p style="margin: 0 0 44px; font-size: 16.5px; color: #9aa5a0; max-width: 560px; line-height: 1.6;">Ничего не спрятано за покупкой: отдельный экран «Pro» слит с обычными настройками, проверка paywall убрана.</p>
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;">
+  <section id="features" class="vg-section" style="max-width: 1120px; margin: 0 auto; padding: 96px 24px 0;">
+    <h2 class="vg-h2-lg" style="margin: 0 0 14px; line-height: 1.06; font-weight: 500; letter-spacing: -.03em; max-width: 620px; text-wrap: pretty;">{{ t.featuresTitle }}</h2>
+    <p style="margin: 0 0 40px; font-size: 16.5px; color: #9aa5a0; max-width: 560px; line-height: 1.6;">{{ t.featuresSub }}</p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px;">
       <sc-for list="{{ features }}" as="f" hint-placeholder-count="9">
         <div style="border: 1px solid rgba(233,237,235,.1); border-radius: 12px; padding: 26px 24px 24px; background: linear-gradient(180deg, #161b1f, #131719); display: flex; flex-direction: column; gap: 12px;" style-hover="border-color: rgba(141,209,176,.32);">
           <div style="display: flex; align-items: center; gap: 10px;">
@@ -105,37 +128,37 @@
     </div>
   </section>
 
-  <section id="roadmap" style="max-width: 1120px; margin: 112px auto 0; padding: 0 24px;">
-    <div style="border-radius: 16px; border: 1px solid rgba(141,209,176,.16); background: linear-gradient(150deg, #17251f, #121719 62%); padding: 48px 40px;">
-      <h2 style="margin: 0 0 12px; font-size: 38px; line-height: 1.1; font-weight: 500; letter-spacing: -.03em;">В работе, честно</h2>
-      <p style="margin: 0 0 34px; font-size: 16px; color: #9aa5a0; max-width: 620px; line-height: 1.6;">Часть функций доведена только до слоя данных. Здесь написано, где именно они стоят, а не то, как это будет выглядеть.</p>
+  <section id="roadmap" class="vg-section" style="max-width: 1120px; margin: 96px auto 0; padding: 0 24px;">
+    <div style="border-radius: 16px; border: 1px solid rgba(141,209,176,.16); background: linear-gradient(150deg, #17251f, #121719 62%); padding: 40px 28px;">
+      <h2 class="vg-h2-sm" style="margin: 0 0 12px; line-height: 1.1; font-weight: 500; letter-spacing: -.03em;">{{ t.roadmapTitle }}</h2>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #9aa5a0; max-width: 620px; line-height: 1.6;">{{ t.roadmapSub }}</p>
       <div style="display: flex; flex-direction: column;">
         <sc-for list="{{ roadmap }}" as="r" hint-placeholder-count="5">
-          <div style="background: #131a18; border-top: 1px solid rgba(233,237,235,.09); display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 20px; align-items: start; padding: 20px 4px 20px 0;">
+          <div class="vg-roadmap-row" style="background: #131a18; border-top: 1px solid rgba(233,237,235,.09); display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 16px; align-items: start; padding: 20px 4px 20px 0;">
             <div style="display: flex; flex-direction: column; gap: 7px; padding-left: 0;">
               <span style="font-size: 17.5px; font-weight: 500; letter-spacing: -.01em;">{{ r.t }}</span>
               <span style="font-size: 14px; line-height: 1.6; color: #9aa5a0; max-width: 720px; text-wrap: pretty;">{{ r.d }}</span>
             </div>
-            <span style="font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: #8dd1b0; border: 1px solid rgba(141,209,176,.3); border-radius: 999px; padding: 4px 11px; white-space: nowrap; margin-top: 3px; display: flex; align-items: center; gap: 6px;"><i class="ph-bold ph-circle-half" style="font-size: 12px;"></i>{{ r.s }}</span>
+            <span class="vg-roadmap-badge" style="font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: #8dd1b0; border: 1px solid rgba(141,209,176,.3); border-radius: 999px; padding: 4px 11px; white-space: nowrap; margin-top: 3px; display: flex; align-items: center; gap: 6px;"><i class="ph-bold ph-circle-half" style="font-size: 12px;"></i>{{ r.s }}</span>
           </div>
         </sc-for>
       </div>
     </div>
   </section>
 
-  <section id="build" style="max-width: 1120px; margin: 112px auto 0; padding: 0 24px;">
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 48px; align-items: start;">
-      <div style="display: flex; flex-direction: column; gap: 18px;">
-        <h2 style="margin: 0; font-size: 40px; line-height: 1.08; font-weight: 500; letter-spacing: -.03em; text-wrap: pretty;">Соберите сами</h2>
-        <p style="margin: 0; font-size: 16px; line-height: 1.62; color: #9aa5a0; text-wrap: pretty;">Шаги сборки не отличаются от upstream Swiftgram / Telegram-iOS — форк не трогает саму систему сборки. Нужен Xcode и Bazel, вызываемый через обёртку <code style="font-family: ui-monospace, monospace; font-size: 14px; color: #c9ebda;">Make.py</code>.</p>
+  <section id="build" class="vg-section" style="max-width: 1120px; margin: 96px auto 0; padding: 0 24px;">
+    <div class="vg-build-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px; align-items: start;">
+      <div style="display: flex; flex-direction: column; gap: 18px; min-width: 0;">
+        <h2 class="vg-h2-md" style="margin: 0; line-height: 1.08; font-weight: 500; letter-spacing: -.03em; text-wrap: pretty;">{{ t.buildTitle }}</h2>
+        <p style="margin: 0; font-size: 16px; line-height: 1.62; color: #9aa5a0; text-wrap: pretty;">{{ t.buildDesc1 }} <code style="font-family: ui-monospace, monospace; font-size: 14px; color: #c9ebda;">Make.py</code>{{ t.buildDesc2 }}</p>
         <ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; font-size: 15px; line-height: 1.55; color: #9aa5a0;">
-          <li>Получите собственные <code style="font-family: ui-monospace, monospace; font-size: 13.5px; color: #c9ebda;">api_id</code> / <code style="font-family: ui-monospace, monospace; font-size: 13.5px; color: #c9ebda;">api_hash</code> на my.telegram.org — они не лежат в репозитории.</li>
-          <li>Не называйте свою сборку «Telegram» и не используйте логотип Telegram.</li>
-          <li>Прочитайте security guidelines Telegram, прежде чем работать с реальными аккаунтами.</li>
+          <li>{{ t.buildStep1a }} <code style="font-family: ui-monospace, monospace; font-size: 13.5px; color: #c9ebda;">api_id</code> / <code style="font-family: ui-monospace, monospace; font-size: 13.5px; color: #c9ebda;">api_hash</code> {{ t.buildStep1b }}</li>
+          <li>{{ t.buildStep2 }}</li>
+          <li>{{ t.buildStep3 }}</li>
         </ol>
-        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #6f7a76;">Каждый прогон CI публикует <strong style="font-weight: 500; color: #9aa5a0;">неподписанный</strong> IPA с тегом v0.0.&lt;номер сборки&gt;. Подписывать его — LiveContainer, AltStore/SideStore, ldid — вам самим.</p>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #6f7a76;">{{ t.buildFootnote }}</p>
       </div>
-      <div style="border: 1px solid rgba(233,237,235,.12); border-radius: 12px; background: #0f1315; overflow: hidden;">
+      <div style="border: 1px solid rgba(233,237,235,.12); border-radius: 12px; background: #0f1315; overflow: hidden; min-width: 0;">
         <div style="display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid rgba(233,237,235,.1);">
           <span style="width: 8px; height: 8px; border-radius: 50%; background: #8dd1b0;"></span>
           <span style="font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: #6f7a76; display: flex; align-items: center; gap: 6px;"><i class="ph-bold ph-terminal-window" style="font-size: 14px;"></i>shell</span>
@@ -143,7 +166,7 @@
         <pre style="margin: 0; padding: 20px 18px; overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.75; color: #cfd8d4;">git clone --recursive -j8 \
   https://github.com/vibeDN/ViboGram.git
 
-openssl rand -hex 8   <span style="color: #6f7a76;"># случайный идентификатор</span>
+openssl rand -hex 8   <span style="color: #6f7a76;">{{ t.shellComment1 }}</span>
 
 python3 build-system/Make/Make.py \
   --cacheDir=<span style="color: #8dd1b0;">"$HOME/telegram-bazel-cache"</span> \
@@ -153,20 +176,20 @@ python3 build-system/Make/Make.py \
   --xcodeManagedCodesigning</pre>
       </div>
     </div>
-    <div style="margin-top: 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: rgba(233,237,235,.1); border: 1px solid rgba(233,237,235,.1); border-radius: 12px; overflow: hidden;">
-      <sc-for list="{{ tree }}" as="t" hint-placeholder-count="4">
+    <div style="margin-top: 36px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1px; background: rgba(233,237,235,.1); border: 1px solid rgba(233,237,235,.1); border-radius: 12px; overflow: hidden;">
+      <sc-for list="{{ tree }}" as="t2" hint-placeholder-count="4">
         <div style="background: #14191d; padding: 22px; display: flex; flex-direction: column; gap: 8px;">
           <i class="ph-bold ph-folder" style="font-size: 17px; color: #8dd1b0;"></i>
-          <code style="font-family: ui-monospace, monospace; font-size: 13.5px; color: #8dd1b0;">{{ t.p }}</code>
-          <span style="font-size: 13.5px; line-height: 1.55; color: #9aa5a0; text-wrap: pretty;">{{ t.d }}</span>
+          <code style="font-family: ui-monospace, monospace; font-size: 13.5px; color: #8dd1b0;">{{ t2.p }}</code>
+          <span style="font-size: 13.5px; line-height: 1.55; color: #9aa5a0; text-wrap: pretty;">{{ t2.d }}</span>
         </div>
       </sc-for>
     </div>
   </section>
 
-  <section id="honest" style="max-width: 1120px; margin: 112px auto 0; padding: 0 24px;">
-    <h2 style="margin: 0 0 32px; font-size: 40px; line-height: 1.08; font-weight: 500; letter-spacing: -.03em;">Что это не</h2>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+  <section id="honest" class="vg-section" style="max-width: 1120px; margin: 96px auto 0; padding: 0 24px;">
+    <h2 class="vg-h2-md" style="margin: 0 0 28px; line-height: 1.08; font-weight: 500; letter-spacing: -.03em;">{{ t.honestTitle }}</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
       <sc-for list="{{ nots }}" as="n" hint-placeholder-count="4">
         <div style="border-top: 1px solid rgba(233,237,235,.14); padding: 20px 0 0; display: flex; gap: 14px;">
           <i class="ph-bold ph-x-circle" style="font-size: 16px; color: #6f7a76; padding-top: 3px;"></i>
@@ -176,8 +199,8 @@ python3 build-system/Make/Make.py \
     </div>
   </section>
 
-  <section id="faq" style="max-width: 1120px; margin: 112px auto 0; padding: 0 24px;">
-    <h2 style="margin: 0 0 32px; font-size: 40px; line-height: 1.08; font-weight: 500; letter-spacing: -.03em;">Частые вопросы</h2>
+  <section id="faq" class="vg-section" style="max-width: 1120px; margin: 96px auto 0; padding: 0 24px;">
+    <h2 class="vg-h2-md" style="margin: 0 0 28px; line-height: 1.08; font-weight: 500; letter-spacing: -.03em;">{{ t.faqTitle }}</h2>
     <div style="display: flex; flex-direction: column;">
       <sc-for list="{{ faq }}" as="q" hint-placeholder-count="6">
         <div style="border-top: 1px solid rgba(233,237,235,.1); padding: 24px 0; display: grid; grid-template-columns: minmax(0,1fr); gap: 10px;">
@@ -188,39 +211,39 @@ python3 build-system/Make/Make.py \
     </div>
   </section>
 
-  <section style="max-width: 1120px; margin: 112px auto 0; padding: 0 24px;">
-    <div style="border-radius: 16px; background: linear-gradient(140deg, #1d3a2d, #16211c 70%); border: 1px solid rgba(141,209,176,.2); padding: 64px 40px; display: flex; flex-direction: column; align-items: flex-start; gap: 22px;">
-      <h2 style="margin: 0; font-size: 48px; line-height: 1.02; font-weight: 500; letter-spacing: -.035em; max-width: 620px; text-wrap: pretty;">Публично в основном для того, чтобы не потерять</h2>
-      <p style="margin: 0; font-size: 17px; line-height: 1.6; color: #b9c4bf; max-width: 560px; text-wrap: pretty;">И на случай, если пригодится кому-то ещё с таким же зудом. Ждите шероховатостей, недоделанных функций и долгих пауз между обновлениями.</p>
+  <section class="vg-section" style="max-width: 1120px; margin: 96px auto 0; padding: 0 24px;">
+    <div style="border-radius: 16px; background: linear-gradient(140deg, #1d3a2d, #16211c 70%); border: 1px solid rgba(141,209,176,.2); padding: 48px 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 22px;">
+      <h2 class="vg-cta-h2" style="margin: 0; line-height: 1.02; font-weight: 500; letter-spacing: -.035em; max-width: 620px; text-wrap: pretty;">{{ t.ctaTitle }}</h2>
+      <p style="margin: 0; font-size: 17px; line-height: 1.6; color: #b9c4bf; max-width: 560px; text-wrap: pretty;">{{ t.ctaDesc }}</p>
       <div style="display: flex; flex-wrap: wrap; gap: 12px;">
-        <a href="https://github.com/vibeDN/ViboGram/releases" style="border: 1px solid #8dd1b0; background: rgba(141,209,176,.1); color: #c9ebda; border-radius: 8px; padding: 13px 26px; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px;" style-hover="background: rgba(141,209,176,.2);"><i class="ph-bold ph-download-simple" style="font-size: 17px;"></i>Взять последний IPA</a>
-        <a href="https://t.me/ViboGramChat" style="border: 1px solid rgba(233,237,235,.22); color: #e9edeb; border-radius: 8px; padding: 13px 26px; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px;" style-hover="border-color: #8dd1b0;"><i class="ph-bold ph-chat-circle-dots" style="font-size: 17px;"></i>Чат ViboGram</a>
+        <a href="https://github.com/vibeDN/ViboGram/releases" style="border: 1px solid #8dd1b0; background: rgba(141,209,176,.1); color: #c9ebda; border-radius: 8px; padding: 13px 26px; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px;" style-hover="background: rgba(141,209,176,.2);"><i class="ph-bold ph-download-simple" style="font-size: 17px;"></i>{{ t.ctaBtnDownload }}</a>
+        <a href="https://t.me/ViboGramChat" style="border: 1px solid rgba(233,237,235,.22); color: #e9edeb; border-radius: 8px; padding: 13px 26px; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px;" style-hover="border-color: #8dd1b0;"><i class="ph-bold ph-chat-circle-dots" style="font-size: 17px;"></i>{{ t.ctaBtnChat }}</a>
       </div>
     </div>
   </section>
 
-  <footer style="max-width: 1120px; margin: 88px auto 0; padding: 0 24px 72px;">
-    <div style="border-top: 1px solid rgba(233,237,235,.1); padding-top: 36px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 32px;">
+  <footer class="vg-section" style="max-width: 1120px; margin: 72px auto 0; padding: 0 24px 64px;">
+    <div style="border-top: 1px solid rgba(233,237,235,.1); padding-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 28px;">
       <div style="display: flex; flex-direction: column; gap: 12px;">
         <span style="font-size: 15px; font-weight: 500;">ViboGram</span>
-        <span style="font-size: 13px; line-height: 1.6; color: #6f7a76; max-width: 260px;">Не связан с Telegram FZ-LLC, Apple Inc., а также с проектами Swiftgram, AyuGram4A и Margelet.</span>
+        <span style="font-size: 13px; line-height: 1.6; color: #6f7a76; max-width: 260px;">{{ t.footerDisclaimer }}</span>
       </div>
       <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;">
-        <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #6f7a76;">Ссылки</span>
-        <a href="https://t.me/ViboGramNews" style="display: flex; align-items: center; gap: 7px;"><i class="ph ph-telegram-logo" style="font-size: 14px;"></i>Канал новостей</a>
-        <a href="https://t.me/ViboGramChat" style="display: flex; align-items: center; gap: 7px;"><i class="ph ph-chat-circle-dots" style="font-size: 14px;"></i>Чат</a>
-        <a href="https://github.com/vibeDN/ViboGram" style="display: flex; align-items: center; gap: 7px;"><i class="ph ph-github-logo" style="font-size: 14px;"></i>Исходный код</a>
-        <a href="https://github.com/vibeDN/ViboGram/releases" style="display: flex; align-items: center; gap: 7px;"><i class="ph ph-download-simple" style="font-size: 14px;"></i>Релизы</a>
+        <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #6f7a76;">{{ t.footerLinks }}</span>
+        <a href="https://t.me/ViboGramNews" style="display: flex; align-items: center; gap: 7px;"><i class="ph ph-telegram-logo" style="font-size: 14px;"></i>{{ t.footerNews }}</a>
+        <a href="https://t.me/ViboGramChat" style="display: flex; align-items: center; gap: 7px;"><i class="ph ph-chat-circle-dots" style="font-size: 14px;"></i>{{ t.footerChat }}</a>
+        <a href="https://github.com/vibeDN/ViboGram" style="display: flex; align-items: center; gap: 7px;"><i class="ph ph-github-logo" style="font-size: 14px;"></i>{{ t.footerSource }}</a>
+        <a href="https://github.com/vibeDN/ViboGram/releases" style="display: flex; align-items: center; gap: 7px;"><i class="ph ph-download-simple" style="font-size: 14px;"></i>{{ t.footerReleases }}</a>
       </div>
       <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;">
-        <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #6f7a76;">Основано на</span>
+        <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #6f7a76;">{{ t.footerBasedOn }}</span>
         <a href="https://github.com/Swiftgram/Telegram-iOS">Swiftgram / Telegram-iOS</a>
         <a href="https://github.com/AyuGram/AyuGram4A">AyuGram4A</a>
         <a href="https://github.com/narezany/Margelet">Margelet</a>
       </div>
       <div style="display: flex; flex-direction: column; gap: 10px;">
-        <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #6f7a76;">Лицензия</span>
-        <span style="font-size: 13px; line-height: 1.6; color: #6f7a76;">У upstream Telegram-iOS нет LICENSE-файла верхнего уровня: исходники открыты для ревью, но явная open-source лицензия на iOS-клиент не выдана. Форк наследует эту же неопределённость, а не решает её.</span>
+        <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #6f7a76;">{{ t.footerLicense }}</span>
+        <span style="font-size: 13px; line-height: 1.6; color: #6f7a76;">{{ t.footerLicenseText }}</span>
       </div>
     </div>
   </footer>
@@ -228,19 +251,204 @@ python3 build-system/Make/Make.py \
 
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{}">
+const STRINGS = {
+  ru: {
+    navFeatures: 'Функции', navRoadmap: 'Статус', navBuild: 'Сборка', navFaq: 'FAQ', navHonest: 'Что это не',
+    navDownload: 'Скачать IPA',
+    tagExperimental: 'экспериментально', tagFork: 'iOS · форк Swiftgram', tagNoStore: 'сборка не через App Store',
+    tagline: 'Гибридный форк Telegram для iOS — лучшее из Ayugram, Swiftgram и немного vibe',
+    heroDesc: 'Собран из Swiftgram/Telegram-iOS с отобранным набором функций, портированных из двух Android-форков — AyuGram4A и Margelet. Личная сборка для ежедневного использования, а не коммерческий продукт.',
+    btnReleases: 'Все релизы', btnNews: 'Канал новостей', btnSource: 'Исходники →',
+    bundleNote: 'Фиксированного bundle id нет — вы генерируете случайный сами при сборке, поэтому приложение ставится рядом с официальным Telegram, а не поверх него.',
+    featuresTitle: 'Что добавлено к Telegram',
+    featuresSub: 'Ничего не спрятано за покупкой: отдельный экран «Pro» слит с обычными настройками, проверка paywall убрана.',
+    roadmapTitle: 'В работе, честно',
+    roadmapSub: 'Часть функций доведена только до слоя данных. Здесь написано, где именно они стоят, а не то, как это будет выглядеть.',
+    buildTitle: 'Соберите сами',
+    buildDesc1: 'Шаги сборки не отличаются от upstream Swiftgram / Telegram-iOS — форк не трогает саму систему сборки. Нужен Xcode и Bazel, вызываемый через обёртку',
+    buildDesc2: '.',
+    buildStep1a: 'Получите собственные', buildStep1b: 'на my.telegram.org — они не лежат в репозитории.',
+    buildStep2: 'Не называйте свою сборку «Telegram» и не используйте логотип Telegram.',
+    buildStep3: 'Прочитайте security guidelines Telegram, прежде чем работать с реальными аккаунтами.',
+    buildFootnote: 'CI публикует релиз на каждую готовую фичу или фикс — с подписанным (free-tier, 7 дней) IPA, когда сборка доступна, и source-only, когда нет.',
+    shellComment1: '# случайный идентификатор',
+    honestTitle: 'Что это не',
+    faqTitle: 'Частые вопросы',
+    ctaTitle: 'Публично в основном для того, чтобы не потерять',
+    ctaDesc: 'И на случай, если пригодится кому-то ещё с таким же зудом. Ждите шероховатостей, недоделанных функций и долгих пауз между обновлениями.',
+    ctaBtnDownload: 'Взять последний IPA', ctaBtnChat: 'Чат ViboGram',
+    footerDisclaimer: 'Не связан с Telegram FZ-LLC, Apple Inc., а также с проектами Swiftgram, AyuGram4A и Margelet.',
+    footerLinks: 'Ссылки', footerNews: 'Канал новостей', footerChat: 'Чат', footerSource: 'Исходный код', footerReleases: 'Релизы',
+    footerBasedOn: 'Основано на',
+    footerLicense: 'Лицензия',
+    footerLicenseText: 'У upstream Telegram-iOS нет LICENSE-файла верхнего уровня: исходники открыты для ревью, но явная open-source лицензия на iOS-клиент не выдана. Форк наследует эту же неопределённость, а не решает её.',
+    stats: [
+      { icon: 'ph-bold ph-git-commit', kSuffix: 'коммит в основной ветке' },
+      { icon: 'ph-bold ph-stack', v: '16', k: 'функция, добавленная к upstream' },
+      { icon: 'ph-bold ph-lock-open', v: '0 ₽', k: 'ничего за paywall' },
+      { icon: 'ph-bold ph-device-mobile', v: 'iOS', k: 'только, сборка через Xcode + Bazel' },
+    ],
+    features: [
+      { icon: 'ph-bold ph-ghost', tag: 'приватность', t: 'Ghost-режим', d: 'Два независимых переключателя: не отправлять отчёты о прочтении и не сообщать о своём онлайне. В upstream половина с отчётами была скрытым debug-флагом — здесь обе стали настоящими строками настроек.' },
+      { icon: 'ph-bold ph-trash', tag: 'архив', t: 'Удалённые и изменённые сообщения остаются', d: 'Сообщение, которое кто-то удалил в облачном чате или канале, помечается, а не исчезает: полупрозрачное, с 🗑 на месте метки «изменено». Секретные чаты исключены намеренно.' },
+      { icon: 'ph-bold ph-database', tag: 'архив', t: 'Собственный локальный стор', d: 'Сохранённые сообщения и прежние версии отредактированных пишутся в отдельный JSON-стор SGMessageArchive в контейнере App Group — независимо от базы и кэша приложения, так что очистка кэша их не теряет.' },
+      { icon: 'ph-bold ph-eye-slash', tag: 'приватность', t: 'Streamer mode', d: 'Свой номер телефона закрыт точками везде, где приложение его показывает. Тапа для показа нет намеренно: случайное касание экрана в прямом эфире не должно этого отменить.' },
+      { icon: 'ph-bold ph-lock-key-open', tag: 'без гейтов', t: 'Всё разблокировано, без paywall', d: 'Отдельный экран «Pro» из upstream слит с обычным экраном настроек, проверка покупки убрана. Каждая строка под ним работает у всех, кто собирает форк.' },
+      { icon: 'ph-bold ph-prohibit', tag: 'без гейтов', t: 'Никакой рекламы в приложении', d: 'Спонсорские сообщения и промо спонсорских прокси-каналов скрыты. Собственные PSA-сообщения Telegram остаются — это официальные уведомления, а не реклама.' },
+      { icon: 'ph-bold ph-funnel-x', tag: 'без гейтов', t: 'Без клиентской фильтрации контента', d: 'Стандартный клиент делает чисто косметическую строковую проверку platform == "ios", чтобы что-то спрятать. Контент всегда был доступен на стороне сервера — клиент просто перестаёт его от вас скрывать.' },
+      { icon: 'ph-bold ph-arrows-vertical', tag: 'composer', t: 'Поле ввода, которое растёт', d: '12, 15, 20, 30 строк или без ограничения — независимо от размера шрифта ввода, который тоже настраивается отдельно. Лимит 4096 символов серверный и остаётся в любом случае.' },
+      { icon: 'ph-bold ph-text-aa', tag: 'composer', t: 'Своё форматирование: Size, Dim, Rainbow', d: 'Список типов форматирования у Telegram закрытый и живёт на сервере, поэтому стиль кодируется невидимыми Unicode-маркерами внутри самого текста и раскрывается форком. Живого превью нет — эффект виден после отправки.' },
+      { icon: 'ph-bold ph-camera', tag: 'секретные чаты', t: 'Скриншоты и сохранение', d: 'Уведомление о скриншоте другой стороне не уходит, Save/Copy возвращены. Заодно покрывает одноразовые и TTL-медиа.' },
+      { icon: 'ph-bold ph-fire', tag: 'секретные чаты', t: 'Кнопка «сжечь сейчас»', d: 'Для TTL-фото и видео в секретных чатах это по-настоящему двусторонне — удаление на уровне протокола. Для одноразовых медиа в обычных чатах серверного API нет, поэтому это «удалить у себя», и интерфейс не делает вид, что иначе.' },
+      { icon: 'ph-bold ph-funnel-simple', tag: 'чаты', t: 'Фильтры сообщений', d: 'Затемняет сообщения по списку ключевых слов — удобно против рекламных постов, которые каналы публикуют как обычные сообщения. Подстроки, не regex; прозрачность, а не скрытие.' },
+      { icon: 'ph-bold ph-clock-counter-clockwise', tag: 'чаты', t: 'История после кика или бана', d: 'За переключателем. Добровольный выход из чата всё так же его скрывает — меняется только то, что происходит, когда вас удаляет кто-то другой. Действует только вперёд.' },
+      { icon: 'ph-bold ph-gift', tag: 'подарки', t: 'Восстановление удалённых подарков', d: 'Открывает реальный флоу отправки для лимитированных подарков, выпавших из живого каталога, вместо read-only экрана. Обходит только этот гейт: лимиты на человека и исчерпанные коллекционные подарки остаются заблокированными, а сервер перепроверяет при отправке.' },
+      { icon: 'ph-bold ph-crown-simple', tag: 'premium', t: 'Локальный Premium', d: 'Порт дизайна AyuConfig.localPremium: переключатель подмешивает true в единственную точку Peer.isPremium — только для своих залогиненных аккаунтов, чужие бейджи и статусы остаются честными. Затрагивает лишь косметические клиентские гейты.' },
+      { icon: 'ph-bold ph-music-notes', tag: 'медиа', t: 'Редактирование тегов музыки', d: 'Название, артист и обложка для треков в своём профиле (Saved Music). У account.saveMusic нет параметров для тегов, поэтому уже закэшированное аудио перезагружается как новый документ; точная позиция в списке не сохраняется.' },
+    ],
+    roadmap: [
+      { s: 'первый срез', t: 'Бейджи', d: 'Имя в профилях, списке чатов и заголовках может носить небольшой бейдж из JSON, публикуемого CI как релизный ассет, плюс публичный badges.json Margelet для совместимости. Бейдж ничего не удостоверяет и ничего не спрашивает у сервера. Пока это простой цветной маркер: картинка из img_url ещё не рисуется, вращения в 3D по тапу нет.' },
+      { s: 'слой данных', t: 'Баннер и градиент профиля', d: 'Интероп с Margelet, доведённый дальше бейджей: «базой» служит живая публичная группа @margy_underground — по прямой договорённости между форками. Установка — просто отправка помеченного сообщения, сброс — его удаление, вручную и без зависимости от приложения. Поиск, установка и сброс работают; отрисовка на экране профиля — отдельный проход.' },
+      { s: 'нужен экран', t: 'Wall', d: 'Ещё один кусок Margelet на той же группе: другие пишут о вас, вы не можете это убрать. Слой данных портирован, но лента от многих авторов требует своего экрана, перехода по тапу с помеченного сообщения и авто-тегирования в композере.' },
+      { s: 'в отдельной бете', t: 'Python-плагины', d: 'iOS-эквивалента Chaquopy нет, поэтому это самостоятельный проект. CPython (Python.xcframework от BeeWare плюс урезанная stdlib) вендорится и уже подключён к реальному таргету сборки; упаковка ресурсов и встраивание динамического фреймворка решены на бумаге, но ещё не проверены настоящей сборкой. Выйдет в приложении «Vibogram: BETA» вместе с JIT-разблокировкой.' },
+      { s: 'половина готова', t: 'Вход по файлу сессии', d: 'Парсинг .session (Telethon и Pyrogram) реализован и проверен в SGSessionImport — auth_key читается прямо из SQLite-схемы обоих форматов. Вторая половина — инъекция ключа в MTContext — спроектирована, но намеренно не реализована: проверить её можно только на реальном аккаунте в реальной сети, а ошибка стоит аккаунта. TData и generic .json не тронуты.' },
+    ],
+    tree: [
+      { p: 'Swiftgram/', d: 'Модули функций этого форка, по одному на функцию: SGMessageArchive, SGBadges, SGPython, SGSessionImport…' },
+      { p: 'submodules/', d: 'Библиотеки upstream Telegram-iOS, пропатченные на месте там, где функции это потребовали.' },
+      { p: 'third-party/python/', d: 'Вендоренный CPython xcframework и урезанная stdlib для системы плагинов.' },
+      { p: 'docs/', d: 'Заметки по дизайну и статусу для крупных незавершённых функций.' },
+    ],
+    faq: [
+      { q: 'Это законно? Не забанят ли аккаунт?', a: 'Форки официального клиента сами по себе не запрещены, но гарантий на 100% никто не даёт — это неофициальный клиент, используете на свой риск.' },
+      { q: 'Почему IPA не всегда есть в релизе и как его установить?', a: 'IPA подписывается бесплатным Apple ID (сертификат живёт всего 7 дней) и собирается через CI — иногда CI недоступен, тогда релиз выходит source-only, без готового IPA. Когда IPA есть — ставится через LiveContainer, AltStore или SideStore.' },
+      { q: 'Можно ставить рядом с обычным Telegram?', a: 'Да — у форка свой отдельный bundle id, конфликта с официальным приложением нет.' },
+      { q: 'Что будет с моими данными и аккаунтом?', a: 'Основные данные (сообщения, анти-делит, история) хранятся локально на устройстве. Отдельные экспериментальные фичи (баннер/градиент/стена профиля, интероп с Margelet) намеренно используют общую публичную Telegram-группу как хранилище — это описано в разделе roadmap, ничего не скрыто.' },
+      { q: 'Как часто выходят обновления?', a: 'По готовности новой фичи или фикса, без расписания — это хобби-проект одного человека, так что бывают и долгие паузы.' },
+      { q: 'Можно предложить свою функцию или репортнуть баг?', a: 'Да — через issues/обсуждения на GitHub или в чате @ViboGramChat.' },
+      { q: 'Работают ли секретные чаты и звонки так же, как в оригинале?', a: 'Да — их код форк не трогал, работают как в оригинальном Telegram-iOS.' },
+      { q: 'Переходят ли чаты и история при переходе с обычного Telegram?', a: 'Только если войдёте в тот же аккаунт.' },
+      { q: 'Поддерживаются ли темы и кастомные обои из обычного Telegram?', a: 'Да, конечно. А почему нет?' },
+      { q: 'Работает ли Telegram Premium, купленный в оригинальном приложении?', a: 'Да, работает — статус Premium серверный, от клиента не зависит.' },
+      { q: 'Почему приложения нет в App Store?', a: 'Во-первых, нужна платная подписка Apple Developer Program ($99/год) специально для App Store, её нет. Во-вторых, здесь есть функции, которые Apple, мягко говоря, не любит.' },
+      { q: 'Что делать, если LiveContainer/AltStore не работает или сертификат отозвали?', a: 'В этом случае мы не сможем помочь — это уже проблемы с Apple.' },
+      { q: 'Берёте ли донаты на поддержку проекта?', a: 'Да, берём — звёздами на канал или криптовалютой. Вся инфа по донатам в закрепе нашего канала.' },
+      { q: 'Планируется ли версия для Android?', a: 'Нет, не планируется. Клиент создан для того, чтобы вы могли пользоваться фичами Android-клиентов на iOS. Если хотите Android-клиент — скачивайте Margelet, ссылка на него есть ниже.' },
+    ],
+    nots: [
+      { d: 'Не связан с Telegram FZ-LLC или Apple Inc., не одобрен ими и никак к ним не относится.' },
+      { d: 'Не связан с проектами Swiftgram, AyuGram4A и Margelet — форк берёт у них идеи и, где отмечено, портированную логику.' },
+      { d: 'Экспериментальная сборка для личного использования. Шероховатости, недоделанные функции и долгие паузы между обновлениями — норма.' },
+      { d: 'В репозитории нет api_id / api_hash: получите свои на my.telegram.org.' },
+    ],
+  },
+  en: {
+    navFeatures: 'Features', navRoadmap: 'Status', navBuild: 'Build', navFaq: 'FAQ', navHonest: "What it isn't",
+    navDownload: 'Download IPA',
+    tagExperimental: 'experimental', tagFork: 'iOS · Swiftgram fork', tagNoStore: 'not distributed via the App Store',
+    tagline: 'A hybrid Telegram fork for iOS — the best of AyuGram, Swiftgram, and some vibe',
+    heroDesc: "Built from Swiftgram/Telegram-iOS with a curated set of features ported from two Android forks — AyuGram4A and Margelet. A personal build for daily use, not a commercial product.",
+    btnReleases: 'All releases', btnNews: 'News channel', btnSource: 'Source →',
+    bundleNote: "No fixed bundle id — you generate a random one yourself at build time, so it installs next to the official Telegram, not over it.",
+    featuresTitle: 'What this adds to Telegram',
+    featuresSub: "Nothing is hidden behind a purchase: the separate \"Pro\" screen is merged into regular settings, the paywall check is gone.",
+    roadmapTitle: 'In progress, honestly',
+    roadmapSub: "Some of this is only done as far as the data layer. This says exactly where each one stands, not what it'll look like.",
+    buildTitle: 'Build it yourself',
+    buildDesc1: "Build steps are unchanged from upstream Swiftgram / Telegram-iOS — this fork doesn't touch the build system itself. You need Xcode and Bazel, invoked through the",
+    buildDesc2: 'wrapper.',
+    buildStep1a: 'Get your own', buildStep1b: 'from my.telegram.org — they never live in this repo.',
+    buildStep2: "Don't call your build \"Telegram\" or use Telegram's logo.",
+    buildStep3: "Read Telegram's security guidelines before handling real accounts with this.",
+    buildFootnote: "CI publishes a release for every shipped feature or fix — a signed (free-tier, 7-day cert) device IPA when a build is available, source-only when it isn't.",
+    shellComment1: '# a random identifier',
+    honestTitle: "What this isn't",
+    faqTitle: 'Frequently asked questions',
+    ctaTitle: "Public mostly so I don't lose it",
+    ctaDesc: "And in case it's useful to someone else with the same itch. Expect rough edges, half-finished features, and long gaps between updates.",
+    ctaBtnDownload: 'Get the latest IPA', ctaBtnChat: 'ViboGram chat',
+    footerDisclaimer: 'Not affiliated with Telegram FZ-LLC, Apple Inc., or the Swiftgram, AyuGram4A, and Margelet projects.',
+    footerLinks: 'Links', footerNews: 'News channel', footerChat: 'Chat', footerSource: 'Source code', footerReleases: 'Releases',
+    footerBasedOn: 'Built on',
+    footerLicense: 'License',
+    footerLicenseText: "Upstream Telegram-iOS ships with no top-level LICENSE file: the source is public for review, but no explicit open-source license is granted for the iOS client. This fork inherits that same ambiguity rather than resolving it.",
+    stats: [
+      { icon: 'ph-bold ph-git-commit', kSuffix: 'commits on the main branch' },
+      { icon: 'ph-bold ph-stack', v: '16', k: 'features added on top of upstream' },
+      { icon: 'ph-bold ph-lock-open', v: '$0', k: 'nothing behind a paywall' },
+      { icon: 'ph-bold ph-device-mobile', v: 'iOS', k: 'only, built with Xcode + Bazel' },
+    ],
+    features: [
+      { icon: 'ph-bold ph-ghost', tag: 'privacy', t: 'Ghost mode', d: "Two independent switches: skip sending read receipts, and skip sending online/last-seen presence. Upstream's own read-receipt half was a hidden debug flag — both are now real settings rows." },
+      { icon: 'ph-bold ph-trash', tag: 'archive', t: 'Deleted and edited messages stick around', d: 'A message someone else deletes in a cloud chat or channel gets tagged, not removed: semi-transparent, with 🗑 where the "edited" label would sit. Secret chats are excluded on purpose.' },
+      { icon: 'ph-bold ph-database', tag: 'archive', t: 'Its own local store', d: "Kept messages and prior edited versions are written to their own JSON store, SGMessageArchive, in the App Group container — independent of the app's own database and cache, so clearing the cache never loses them." },
+      { icon: 'ph-bold ph-eye-slash', tag: 'privacy', t: 'Streamer mode', d: "Your own phone number is covered with dots everywhere the app shows it. No tap-to-reveal, on purpose — an accidental screen touch mid-stream shouldn't undo it." },
+      { icon: 'ph-bold ph-lock-key-open', tag: 'no gates', t: 'Everything unlocked, no paywall', d: 'The separate upstream "Pro" screen is merged into regular settings, the purchase check removed. Every row underneath works for anyone who builds this fork.' },
+      { icon: 'ph-bold ph-prohibit', tag: 'no gates', t: 'No in-app ads', d: "Sponsored messages and free-proxy sponsor-channel promos are hidden. Telegram's own PSA messages stay — those are official notices, not ads." },
+      { icon: 'ph-bold ph-funnel-x', tag: 'no gates', t: 'No client-side content filtering', d: 'The stock client does a purely cosmetic `platform == "ios"` string check to hide some content. The content was always reachable server-side — the client just stops hiding it from you.' },
+      { icon: 'ph-bold ph-arrows-vertical', tag: 'composer', t: 'A message field that grows', d: '12, 15, 20, 30 lines, or unlimited — independent of the input font size, which is also adjustable on its own. The 4096-character server limit stays either way.' },
+      { icon: 'ph-bold ph-text-aa', tag: 'composer', t: 'Text formatting of its own: Size, Dim, Rainbow', d: "Telegram's list of formatting types is closed and lives on the server, so the style is encoded as invisible Unicode markers inside the text itself and decoded by the fork. No live preview — the effect shows up after sending." },
+      { icon: 'ph-bold ph-camera', tag: 'secret chats', t: 'Screenshots and saving', d: "The screenshot notification to the other side is skipped, Save/Copy are restored. Also covers one-time-view and TTL media." },
+      { icon: 'ph-bold ph-fire', tag: 'secret chats', t: '"Burn now" button', d: "For TTL photos/videos in secret chats this is genuinely two-sided — a protocol-level delete. For one-time-view media in normal chats there's no server API to force the other side's copy, so it's honestly \"delete for me,\" and the UI doesn't pretend otherwise." },
+      { icon: 'ph-bold ph-funnel-simple', tag: 'chats', t: 'Message filters', d: 'Dims messages matching a keyword list — useful against ad posts some channels publish as regular messages. Substring matching, not regex; dims opacity rather than hiding.' },
+      { icon: 'ph-bold ph-clock-counter-clockwise', tag: 'chats', t: 'Keep history after a kick or ban', d: "Behind a toggle. Voluntarily leaving still hides the chat as before — only what happens when someone else removes you changes. Applies going forward only." },
+      { icon: 'ph-bold ph-gift', tag: 'gifts', t: 'Restore deleted gifts', d: "Opens the real send flow for limited-edition gifts that aged out of the live catalog, instead of a read-only screen. Only bypasses that one gate: per-person limits and genuinely exhausted collectible gifts stay blocked, and the server re-validates on send either way." },
+      { icon: 'ph-bold ph-crown-simple', tag: 'premium', t: 'Local Premium', d: "A port of AyuConfig.localPremium's design: a toggle ORs true into the single Peer.isPremium chokepoint — scoped to your own logged-in accounts only, other people's badges and status stay accurate. Only affects purely cosmetic client-side gates." },
+      { icon: 'ph-bold ph-music-notes', tag: 'media', t: 'Music tag editing', d: "Title, artist, and cover for tracks on your own profile (Saved Music). account.saveMusic has no tag parameters, so the already-cached audio gets re-uploaded as a new document; exact list position isn't preserved." },
+    ],
+    roadmap: [
+      { s: 'first cut', t: 'Badges', d: "A name in profiles, chat lists, and headers can carry a small badge, sourced from a JSON list CI publishes as a release asset, plus Margelet's own public badges.json for interop. The badge certifies nothing and asks no server. Currently just a plain colored marker — the img_url image isn't rendered yet, and there's no tap-to-spin-in-3D." },
+      { s: 'data layer', t: 'Profile banner and gradient', d: 'Margelet interop taken further than badges: the "database" is Margelet\'s own live public group, @margy_underground, by direct arrangement between the forks. Setting either is sending a tagged message; clearing is deleting it, by hand, with no dependency on this app. Find/set/clear all work — rendering it on the profile screen is a separate pass.' },
+      { s: 'needs a screen', t: 'Wall', d: "Another piece of Margelet on the same group: other people write about you, you can't remove it. The data layer is ported, but a feed from many different authors needs its own screen, tap-through from a tagged message, and composer auto-tagging." },
+      { s: 'separate beta', t: 'Python plugins', d: "There's no iOS equivalent of Chaquopy, so this is a project of its own. CPython (BeeWare's Python.xcframework plus a pruned stdlib) is vendored and already wired into a real build target; resource packaging and dynamic-framework embedding are solved on paper but not yet confirmed against a real build. Ships in a separate \"Vibogram: BETA\" app alongside a JIT-unlock mechanism." },
+      { s: 'half done', t: 'Session-file login', d: '.session (Telethon and Pyrogram) parsing is implemented and validated in SGSessionImport — the auth_key is read straight from both formats\' SQLite schema. The other half — injecting the key into MTContext — is designed but deliberately not implemented: it can only be verified against a real account on the real network, and a mistake costs that account. TData and a generic .json export are untouched.' },
+    ],
+    tree: [
+      { p: 'Swiftgram/', d: "This fork's own feature modules, one per feature: SGMessageArchive, SGBadges, SGPython, SGSessionImport…" },
+      { p: 'submodules/', d: 'Upstream Telegram-iOS libraries, patched in place wherever a feature needed it.' },
+      { p: 'third-party/python/', d: 'Vendored CPython xcframework and a pruned stdlib for the plugin system.' },
+      { p: 'docs/', d: 'Design and status notes for the larger in-progress features.' },
+    ],
+    faq: [
+      { q: 'Is this legal? Will my account get banned?', a: "Forks of the official client aren't banned outright, but nobody guarantees 100% — it's an unofficial client, use at your own risk." },
+      { q: "Why isn't there always an IPA in the release, and how do I install it?", a: "The IPA is signed with a free Apple ID (the cert lives only 7 days) and built via CI — sometimes CI is unavailable, and the release goes out source-only. When there is one, install via LiveContainer, AltStore, or SideStore." },
+      { q: 'Can I install it next to regular Telegram?', a: "Yes — the fork has its own separate bundle id, no conflict with the official app." },
+      { q: 'What happens to my data and account?', a: "Core data (messages, anti-delete, history) stays local on your device. A few experimental features (profile banner/gradient/wall, Margelet interop) deliberately use a shared public Telegram group as storage — that's described in the roadmap section, nothing hidden." },
+      { q: 'How often do updates come out?', a: "Whenever a feature or fix is ready, no schedule — it's a one-person hobby project, so long pauses happen too." },
+      { q: 'Can I suggest a feature or report a bug?', a: 'Yes — via GitHub issues/discussions, or in the @ViboGramChat chat.' },
+      { q: 'Do secret chats and calls work the same as the original?', a: "Yes — the fork hasn't touched that code, it works like stock Telegram-iOS." },
+      { q: 'Do chats and history carry over from regular Telegram?', a: 'Only if you sign into the same account.' },
+      { q: 'Are themes and custom wallpapers from regular Telegram supported?', a: "Yes, of course. Why wouldn't they be?" },
+      { q: 'Does Telegram Premium bought in the original app work?', a: "Yes — Premium status is server-side, independent of the client." },
+      { q: "Why isn't this on the App Store?", a: "First, it needs a paid Apple Developer Program membership ($99/year) specifically for the App Store, which this doesn't have. Second, this has features Apple doesn't exactly love." },
+      { q: 'What if LiveContainer/AltStore stops working, or the cert gets revoked?', a: "Can't help with that one — that's an Apple problem at that point." },
+      { q: 'Do you take donations?', a: 'Yes — Telegram Stars to the channel, or crypto. All the info is pinned in the channel.' },
+      { q: 'Is an Android version planned?', a: "No. This client exists so you can use Android-fork features on iOS. If you want an Android client, grab Margelet — linked below." },
+    ],
+    nots: [
+      { d: 'Not affiliated with, endorsed by, or connected to Telegram FZ-LLC or Apple Inc. in any way.' },
+      { d: 'Not affiliated with the Swiftgram, AyuGram4A, or Margelet projects — this fork borrows ideas, and where noted, ported logic, from them.' },
+      { d: 'An experimental, personal-use build. Rough edges, half-finished features, and long gaps between updates are the norm.' },
+      { d: "No api_id / api_hash in this repository — get your own at my.telegram.org." },
+    ],
+  },
+};
+
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    // MARK: ViboGram - these are the two numbers on this page that go
-    // stale on their own (commit count grows with every push; the version
-    // changes on every release). Static fallbacks match what was true when
-    // this page was last edited by hand -- shown immediately, replaced the
-    // moment the GitHub API calls below resolve, so the page still looks
-    // right with JS/network disabled and isn't silently wrong once it
-    // isn't.
+    // MARK: ViboGram - commit count/version are the two numbers on this
+    // page that go stale on their own. Static fallback matches what was
+    // true when this page was last edited by hand -- shown immediately,
+    // replaced the moment the GitHub API calls below resolve, so the page
+    // still looks right with JS/network disabled and isn't silently wrong
+    // once it isn't. Language defaults to Russian (this project's primary
+    // audience) with a manual toggle, not navigator.language -- a visiting
+    // РФ-based reader on an EN-locale phone shouldn't land on the wrong copy.
     this.state = {
-      commitCount: '30 861',
+      commitCount: null,
       latestVersion: null,
+      lang: 'ru',
     };
   }
 
@@ -250,7 +458,7 @@ class Component extends DCLogic {
         const link = res.headers.get('Link') || '';
         const match = link.match(/[?&]page=(\d+)>;\s*rel="last"/);
         if (match) {
-          this.setState({ commitCount: Number(match[1]).toLocaleString('ru-RU') });
+          this.setState({ commitCount: Number(match[1]) });
         }
       })
       .catch(() => {});
@@ -264,9 +472,16 @@ class Component extends DCLogic {
       .catch(() => {});
   }
 
+  toggleLang() {
+    this.setState({ lang: this.state.lang === 'ru' ? 'en' : 'ru' });
+  }
+
   renderVals() {
-    const p = this.props;
     const s = this.state;
+    const t = STRINGS[s.lang];
+    const commitLocale = s.lang === 'ru' ? 'ru-RU' : 'en-US';
+    const commitCount = s.commitCount != null ? s.commitCount.toLocaleString(commitLocale) : (s.lang === 'ru' ? '30 861' : '30,861');
+    const stats = t.stats.map((stat) => stat.kSuffix ? { icon: stat.icon, v: commitCount, k: stat.kSuffix } : stat);
     return {
       logoSrc: 'assets/vibogram-logo.png',
       hasLogo: true,
@@ -274,65 +489,15 @@ class Component extends DCLogic {
       latestVersion: s.latestVersion,
       hasVersion: !!s.latestVersion,
       noVersion: !s.latestVersion,
-      stats: [
-        { icon: 'ph-bold ph-git-commit', v: s.commitCount, k: 'коммит в основной ветке' },
-        { icon: 'ph-bold ph-stack', v: '16', k: 'функция, добавленная к upstream' },
-        { icon: 'ph-bold ph-lock-open', v: '0 ₽', k: 'ничего за paywall' },
-        { icon: 'ph-bold ph-device-mobile', v: 'iOS', k: 'только, сборка через Xcode + Bazel' },
-      ],
-      features: [
-        { icon: 'ph-bold ph-ghost', tag: 'приватность', t: 'Ghost-режим', d: 'Два независимых переключателя: не отправлять отчёты о прочтении и не сообщать о своём онлайне. В upstream половина с отчётами была скрытым debug-флагом — здесь обе стали настоящими строками настроек.' },
-        { icon: 'ph-bold ph-trash', tag: 'архив', t: 'Удалённые и изменённые сообщения остаются', d: 'Сообщение, которое кто-то удалил в облачном чате или канале, помечается, а не исчезает: полупрозрачное, с 🗑 на месте метки «изменено». Секретные чаты исключены намеренно.' },
-        { icon: 'ph-bold ph-database', tag: 'архив', t: 'Собственный локальный стор', d: 'Сохранённые сообщения и прежние версии отредактированных пишутся в отдельный JSON-стор SGMessageArchive в контейнере App Group — независимо от базы и кэша приложения, так что очистка кэша их не теряет.' },
-        { icon: 'ph-bold ph-eye-slash', tag: 'приватность', t: 'Streamer mode', d: 'Свой номер телефона закрыт точками везде, где приложение его показывает. Тапа для показа нет намеренно: случайное касание экрана в прямом эфире не должно этого отменить.' },
-        { icon: 'ph-bold ph-lock-key-open', tag: 'без гейтов', t: 'Всё разблокировано, без paywall', d: 'Отдельный экран «Pro» из upstream слит с обычным экраном настроек, проверка покупки убрана. Каждая строка под ним работает у всех, кто собирает форк.' },
-        { icon: 'ph-bold ph-prohibit', tag: 'без гейтов', t: 'Никакой рекламы в приложении', d: 'Спонсорские сообщения и промо спонсорских прокси-каналов скрыты. Собственные PSA-сообщения Telegram остаются — это официальные уведомления, а не реклама.' },
-        { icon: 'ph-bold ph-funnel-x', tag: 'без гейтов', t: 'Без клиентской фильтрации контента', d: 'Стандартный клиент делает чисто косметическую строковую проверку platform == "ios", чтобы что-то спрятать. Контент всегда был доступен на стороне сервера — клиент просто перестаёт его от вас скрывать.' },
-        { icon: 'ph-bold ph-arrows-vertical', tag: 'composer', t: 'Поле ввода, которое растёт', d: '12, 15, 20, 30 строк или без ограничения — независимо от размера шрифта ввода, который тоже настраивается отдельно. Лимит 4096 символов серверный и остаётся в любом случае.' },
-        { icon: 'ph-bold ph-text-aa', tag: 'composer', t: 'Своё форматирование: Size, Dim, Rainbow', d: 'Список типов форматирования у Telegram закрытый и живёт на сервере, поэтому стиль кодируется невидимыми Unicode-маркерами внутри самого текста и раскрывается форком. Живого превью нет — эффект виден после отправки.' },
-        { icon: 'ph-bold ph-camera', tag: 'секретные чаты', t: 'Скриншоты и сохранение', d: 'Уведомление о скриншоте другой стороне не уходит, Save/Copy возвращены. Заодно покрывает одноразовые и TTL-медиа.' },
-        { icon: 'ph-bold ph-fire', tag: 'секретные чаты', t: 'Кнопка «сжечь сейчас»', d: 'Для TTL-фото и видео в секретных чатах это по-настоящему двусторонне — удаление на уровне протокола. Для одноразовых медиа в обычных чатах серверного API нет, поэтому это «удалить у себя», и интерфейс не делает вид, что иначе.' },
-        { icon: 'ph-bold ph-funnel-simple', tag: 'чаты', t: 'Фильтры сообщений', d: 'Затемняет сообщения по списку ключевых слов — удобно против рекламных постов, которые каналы публикуют как обычные сообщения. Подстроки, не regex; прозрачность, а не скрытие.' },
-        { icon: 'ph-bold ph-clock-counter-clockwise', tag: 'чаты', t: 'История после кика или бана', d: 'За переключателем. Добровольный выход из чата всё так же его скрывает — меняется только то, что происходит, когда вас удаляет кто-то другой. Действует только вперёд.' },
-        { icon: 'ph-bold ph-gift', tag: 'подарки', t: 'Восстановление удалённых подарков', d: 'Открывает реальный флоу отправки для лимитированных подарков, выпавших из живого каталога, вместо read-only экрана. Обходит только этот гейт: лимиты на человека и исчерпанные коллекционные подарки остаются заблокированными, а сервер перепроверяет при отправке.' },
-        { icon: 'ph-bold ph-crown-simple', tag: 'premium', t: 'Локальный Premium', d: 'Порт дизайна AyuConfig.localPremium: переключатель подмешивает true в единственную точку Peer.isPremium — только для своих залогиненных аккаунтов, чужие бейджи и статусы остаются честными. Затрагивает лишь косметические клиентские гейты.' },
-        { icon: 'ph-bold ph-music-notes', tag: 'медиа', t: 'Редактирование тегов музыки', d: 'Название, артист и обложка для треков в своём профиле (Saved Music). У account.saveMusic нет параметров для тегов, поэтому уже закэшированное аудио перезагружается как новый документ; точная позиция в списке не сохраняется.' },
-      ],
-      roadmap: [
-        { s: 'первый срез', t: 'Бейджи', d: 'Имя в профилях, списке чатов и заголовках может носить небольшой бейдж из JSON, публикуемого CI как релизный ассет, плюс публичный badges.json Margelet для совместимости. Бейдж ничего не удостоверяет и ничего не спрашивает у сервера. Пока это простой цветной маркер: картинка из img_url ещё не рисуется, вращения в 3D по тапу нет.' },
-        { s: 'слой данных', t: 'Баннер и градиент профиля', d: 'Интероп с Margelet, доведённый дальше бейджей: «базой» служит живая публичная группа @margy_underground — по прямой договорённости между форками. Установка — просто отправка помеченного сообщения, сброс — его удаление, вручную и без зависимости от приложения. Поиск, установка и сброс работают; отрисовка на экране профиля — отдельный проход.' },
-        { s: 'нужен экран', t: 'Wall', d: 'Ещё один кусок Margelet на той же группе: другие пишут о вас, вы не можете это убрать. Слой данных портирован, но лента от многих авторов требует своего экрана, перехода по тапу с помеченного сообщения и авто-тегирования в композере.' },
-        { s: 'в отдельной бете', t: 'Python-плагины', d: 'iOS-эквивалента Chaquopy нет, поэтому это самостоятельный проект. CPython (Python.xcframework от BeeWare плюс урезанная stdlib) вендорится и уже подключён к реальному таргету сборки; упаковка ресурсов и встраивание динамического фреймворка решены на бумаге, но ещё не проверены настоящей сборкой. Выйдет в приложении «Vibogram: BETA» вместе с JIT-разблокировкой.' },
-        { s: 'половина готова', t: 'Вход по файлу сессии', d: 'Парсинг .session (Telethon и Pyrogram) реализован и проверен в SGSessionImport — auth_key читается прямо из SQLite-схемы обоих форматов. Вторая половина — инъекция ключа в MTContext — спроектирована, но намеренно не реализована: проверить её можно только на реальном аккаунте в реальной сети, а ошибка стоит аккаунта. TData и generic .json не тронуты.' },
-      ],
-      tree: [
-        { p: 'Swiftgram/', d: 'Модули функций этого форка, по одному на функцию: SGMessageArchive, SGBadges, SGPython, SGSessionImport…' },
-        { p: 'submodules/', d: 'Библиотеки upstream Telegram-iOS, пропатченные на месте там, где функции это потребовали.' },
-        { p: 'third-party/python/', d: 'Вендоренный CPython xcframework и урезанная stdlib для системы плагинов.' },
-        { p: 'docs/', d: 'Заметки по дизайну и статусу для крупных незавершённых функций.' },
-      ],
-      faq: [
-        { q: 'Это законно? Не забанят ли аккаунт?', a: 'Форки официального клиента сами по себе не запрещены, но гарантий на 100% никто не даёт — это неофициальный клиент, используете на свой риск.' },
-        { q: 'Почему IPA не всегда есть в релизе и как его установить?', a: 'IPA подписывается бесплатным Apple ID (сертификат живёт всего 7 дней) и собирается через CI — иногда CI недоступен, тогда релиз выходит source-only, без готового IPA. Когда IPA есть — ставится через LiveContainer, AltStore или SideStore.' },
-        { q: 'Можно ставить рядом с обычным Telegram?', a: 'Да — у форка свой отдельный bundle id, конфликта с официальным приложением нет.' },
-        { q: 'Что будет с моими данными и аккаунтом?', a: 'Основные данные (сообщения, анти-делит, история) хранятся локально на устройстве. Отдельные экспериментальные фичи (баннер/градиент/стена профиля, интероп с Margelet) намеренно используют общую публичную Telegram-группу как хранилище — это описано в разделе roadmap, ничего не скрыто.' },
-        { q: 'Как часто выходят обновления?', a: 'По готовности новой фичи или фикса, без расписания — это хобби-проект одного человека, так что бывают и долгие паузы.' },
-        { q: 'Можно предложить свою функцию или репортнуть баг?', a: 'Да — через issues/обсуждения на GitHub или в чате @ViboGramChat.' },
-        { q: 'Работают ли секретные чаты и звонки так же, как в оригинале?', a: 'Да — их код форк не трогал, работают как в оригинальном Telegram-iOS.' },
-        { q: 'Переходят ли чаты и история при переходе с обычного Telegram?', a: 'Только если войдёте в тот же аккаунт.' },
-        { q: 'Поддерживаются ли темы и кастомные обои из обычного Telegram?', a: 'Да, конечно. А почему нет?' },
-        { q: 'Работает ли Telegram Premium, купленный в оригинальном приложении?', a: 'Да, работает — статус Premium серверный, от клиента не зависит.' },
-        { q: 'Почему приложения нет в App Store?', a: 'Во-первых, нужна платная подписка Apple Developer Program ($99/год) специально для App Store, её нет. Во-вторых, здесь есть функции, которые Apple, мягко говоря, не любит.' },
-        { q: 'Что делать, если LiveContainer/AltStore не работает или сертификат отозвали?', a: 'В этом случае мы не сможем помочь — это уже проблемы с Apple.' },
-        { q: 'Берёте ли донаты на поддержку проекта?', a: 'Да, берём — звёздами на канал или криптовалютой. Вся инфа по донатам в закрепе нашего канала.' },
-        { q: 'Планируется ли версия для Android?', a: 'Нет, не планируется. Клиент создан для того, чтобы вы могли пользоваться фичами Android-клиентов на iOS. Если хотите Android-клиент — скачивайте Margelet, ссылка на него есть ниже.' },
-      ],
-      nots: [
-        { i: '01', d: 'Не связан с Telegram FZ-LLC или Apple Inc., не одобрен ими и никак к ним не относится.' },
-        { i: '02', d: 'Не связан с проектами Swiftgram, AyuGram4A и Margelet — форк берёт у них идеи и, где отмечено, портированную логику.' },
-        { i: '03', d: 'Экспериментальная сборка для личного использования. Шероховатости, недоделанные функции и долгие паузы между обновлениями — норма.' },
-        { i: '04', d: 'В репозитории нет api_id / api_hash и нет сертификата подписи: релизные сборки намеренно неподписанные.' },
-      ],
+      langLabel: s.lang === 'ru' ? 'EN' : 'RU',
+      toggleLang: () => this.toggleLang(),
+      t,
+      stats,
+      features: t.features,
+      roadmap: t.roadmap,
+      tree: t.tree,
+      faq: t.faq,
+      nots: t.nots,
     };
   }
 }
