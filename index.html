@@ -37,7 +37,12 @@
   .vg-cta-h2 { font-size: clamp(28px, 7.5vw, 48px); }
 
   @media (max-width: 760px) {
-    .vg-nav-links { display: none; }
+    /* MARK: ViboGram - bugfix: the nav element has an inline display:flex
+       style, which beats a plain class rule in a media query regardless of
+       the media query's own specificity (inline always wins short of
+       !important on both sides). Without !important here this rule was
+       silently losing and the nav kept rendering/overflowing on phones. */
+    .vg-nav-links { display: none !important; }
     .vg-hero-shot { margin-top: 40px !important; }
     .vg-section { padding-left: 18px !important; padding-right: 18px !important; }
     .vg-build-grid { grid-template-columns: 1fr !important; }
@@ -46,6 +51,11 @@
   }
   @media (max-width: 420px) {
     .vg-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    /* MARK: ViboGram - on very narrow phones, keep the download button as
+       just the icon so it plus the logo and the lang toggle actually fit
+       one header row without wrapping/overflow. */
+    .vg-download-text { display: none !important; }
+    .vg-download-btn { padding: 7px 10px !important; }
   }
 </style>
 </helmet>
@@ -71,7 +81,7 @@
         <a href="#honest" style="color: #9aa5a0;" style-hover="color: #e9edeb;">{{ t.navHonest }}</a>
       </nav>
       <button onclick="{{ toggleLang }}" style="margin-left: auto; background: none; border: 1px solid rgba(233,237,235,.16); color: #9aa5a0; border-radius: 7px; padding: 6px 10px; font-size: 12.5px; font-weight: 500; font-family: inherit; cursor: pointer; flex: none;" style-hover="border-color: rgba(141,209,176,.4); color: #e9edeb;">{{ langLabel }}</button>
-      <a href="https://github.com/vibeDN/ViboGram/releases" style="border: 1px solid #8dd1b0; color: #8dd1b0; border-radius: 8px; padding: 7px 15px; font-size: 13.5px; font-weight: 500; white-space: nowrap; display: flex; align-items: center; gap: 6px; flex: none;" style-hover="background: rgba(141,209,176,.12); color: #c9ebda;"><i class="ph-bold ph-download-simple" style="font-size: 15px;"></i>{{ t.navDownload }}</a>
+      <a href="https://github.com/vibeDN/ViboGram/releases" class="vg-download-btn" style="border: 1px solid #8dd1b0; color: #8dd1b0; border-radius: 8px; padding: 7px 15px; font-size: 13.5px; font-weight: 500; white-space: nowrap; display: flex; align-items: center; gap: 6px; flex: none;" style-hover="background: rgba(141,209,176,.12); color: #c9ebda;"><i class="ph-bold ph-download-simple" style="font-size: 15px;"></i><span class="vg-download-text">{{ t.navDownload }}</span></a>
     </div>
   </header>
 
