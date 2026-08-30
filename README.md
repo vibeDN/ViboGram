@@ -257,9 +257,12 @@ this app at all. Data layer only so far (finding, setting, clearing all work)
 UI pass, not done yet.
 
 Margelet also has a "Wall" (others write about you there, you can't remove
-it) built on the same group. Deliberately not ported — real,
-undecided harassment-risk question with no server-side moderation, not
-something to ship without actually deciding it first.
+it, built on the same group) — data layer ported too (finding/posting/
+display-stripping all work), same "not on the profile screen yet" state as
+banner/gradient. A wall is a live feed from many different authors rather
+than a single value though, so it needs its own screen (plus tap-through
+from a tagged message in the group, and composer auto-tagging) before it's
+actually usable — a bigger UI lift than the other two, not attempted yet.
 </details>
 
 <details>
