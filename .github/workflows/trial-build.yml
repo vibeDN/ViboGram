@@ -360,8 +360,7 @@ jobs:
           gh release create "$VERSION" "${{ steps.ipa.outputs.path }}" \
             --title "$VERSION" \
             --notes "$NOTES" \
-            --generate-notes \
-            --prerelease
+            --generate-notes
           # --generate-notes appends a "What's Changed" changelog server-side, so
           # re-read the release to get the real final body for the Telegram post
           # (the local $NOTES var only has the static header we passed in).
