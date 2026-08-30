@@ -29,11 +29,25 @@ public enum SGCommunityGroup {
     // MARK: ViboGram - resolved once per process and cached: the group's
     // peer id is permanent, so re-resolving on every search/post would be a
     // pointless extra network+Postbox round trip every time.
+    //
+    // MARK: ViboGram - bugfix, caught by independent review: reads/writes of
+    // `cachedPeerId` had no synchronization, and multiple call sites
+    // (SGBanner/SGGradient/SGWall's find(), plus the debug smoke test
+    // combining several of those in one `combineLatest`) can genuinely call
+    // `resolveGroup` concurrently on first use. `PeerId` is a small value
+    // type, so the realistic worst case was a few redundant
+    // `resolvePeerByName` calls rather than a torn value, but it's still a
+    // real data race by Swift's own rules -- guarded with a lock instead of
+    // leaving it to chance.
+    private static let cacheLock = NSLock()
     private static var cachedPeerId: PeerId?
 
     public static func resolveGroup(context: AccountContext) -> Signal<PeerId?, NoError> {
-        if let cachedPeerId {
-            return .single(cachedPeerId)
+        cacheLock.lock()
+        let existing = cachedPeerId
+        cacheLock.unlock()
+        if let existing {
+            return .single(existing)
         }
         return context.engine.peers.resolvePeerByName(name: username, referrer: nil)
         |> mapToSignal { result -> Signal<EnginePeer?, NoError> in
@@ -46,7 +60,9 @@ public enum SGCommunityGroup {
             guard let peer else {
                 return nil
             }
+            cacheLock.lock()
             cachedPeerId = peer.id
+            cacheLock.unlock()
             return peer.id
         }
     }

@@ -30,7 +30,34 @@ public enum SGGradient {
         }
     }
 
+    // MARK: ViboGram - main-thread-only contract, same as SGBanner's
+    // identical cache (see its fuller comment).
     private static var ownMessageId: [PeerId: MessageId] = [:]
+
+    // MARK: ViboGram - same generation-token guard as SGBanner, and for the
+    // identical two reasons (caught by independent review): don't delete a
+    // still-good old gradient when the new post silently failed, and don't
+    // let a slow set() resurrect a gradient a since-completed clear() just
+    // removed. See SGBanner.swift's fuller comment on this. Lock-protected
+    // (unlike ownMessageId) since this is written synchronously before any
+    // thread-hopping, so it can't rely on an assumed main-thread caller the
+    // way the rest of this file's state does.
+    private static let stateLock = NSLock()
+    private static var generation: [PeerId: Int] = [:]
+
+    private static func nextGeneration(for peerId: PeerId) -> Int {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        let next = (generation[peerId] ?? 0) + 1
+        generation[peerId] = next
+        return next
+    }
+
+    private static func isCurrent(_ generationToken: Int, for peerId: PeerId) -> Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return generation[peerId] == generationToken
+    }
 
     private static let pattern = try! NSRegularExpression(pattern: "#margy_gradient\\s+([0-9A-Fa-f]{6})-([0-9A-Fa-f]{6})\\b")
 
@@ -54,29 +81,54 @@ public enum SGGradient {
         return Pair(from: from, to: to)
     }
 
-    public static func find(context: AccountContext, peerId: PeerId) -> Signal<Pair?, NoError> {
+    /// The first message (newest first) whose text actually parses as a
+    /// well-formed gradient -- shared by `find()` and `set()`'s
+    /// find-the-old-one-to-clean-up fallback, so both agree on exactly
+    /// which message counts as "the" current gradient.
+    private static func findMessage(context: AccountContext, peerId: PeerId) -> Signal<Message?, NoError> {
         return SGCommunityGroup.find(context: context, tag: SGCommunityGroup.tagGradient, fromId: peerId)
-        |> map { messages -> Pair? in
-            for message in messages {
-                if let pair = parse(message.text) {
-                    return pair
-                }
-            }
-            return nil
+        |> map { messages -> Message? in
+            return messages.first(where: { parse($0.text) != nil })
+        }
+    }
+
+    public static func find(context: AccountContext, peerId: PeerId) -> Signal<Pair?, NoError> {
+        return findMessage(context: context, peerId: peerId)
+        |> map { message -> Pair? in
+            return message.flatMap { parse($0.text) }
         }
     }
 
     public static func set(context: AccountContext, pair: Pair, completion: (() -> Void)? = nil) {
         let accountPeerId = context.account.peerId
-        let previous = ownMessageId[accountPeerId]
-        let _ = (SGCommunityGroup.post(context: context, text: describe(pair))
-        |> deliverOnMainQueue).start(next: { newMessageId in
+        let token = nextGeneration(for: accountPeerId)
+
+        // MARK: ViboGram - bugfix, caught by independent review: same
+        // "find the real old one on a fresh process" fallback as SGBanner.
+        let previousSignal: Signal<MessageId?, NoError>
+        if let known = ownMessageId[accountPeerId] {
+            previousSignal = .single(known)
+        } else {
+            previousSignal = findMessage(context: context, peerId: accountPeerId) |> map { $0?.id }
+        }
+
+        let _ = (combineLatest(previousSignal, SGCommunityGroup.post(context: context, text: describe(pair)))
+        |> deliverOnMainQueue).start(next: { previous, newMessageId in
+            guard isCurrent(token, for: accountPeerId) else {
+                completion?()
+                return
+            }
             if let newMessageId {
                 ownMessageId[accountPeerId] = newMessageId
-            }
-            if let previous {
-                Queue.mainQueue().after(4.0) {
-                    SGCommunityGroup.remove(context: context, messageId: previous)
+                if let previous {
+                    // MARK: ViboGram - only reachable when the new post
+                    // actually succeeded -- see the bugfix note above.
+                    Queue.mainQueue().after(4.0) {
+                        guard isCurrent(token, for: accountPeerId) else {
+                            return
+                        }
+                        SGCommunityGroup.remove(context: context, messageId: previous)
+                    }
                 }
             }
             completion?()
@@ -85,6 +137,7 @@ public enum SGGradient {
 
     public static func clear(context: AccountContext, completion: (() -> Void)? = nil) {
         let accountPeerId = context.account.peerId
+        let token = nextGeneration(for: accountPeerId)
         if let known = ownMessageId[accountPeerId] {
             SGCommunityGroup.remove(context: context, messageId: known)
             ownMessageId.removeValue(forKey: accountPeerId)
@@ -93,6 +146,10 @@ public enum SGGradient {
         }
         let _ = (SGCommunityGroup.find(context: context, tag: SGCommunityGroup.tagGradient, fromId: accountPeerId)
         |> deliverOnMainQueue).start(next: { messages in
+            guard isCurrent(token, for: accountPeerId) else {
+                completion?()
+                return
+            }
             for message in messages where parse(message.text) != nil {
                 SGCommunityGroup.remove(context: context, messageId: message.id)
             }
