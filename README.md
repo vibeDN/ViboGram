@@ -44,7 +44,7 @@ out — just source-only, with notes on what changed, until the next build.
 ## What it adds
 
 <details>
-<summary><b>Ghost mode</b></summary>
+<summary><b>Ghost mode (idea from AyuGram4A)</b></summary>
 
 Two independent switches: skip sending read receipts, and skip sending
 online/last-seen presence updates. Upstream Swiftgram already had a hidden
@@ -53,7 +53,7 @@ toggles.
 </details>
 
 <details>
-<summary><b>Deleted and edited messages stick around</b></summary>
+<summary><b>Deleted and edited messages stick around (idea from AyuGram4A)</b></summary>
 
 Behind one settings toggle (secret chats excluded, on purpose). A message
 someone else deletes in a cloud chat or channel is kept — tagged, not removed
