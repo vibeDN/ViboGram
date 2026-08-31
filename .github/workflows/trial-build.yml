@@ -225,19 +225,22 @@ jobs:
           # given generated project, so it's extracted from the pbxproj
           # rather than hardcoded.
           #
-          # Only SwiftSignalKitFramework has actually been observed hitting
-          # this (it's always the first framework in the dependency graph,
-          # so the build never got far enough to prove or rule out others).
-          # If a *different* framework starts failing the same way once
-          # this one is fixed, add its module name + submodule source path
-          # to MODULES_NEEDING_DEST_PRECREATE below.
+          # Only SwiftSignalKitFramework was directly proven to hit this
+          # (isolated single-target builds confirmed the exact mechanism
+          # there). The other frameworks below (MtProtoKit, Postbox,
+          # TelegramCore, TelegramUI) share the identical BwB stub-compile
+          # + parallel-copy-worker setup, so they're included preemptively
+          # rather than waiting to find each one the hard way one CI run at
+          # a time. If a *different* framework fails the same way, add its
+          # module name + submodule source path to
+          # MODULES_NEEDING_DEST_PRECREATE below.
           MAX_ATTEMPTS=3
           BAZEL_HASH=$(grep -o "ios_sim_arm64-dbg-ios-sim_arm64-min[0-9.]*-ST-[a-f0-9]*" "${{ steps.proj.outputs.path }}/project.pbxproj" | sort -u | head -1)
           if [ -z "$BAZEL_HASH" ]; then
             echo "Could not extract the bazel-out config hash from the generated pbxproj -- skipping the destination pre-create mitigation." >&2
           fi
           # module_name:submodule_source_path pairs.
-          MODULES_NEEDING_DEST_PRECREATE="SwiftSignalKit:SSignalKit/SwiftSignalKit"
+          MODULES_NEEDING_DEST_PRECREATE="SwiftSignalKit:SSignalKit/SwiftSignalKit MtProtoKit:MtProtoKit Postbox:Postbox TelegramCore:TelegramCore TelegramUI:TelegramUI"
           precreate_module_dest_dirs() {
             local derived_path="$1"
             [ -z "$BAZEL_HASH" ] && return 0
@@ -362,7 +365,7 @@ jobs:
           if [ -z "$BAZEL_HASH" ]; then
             echo "Could not extract the bazel-out config hash from the generated pbxproj -- skipping the destination pre-create mitigation." >&2
           fi
-          MODULES_NEEDING_DEST_PRECREATE="SwiftSignalKit:SSignalKit/SwiftSignalKit"
+          MODULES_NEEDING_DEST_PRECREATE="SwiftSignalKit:SSignalKit/SwiftSignalKit MtProtoKit:MtProtoKit Postbox:Postbox TelegramCore:TelegramCore TelegramUI:TelegramUI"
           precreate_module_dest_dirs() {
             local derived_path="$1"
             [ -z "$BAZEL_HASH" ] && return 0
