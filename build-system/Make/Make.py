@@ -522,8 +522,18 @@ def resolve_configuration(base_path, bazel_command_line: BazelCommandLine, argum
         # capability, so their profiles never have an aps-environment entitlement.
         # Continue with a placeholder instead of hard-failing; push notifications
         # just won't work in this build until a paid Developer account is used.
+        #
+        # MARK: ViboGram - bugfix: the placeholder must be the EMPTY string, not
+        # 'development'. Telegram/BUILD's aps_fragment only omits the
+        # aps-environment entitlements key when telegram_aps_environment == ""
+        # -- passing 'development' here made the build still request the
+        # capability, so rules_apple's entitlements validation correctly
+        # rejected it against a profile that doesn't grant it ("uses
+        # entitlements with the 'aps-environment' key, but the profile does
+        # not have this key"), hard-failing every free-Apple-ID device build
+        # instead of just silently not getting push notifications as intended.
         print('Warning: no aps-environment entitlement found (free Apple ID) -- continuing without push notification support.')
-        codesigning_data.aps_environment = 'development'
+        codesigning_data.aps_environment = ''
 
     if bazel_command_line is not None:
         build_configuration.write_to_variables_file(bazel_path=bazel_command_line.bazel, use_xcode_managed_codesigning=codesigning_data.use_xcode_managed_codesigning, aps_environment=codesigning_data.aps_environment, path=configuration_repository_path + '/variables.bzl')
