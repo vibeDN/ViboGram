@@ -81,7 +81,7 @@ purely local was the simpler, more honest thing to build.
 </details>
 
 <details>
-<summary><b>Streamer mode</b></summary>
+<summary><b>Streamer mode (idea from Margelet)</b></summary>
 
 Your own phone number is covered with dots everywhere the app shows it.
 There's no tap-to-reveal on purpose — the whole point is that an accidental
@@ -117,7 +117,7 @@ the client from hiding it from you.
 </details>
 
 <details>
-<summary><b>A message field that grows as far as you want</b></summary>
+<summary><b>A message field that grows as far as you want (idea from Margelet)</b></summary>
 
 Pick 12, 15, 20, 30 lines, or unlimited — independent of the input font size,
 which is also adjustable on its own. The 4096-character-per-message limit is
@@ -181,7 +181,7 @@ toggle was turned on; only applies going forward.
 </details>
 
 <details>
-<summary><b>Restore deleted gifts</b></summary>
+<summary><b>Restore deleted gifts (idea from Margelet)</b></summary>
 
 Telegram's servers still hold limited-edition gifts that aged out of the live
 catalog (last year's holiday gift, say) — the stock client redirects a tap on
@@ -211,7 +211,7 @@ content — is still rejected server-side regardless of this toggle.
 </details>
 
 <details>
-<summary><b>Music tag editing</b></summary>
+<summary><b>Music tag editing (concept from Margelet, implementation our own)</b></summary>
 
 Title, artist, and cover, for tracks already on your own profile (Saved
 Music). An edit button next to the existing add button in the overlay music
