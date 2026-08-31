@@ -191,50 +191,66 @@ jobs:
           xcodebuild -version | tee -a build.log
           xcrun --find swift | tee -a build.log
           xcrun swift --version | tee -a build.log
-          # rules_xcodeproj's "Copy Bazel Outputs" script phases intermittently
-          # race the underlying bazel build for the first few framework
-          # targets ("No such file or directory" copying a .swiftmodule that
-          # hasn't landed yet). Ruled out so far: COMPILER_INDEX_STORE_ENABLE,
-          # Bazel disk caching, reusing the same DerivedData across retries
-          # (worse -- leaves locked files), Xcode target-build parallelism
-          # (forcing parallelizeBuildables=NO still hit the identical race on
-          # a real run, just ~2x slower), IDEIndexDisable=YES (live-tested,
-          # no change), and cross-target scheduling contention -- live-tested
-          # building ONLY the racy target (SwiftSignalKitFramework) via its
-          # own auto-generated scheme, nothing else in flight on the runner
-          # at all, and it hit the identical failure anyway. So this isn't
-          # about concurrency between unrelated targets; whatever the real
-          # cause is, it reproduces within this one target's own build graph
-          # in isolation. See MobileNativeFoundation/rules_xcodeproj#3183 for
-          # the live fs_usage trace showing two concurrent "swiftc" processes
-          # touching the same OutputFileMap/swiftmodule paths at once -- root
-          # cause of why a second one gets scheduled at all is still open.
-          # Each retry attempt below at least
-          # gets a fresh DerivedData, which is a genuine partial redo, but not
-          # a full one -- Bazel's own execroot/disk-cache state is still
-          # shared across attempts, and (confirmed the hard way) blindly
-          # nuking rules_xcodeproj's separate internal bazel output_base to
-          # "fix" that breaks the retry worse (deletes generated scaffolding
-          # it depends on, not just stale outputs). Root cause is still
-          # unresolved -- this loop is a mitigation, not a fix. See
-          # docs/plugin-system-tier4.md-adjacent history / commit log for the
-          # full list of tried-and-reverted theories before adding a new one.
-          # MARK: ViboGram - bumped from 2 to 5 attempts (not more -- this
-          # job's overall timeout-minutes still has to leave room for the
-          # device build + packaging + publish steps that come after this
-          # one in the same job). Live SSH debugging
-          # (see the issue thread) traced the race down to something inside
-          # Xcode's own closed-source SwiftBuild engine -- a speculative/
-          # planning-time probe against a target whose near-instant BwB
-          # stub compile hasn't produced anything yet, which looks like it
-          # poisons the build's final status even when the real copy
-          # succeeds moments later. Not fixable from this repo's side.
-          # Since it's genuinely probabilistic and CI is free on this public
-          # repo, more attempts is a cheap way to just get lucky more often
-          # while a real fix is pursued separately.
-          MAX_ATTEMPTS=5
+          # MARK: ViboGram - root cause of the SwiftSignalKitFramework race
+          # (MobileNativeFoundation/rules_xcodeproj#3183), confirmed live
+          # after an extensive live-SSH investigation (see the issue thread
+          # for the full history of ruled-out theories -- concurrency,
+          # Index Build, IDEIndexDisable, a different Xcode point release,
+          # -parseable-output, in-generator pre-touch mitigations):
+          #
+          # The native "Copy .swiftmodule/.swiftdoc/.swiftsourceinfo into
+          # the framework bundle" step doesn't fail because its SOURCE is
+          # missing -- pre-creating the source, even well before xcodebuild
+          # starts, does nothing (verified via crtime that the file is
+          # never deleted or recreated). It fails because several of
+          # Xcode's own parallel copy workers (one per artifact) race each
+          # other to create the *shared destination* bundle-style directory
+          # (.../Modules/$(PRODUCT_MODULE_NAME).swiftmodule/, plus its
+          # nested /Project subdirectory for swiftsourceinfo): whichever
+          # worker opens its file before another worker's mkdir for that
+          # shared directory completes gets ENOENT, misreported against the
+          # source path since Xcode prints both paths together regardless
+          # of which one was actually missing.
+          #
+          # Fixing this from inside a build phase doesn't work: Xcode's Run
+          # Script sandbox refuses to let a script write under
+          # $(BUILT_PRODUCTS_DIR) at all (confirmed live -- "Permission
+          # denied" even with the path declared as an outputPath, and even
+          # with ENABLE_USER_SCRIPT_SANDBOXING=NO). The destination
+          # directory has to be pre-created from *outside* Xcode's process
+          # tree entirely -- a plain shell step in this workflow, before
+          # xcodebuild is ever invoked, which is exactly what the loop
+          # below does now (verified live, twice, clean success both
+          # times). The bazel-out config-hash path segment is stable for a
+          # given generated project, so it's extracted from the pbxproj
+          # rather than hardcoded.
+          #
+          # Only SwiftSignalKitFramework has actually been observed hitting
+          # this (it's always the first framework in the dependency graph,
+          # so the build never got far enough to prove or rule out others).
+          # If a *different* framework starts failing the same way once
+          # this one is fixed, add its module name + submodule source path
+          # to MODULES_NEEDING_DEST_PRECREATE below.
+          MAX_ATTEMPTS=3
+          BAZEL_HASH=$(grep -o "ios_sim_arm64-dbg-ios-sim_arm64-min[0-9.]*-ST-[a-f0-9]*" "${{ steps.proj.outputs.path }}/project.pbxproj" | sort -u | head -1)
+          if [ -z "$BAZEL_HASH" ]; then
+            echo "Could not extract the bazel-out config hash from the generated pbxproj -- skipping the destination pre-create mitigation." >&2
+          fi
+          # module_name:submodule_source_path pairs.
+          MODULES_NEEDING_DEST_PRECREATE="SwiftSignalKit:SSignalKit/SwiftSignalKit"
+          precreate_module_dest_dirs() {
+            local derived_path="$1"
+            [ -z "$BAZEL_HASH" ] && return 0
+            for pair in $MODULES_NEEDING_DEST_PRECREATE; do
+              local module_name="${pair%%:*}"
+              local src_path="${pair#*:}"
+              local dest_dir="$derived_path/Build/Products/Debug-iphonesimulator/bazel-out/$BAZEL_HASH/bin/submodules/$src_path/${module_name}Framework.framework/Modules/$module_name.swiftmodule"
+              mkdir -p "$dest_dir/Project"
+            done
+          }
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
             echo "=== xcodebuild attempt $attempt/$MAX_ATTEMPTS (fresh DerivedData) ===" | tee -a build.log
+            precreate_module_dest_dirs "$HOME/derived-sim-$attempt"
             if xcodebuild build \
               -project "${{ steps.proj.outputs.path }}" \
               -scheme "${{ steps.scheme.outputs.name }}" \
@@ -336,13 +352,30 @@ jobs:
       - name: Build for device (signed)
         run: |
           set -o pipefail
-          # MARK: ViboGram - same retry treatment as the simulator build
-          # above, for the same reason (see MobileNativeFoundation/rules_xcodeproj#3183)
-          # -- this wasn't retried at all before, so a single unlucky hit
-          # here would waste a simulator build that already got past it.
+          # MARK: ViboGram - same retry treatment (and same destination
+          # pre-create mitigation) as the simulator build above, for the
+          # same reason (see MobileNativeFoundation/rules_xcodeproj#3183).
+          # The bazel-out config hash differs between the sim and device
+          # configs (different arch/SDK), so it's extracted separately here.
           MAX_ATTEMPTS=3
+          BAZEL_HASH=$(grep -o "ios_arm64-dbg-ios-arm64-min[0-9.]*-ST-[a-f0-9]*" "${{ steps.proj.outputs.path }}/project.pbxproj" | sort -u | head -1)
+          if [ -z "$BAZEL_HASH" ]; then
+            echo "Could not extract the bazel-out config hash from the generated pbxproj -- skipping the destination pre-create mitigation." >&2
+          fi
+          MODULES_NEEDING_DEST_PRECREATE="SwiftSignalKit:SSignalKit/SwiftSignalKit"
+          precreate_module_dest_dirs() {
+            local derived_path="$1"
+            [ -z "$BAZEL_HASH" ] && return 0
+            for pair in $MODULES_NEEDING_DEST_PRECREATE; do
+              local module_name="${pair%%:*}"
+              local src_path="${pair#*:}"
+              local dest_dir="$derived_path/Build/Products/Debug-iphoneos/bazel-out/$BAZEL_HASH/bin/submodules/$src_path/${module_name}Framework.framework/Modules/$module_name.swiftmodule"
+              mkdir -p "$dest_dir/Project"
+            done
+          }
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
             echo "=== xcodebuild (device) attempt $attempt/$MAX_ATTEMPTS (fresh DerivedData) ===" | tee -a build-device.log
+            precreate_module_dest_dirs "$HOME/derived-device-$attempt"
             if xcodebuild build \
               -project "${{ steps.proj.outputs.path }}" \
               -scheme "${{ steps.scheme.outputs.name }}" \
