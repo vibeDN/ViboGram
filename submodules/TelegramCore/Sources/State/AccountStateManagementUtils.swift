@@ -7,6 +7,70 @@ import EncryptionProvider
 import SGSimpleSettings
 import SGMessageArchive
 
+// MARK: ViboGram - anti-delete (Tier 3), shared between the .DeleteMessages
+// and .DeleteMessagesWithGlobalIds operation cases below. When enabled, keep
+// the message's content locally instead of actually removing it from
+// history, for peers whose deletion we can meaningfully retain: real cloud
+// chats/channels only. Secret chats are E2E and deliberately excluded (their
+// own deletion semantics stay as-is, and there's no server-side copy to have
+// "kept" in the first place); scheduled/quick-reply/other local namespaces
+// are likewise left untouched. Returns the ids that should still actually be
+// purged (everything else was archived + tagged .SGAntiDeleted in place).
+//
+// Previously only .DeleteMessages (fed by updateDeleteChannelMessages,
+// updateDeleteScheduledMessages, updateDeleteQuickReplyMessages) had this
+// filter. .DeleteMessagesWithGlobalIds -- fed by plain updateDeleteMessages,
+// which is what a regular private-chat or small-group deletion actually
+// arrives as -- called transaction.deleteMessagesWithGlobalIds directly with
+// no filtering at all, so anti-delete silently never protected the single
+// most common case (a DM deleting a message) while appearing to work for
+// channels.
+private func sgApplyAntiDeleteFilter(ids: [MessageId], transaction: Transaction) -> [MessageId] {
+    guard SGSimpleSettings.shared.antiDeleteEnabled else {
+        return ids
+    }
+    var idsToDelete: [MessageId] = []
+    for id in ids {
+        if id.peerId.namespace == Namespaces.Peer.SecretChat {
+            idsToDelete.append(id)
+            continue
+        }
+        guard let message = transaction.getMessage(id) else {
+            idsToDelete.append(id)
+            continue
+        }
+        if message.localTags.contains(.SGAntiDeleted) {
+            // MARK: ViboGram - already archived: keep it forever, never
+            // actually purge it even on a repeated delete request for
+            // the same id (previously this branch re-added the id to
+            // idsToDelete, so a second delete attempt silently undid
+            // the "kept" state -- fixed per explicit design decision).
+            continue
+        }
+        // MARK: ViboGram - permanent local backup, independent of
+        // Postbox's own database/cache lifecycle (survives even if
+        // Postbox's copy is later evicted/cleared).
+        SGMessageArchive.recordDeleted(
+            peerId: id.peerId.toInt64(),
+            messageId: id.id,
+            namespace: id.namespace,
+            authorId: message.author?.id.toInt64(),
+            text: message.text,
+            timestamp: message.timestamp
+        )
+        transaction.updateMessage(id) { current in
+            var updatedLocalTags = current.localTags
+            updatedLocalTags.insert(.SGAntiDeleted)
+            var storeForwardInfo: StoreMessageForwardInfo?
+            if let forwardInfo = current.forwardInfo {
+                storeForwardInfo = StoreMessageForwardInfo(authorId: forwardInfo.author?.id, sourceId: forwardInfo.source?.id, sourceMessageId: forwardInfo.sourceMessageId, date: forwardInfo.date, authorSignature: forwardInfo.authorSignature, psaType: forwardInfo.psaType, flags: forwardInfo.flags)
+            }
+            return .update(StoreMessage(id: current.id, customStableId: nil, globallyUniqueId: current.globallyUniqueId, groupingKey: current.groupingKey, threadId: current.threadId, timestamp: current.timestamp, flags: StoreMessageFlags(current.flags), tags: current.tags, globalTags: current.globalTags, localTags: updatedLocalTags, forwardInfo: storeForwardInfo, authorId: current.author?.id, text: current.text, attributes: current.attributes, media: current.media))
+        }
+    }
+    return idsToDelete
+}
+
 private func reactionGeneratedEvent(_ previousReactions: ReactionsMessageAttribute?, _ updatedReactions: ReactionsMessageAttribute?, message: Message, transaction: Transaction) -> (reactionAuthor: Peer, reaction: MessageReaction.Reaction, message: Message, timestamp: Int32)? {
     if let updatedReactions = updatedReactions, !message.flags.contains(.Incoming), message.id.peerId.namespace == Namespaces.Peer.CloudUser {
         let prev = previousReactions?.reactions ?? []
@@ -4442,70 +4506,29 @@ func replayFinalState(
                     }
                 }
             case let .DeleteMessagesWithGlobalIds(ids):
-                var resourceIds: [MediaResourceId] = []
-                transaction.deleteMessagesWithGlobalIds(ids, forEachMedia: { media in
-                    addMessageMediaResourceIdsToRemove(media: media, resourceIds: &resourceIds)
-                })
-                if !resourceIds.isEmpty {
-                    let _ = mediaBox.removeCachedResources(Array(Set(resourceIds)), force: true).start()
-                }
-                deletedMessageIds.append(contentsOf: ids.map { .global($0) })
+                // MARK: ViboGram - bugfix: this used to call
+                // transaction.deleteMessagesWithGlobalIds directly, with zero
+                // anti-delete filtering -- see sgApplyAntiDeleteFilter's doc
+                // comment for why that made anti-delete never actually protect
+                // regular private-chat/small-group deletions. Resolve to real
+                // MessageIds first so the same filter (and the same
+                // _internal_deleteMessages the .DeleteMessages case below uses)
+                // can apply. Global ids that don't resolve to a known MessageId
+                // (already gone locally) are simply skipped -- nothing to keep
+                // or delete either way.
+                let resolvedIds = transaction.messageIdsForGlobalIds(ids)
+                let idsToDelete = sgApplyAntiDeleteFilter(ids: resolvedIds, transaction: transaction)
+                _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: idsToDelete)
+                deletedMessageIds.append(contentsOf: idsToDelete.map { .messageId($0) })
             case let .DeleteMessages(ids):
-                // MARK: ViboGram - anti-delete (Tier 3). When enabled, keep the
-                // message's content locally instead of actually removing it from
-                // history, for peers whose deletion we can meaningfully retain:
-                // real cloud chats/channels only. Secret chats are E2E and
-                // deliberately excluded (their own deletion semantics stay as-is,
-                // and there's no server-side copy to have "kept" in the first
-                // place); scheduled/quick-reply/other local namespaces are
-                // likewise left untouched. Unread-count/thread-stats bookkeeping
-                // (manualAddMessageThreadStatsDifference below) still only runs
-                // for ids actually passed to _internal_deleteMessages, so kept
-                // messages don't get double-counted -- read messages (the
-                // overwhelming common case for something that gets deleted after
-                // being seen) don't affect those stats anyway.
-                var idsToDelete = ids
-                if SGSimpleSettings.shared.antiDeleteEnabled {
-                    idsToDelete = []
-                    for id in ids {
-                        if id.peerId.namespace == Namespaces.Peer.SecretChat {
-                            idsToDelete.append(id)
-                            continue
-                        }
-                        guard let message = transaction.getMessage(id) else {
-                            idsToDelete.append(id)
-                            continue
-                        }
-                        if message.localTags.contains(.SGAntiDeleted) {
-                            // MARK: ViboGram - already archived: keep it forever, never
-                            // actually purge it even on a repeated delete request for
-                            // the same id (previously this branch re-added the id to
-                            // idsToDelete, so a second delete attempt silently undid
-                            // the "kept" state -- fixed per explicit design decision).
-                            continue
-                        }
-                        // MARK: ViboGram - permanent local backup, independent of
-                        // Postbox's own database/cache lifecycle (survives even if
-                        // Postbox's copy is later evicted/cleared).
-                        SGMessageArchive.recordDeleted(
-                            peerId: id.peerId.toInt64(),
-                            messageId: id.id,
-                            namespace: id.namespace,
-                            authorId: message.author?.id.toInt64(),
-                            text: message.text,
-                            timestamp: message.timestamp
-                        )
-                        transaction.updateMessage(id) { current in
-                            var updatedLocalTags = current.localTags
-                            updatedLocalTags.insert(.SGAntiDeleted)
-                            var storeForwardInfo: StoreMessageForwardInfo?
-                            if let forwardInfo = current.forwardInfo {
-                                storeForwardInfo = StoreMessageForwardInfo(authorId: forwardInfo.author?.id, sourceId: forwardInfo.source?.id, sourceMessageId: forwardInfo.sourceMessageId, date: forwardInfo.date, authorSignature: forwardInfo.authorSignature, psaType: forwardInfo.psaType, flags: forwardInfo.flags)
-                            }
-                            return .update(StoreMessage(id: current.id, customStableId: nil, globallyUniqueId: current.globallyUniqueId, groupingKey: current.groupingKey, threadId: current.threadId, timestamp: current.timestamp, flags: StoreMessageFlags(current.flags), tags: current.tags, globalTags: current.globalTags, localTags: updatedLocalTags, forwardInfo: storeForwardInfo, authorId: current.author?.id, text: current.text, attributes: current.attributes, media: current.media))
-                        }
-                    }
-                }
+                // MARK: ViboGram - anti-delete (Tier 3), see sgApplyAntiDeleteFilter.
+                // Unread-count/thread-stats bookkeeping (manualAddMessageThreadStatsDifference
+                // below) still only runs for ids actually passed to
+                // _internal_deleteMessages, so kept messages don't get
+                // double-counted -- read messages (the overwhelming common case
+                // for something that gets deleted after being seen) don't
+                // affect those stats anyway.
+                let idsToDelete = sgApplyAntiDeleteFilter(ids: ids, transaction: transaction)
                 _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: idsToDelete, manualAddMessageThreadStatsDifference: { id, add, remove in
                     addMessageThreadStatsDifference(threadKey: id, remove: remove, addedMessagePeer: nil, addedMessageId: nil, isOutgoing: false)
                 })

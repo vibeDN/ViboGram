@@ -341,6 +341,59 @@ without a real build -- what's left for each is verification, not design.
    callbacks) -- no point finalizing that surface before the runtime is
    confirmed to boot at all.
 
+## Margelet's `.marp` format -- second interop target, NOT exteraGram-based
+
+Margelet (the Android fork this fork already has badge/banner/wall interop
+with, see README) has its own independent plugin system, unrelated to
+exteraGram's despite the surface similarity (both are Python). Recorded here
+2026-08-31 from Margelet's own `docs/plugins.md`, ahead of actually needing
+it -- reference material, not a committed design.
+
+**Archive**: a `.marp` file is a zip containing `manifest.json` (required),
+`main.py` (required), optional `icon.png` (128x128) and other resources.
+
+**Manifest** (`manifest.json`): `id` (dotted, immutable, Latin-only),
+`name`, `version`, `author`, `description`, `min_version` (install blocked
+if the host app is older), `permissions` (array -- **purely declarative,
+the app does not enforce it**; a plugin has full app-process access
+regardless of what it lists). Fields support language-suffixed variants
+(`name_en`, `description_zh`, ...) with fallback to the base field.
+
+**Execution model**: no sandbox at all -- "a plugin runs inside the app and
+can do anything the app can." Source must stay unobfuscated by their own
+forum rule (readability as the only security control, not a technical one).
+Entry point is `on_start()` if defined, else the file just runs top-to-bottom
+on load. Plugins install disabled by default.
+
+**Host API**: a global `margelet` object (no import needed) exposing
+`log`/`error`/`toast`, `ui(call)` (main-thread hop), `every`/`cancel`
+(scheduling), `get`/`set` (persistent storage, survives restart+update),
+`flag` (read a bool setting), `background(call)`, `send(chat, text)`,
+`fetch(url, call)`, `activity()`, `window(title, view)`, `color(argb)`, plus
+declarative settings-UI builders (`settings`/`header`/`note`/`switch`/
+`text`/`choice`/`action`).
+
+**Event hooks** ("doors"): `on_chat_opened`, `on_send` (pre-send text
+intercept, expected <100ms), `on_send_photo`, `on_message`, `on_deleted`,
+`on_pin` (cancellable), `button` (chat-menu entry), `on_settings`,
+`pick_file`.
+
+**Advanced/fragile**: `margelet.hook(className, methodName, args=[...],
+after=handler)` patches arbitrary internal Telegram-for-Android method names
+directly (Java reflection-based) -- off by default, explicit opt-in,
+acknowledged by their own docs as breaking whenever Telegram's internal
+naming changes. **This specific mechanism cannot port** -- it's tied to
+their Java/Kotlin runtime and internal class names, which have zero
+equivalent in this Swift/Obj-C codebase. Everything else above (manifest
+shape, storage, scheduling, event doors, declarative settings UI) is a
+plausible second target surface for this fork's plugin host once the
+exteraGram-shaped one (below) is real and working -- i.e. a `.marp` archive
+could be unzipped and its `manifest.json`/`main.py` adapted into this fork's
+own plugin loader, exposing a `margelet`-shaped compatibility shim on top of
+the same underlying CPython runtime, so Margelet-authored plugins are
+installable here too. Not started; needs the primary plugin system working
+first.
+
 ## Plugin-facing API design, ported from exteraGram
 
 exteraGram (an Android Telegram fork, Chaquopy-based) has official docs at

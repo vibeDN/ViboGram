@@ -27,6 +27,7 @@ import ChatControllerInteraction
 import InteractiveTextComponent
 import ShimmeringMask
 import StreamingTextReveal
+import SGTextEffects
 
 private final class CachedChatMessageText {
     let text: String
@@ -529,8 +530,19 @@ public class ChatMessageTextBubbleContentNode: ChatMessageBubbleContentNode {
                 
                 var codeHighlightSpecs: [CachedMessageSyntaxHighlight.Spec] = []
                 var cachedMessageSyntaxHighlight: CachedMessageSyntaxHighlight?
-                
-                if let entities {
+
+                // MARK: ViboGram - bugfix: a message using *only* the Size/Dim/Rainbow
+                // invisible markers (no real server entity) had `entities == nil`,
+                // so it fell straight to the plain-NSAttributedString branch below --
+                // which never calls stringWithAppliedEntities, the only place
+                // SGTextEffects.applyEffects is hooked in. Formatting looked
+                // completely inert (bubble showed the invisible-marker text as if
+                // it were plain) unless the message also happened to carry an
+                // unrelated real entity. Route effect-only text through the rich
+                // path too, with an empty entities array -- cheap, since
+                // stringWithAppliedEntities' own entity-iteration work is O(entities.count).
+                let effectiveEntities = entities ?? (SGTextEffects.hasEffects(rawText) ? [] : nil)
+                if let entities = effectiveEntities {
                     var underlineLinks = true
                     if !messageTheme.primaryTextColor.isEqual(messageTheme.linkTextColor) {
                         underlineLinks = false
