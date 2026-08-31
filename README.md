@@ -125,15 +125,16 @@ the server's, not the client's, and stays either way.
 </details>
 
 <details>
-<summary><b>Text formatting of its own: Size, Dim, Rainbow</b></summary>
+<summary><b>Text formatting: Size, Dim, Rainbow (mechanism ported from Margelet)</b></summary>
 
 Select text and the formatting menu gains three entries next to bold and
 italic, wired into the same toolbar the unlocked Pro screen already had.
 Telegram's list of formatting types is closed and lives on the server, so
-nothing can really be *added* to it — the style is encoded as invisible
-Unicode markers inside the message text itself and decoded by the fork. Copy
-the text elsewhere in this app (or another build of it) and the formatting
-survives; without the fork you just see plain text.
+nothing can really be *added* to it — Margelet's own trick is encoding the
+style as invisible Unicode markers inside the message text itself; this fork
+ports that same mechanism and decodes it the same way. Copy the text
+elsewhere in this app (or another build of it, or Margelet itself) and the
+formatting survives; without either fork you just see plain text.
 
 "Copy with formatting" comes along for free from the same mechanism. There's
 no live preview while composing — the effect only renders after you send.
