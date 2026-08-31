@@ -562,14 +562,25 @@ aps_fragment = "" if telegram_aps_environment == "" else """
 <string>{telegram_aps_environment}</string>
 """.format(telegram_aps_environment=telegram_aps_environment)
 
-app_groups_fragment = """
+# MARK: ViboGram - bugfix: this was unconditional, but a free/personal-team
+# Apple ID's profile doesn't grant com.apple.security.application-groups at
+# all ("the profile does not support use of this key" -- a hard failure,
+# not just a silently-ignored request like the other capabilities above).
+# Reuse telegram_aps_environment == "" as the same "this is a free-tier
+# profile" signal already established for the aps-environment fix; the
+# application-identifier key is unrelated to app groups and always needed.
+app_groups_key_fragment = "" if telegram_aps_environment == "" else """
     <key>com.apple.security.application-groups</key>
     <array>
         <string>group.{telegram_bundle_id}</string>
     </array>
+""".format(telegram_bundle_id=telegram_bundle_id)
+app_groups_fragment = """
+{app_groups_key_fragment}
     <key>application-identifier</key>
     <string>{telegram_team_id}.{telegram_bundle_id}</string>
 """.format(
+    app_groups_key_fragment=app_groups_key_fragment,
     telegram_team_id=telegram_team_id,
     telegram_bundle_id=telegram_bundle_id
 )
