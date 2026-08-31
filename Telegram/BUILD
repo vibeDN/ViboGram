@@ -510,7 +510,14 @@ official_carplay_fragment = """
 <key>com.apple.developer.carplay-messaging</key>
 <true/>
 """
-carplay_fragment = official_carplay_fragment # MARK: Swiftgram if telegram_bundle_id in official_bundle_ids else ""
+# MARK: ViboGram - bugfix: the "if ... else" conditional had ended up after
+# the "#" (making it a comment, not code), so carplay_fragment was always
+# official_carplay_fragment regardless of bundle id. That made every non-
+# official-bundle-id device build request the carplay-messaging entitlement
+# unconditionally, which a non-official (e.g. free Apple ID) provisioning
+# profile never grants -- rules_apple's entitlements validation correctly
+# rejected it, hard-failing the build.
+carplay_fragment = official_carplay_fragment if telegram_bundle_id in official_bundle_ids else ""
 
 icloud_fragment = "" if not telegram_enable_icloud else """
 <key>com.apple.developer.icloud-services</key>
@@ -571,7 +578,9 @@ official_communication_notifications_fragment = """
 <key>com.apple.developer.usernotifications.communication</key>
 <true/>
 """
-communication_notifications_fragment = official_communication_notifications_fragment # if telegram_bundle_id in official_bundle_ids else ""
+# MARK: ViboGram - bugfix, same class as carplay_fragment above: the
+# conditional had ended up after "#" (a comment, not code).
+communication_notifications_fragment = official_communication_notifications_fragment if telegram_bundle_id in official_bundle_ids else ""
 
 official_notification_filtering_fragment = """
 <key>com.apple.developer.usernotifications.filtering</key>
