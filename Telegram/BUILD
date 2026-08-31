@@ -1956,6 +1956,18 @@ apple_prebuilt_watchos_application(
 
 ios_application(
     name = "Swiftgram",
+    # MARK: ViboGram - bundle_name/executable_name default to the target's own
+    # `name` (above) when unset, which is still "Swiftgram" (kept as-is so
+    # other BUILD references to //Telegram:Swiftgram don't need updating).
+    # That produced a literal Swiftgram.app / Swiftgram executable in every
+    # shipped IPA regardless of telegram_app_name below -- CFBundleDisplayName
+    # said "ViboGram" (right on the home screen icon), but anything reading
+    # the executable/bundle name directly (e.g. ProcessInfo.processName, or
+    # system UI that falls back to it) still saw "Swiftgram". Pin both here so
+    # the whole on-disk bundle matches the display name everywhere, not just
+    # in Info.plist.
+    bundle_name = "ViboGram",
+    executable_name = "ViboGram",
     bundle_id = "{telegram_bundle_id}".format(
         telegram_bundle_id = telegram_bundle_id,
     ),
