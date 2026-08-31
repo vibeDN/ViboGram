@@ -33,6 +33,19 @@ jobs:
           sudo rm -rf /Library/Developer/CoreSimulator/Profiles/Runtimes/*.simruntime 2>/dev/null || true
           df -h /
 
+      # MARK: ViboGram - part of the fix for MobileNativeFoundation/rules_xcodeproj#3183.
+      # rules_xcodeproj's own copy_outputs.sh already has a documented
+      # workaround for this: it puts /opt/homebrew/bin ahead of the system
+      # rsync on PATH, specifically because Apple's system rsync (openrsync,
+      # as of macOS 15.4+) has a permissions bug -- confirmed live: it
+      # copies the Bazel-built .app bundle read-only (inherited from
+      # Bazel's own read-only output convention) even with --chmod=u+w
+      # passed, which then makes Xcode's native CopySwiftLibs step fail
+      # with "Permission denied" trying to write into Frameworks/. A real
+      # (Samba) rsync at that PATH location honors --chmod correctly.
+      - name: Install a working rsync (system rsync/openrsync has a permissions bug)
+        run: brew install rsync
+
       - name: Select Xcode 26.2
         run: |
           sudo xcode-select -s /Applications/Xcode_26.2.app || \
@@ -140,44 +153,6 @@ jobs:
           fi
           echo "Using scheme: $SCHEME"
           echo "name=$SCHEME" >> "$GITHUB_OUTPUT"
-
-      # MARK: ViboGram - re-added briefly to test pre-creating module
-      # placeholders entirely before xcodebuild starts, not from within a
-      # build phase mid-build (see MobileNativeFoundation/rules_xcodeproj#3183).
-      # Remove after.
-      - name: Enable SSH and expose via ngrok (live debug for SwiftSignalKitFramework race)
-        env:
-          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
-        run: |
-          set -euo pipefail
-          sudo systemsetup -setremotelogin on
-          sudo launchctl kickstart -k system/com.openssh.sshd || true
-          mkdir -p ~/.ssh
-          echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPrBdNC237YN7GU0fouj94fLn1MGL9nramJpz79Y+TIz ci-debug" >> ~/.ssh/authorized_keys
-          chmod 700 ~/.ssh
-          chmod 600 ~/.ssh/authorized_keys
-          brew install ngrok >/tmp/ngrok_install.log 2>&1 || cat /tmp/ngrok_install.log
-          ngrok config add-authtoken "$NGROK_AUTHTOKEN"
-          ngrok tcp 22 --log=stdout > /tmp/ngrok.log 2>&1 &
-          TUNNEL_URL=""
-          for i in $(seq 1 15); do
-            sleep 2
-            TUNNEL_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['tunnels'][0]['public_url'] if d.get('tunnels') else '')" 2>/dev/null || true)
-            if [ -n "$TUNNEL_URL" ]; then
-              break
-            fi
-          done
-          if [ -z "$TUNNEL_URL" ]; then
-            echo "ngrok tunnel never came up after 30s. ngrok log:" >&2
-            cat /tmp/ngrok.log >&2
-            exit 1
-          fi
-          HOST_PORT="${TUNNEL_URL#tcp://}"
-          NGROK_HOST="${HOST_PORT%:*}"
-          NGROK_PORT="${HOST_PORT##*:}"
-          curl -s -d "ssh -p $NGROK_PORT $(whoami)@$NGROK_HOST" https://ntfy.sh/vibogram-ci-debug-1681f0c3f7bb252643f655133caa5d52 >/dev/null
-          echo "Connection info sent to ntfy.sh topic (not printed here to avoid GH log masking)."
-          sleep 5400
 
       - name: Build for simulator (no code signing, just validating the pipeline)
         run: |
