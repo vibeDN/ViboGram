@@ -76,9 +76,34 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
         ), nil)
     }
 
+    // MARK: ViboGram - presents whatever a callFunctionRich call handed
+    // back: any vibo.alert events first (they're the plugin explicitly
+    // asking for a blocking-style dialog), then vibo.toast/vibo.log events
+    // as overlay notices (log included -- there's no separate console-only
+    // channel from this UI, so it gets the same treatment as toast), then
+    // the actual return value if the plugin gave one.
+    func presentCallResult(_ result: SGPythonRuntime.SGPluginCallResult, presentationData: PresentationData) {
+        for event in result.events where event.type == "alert" {
+            let alert = UIAlertController(title: event.title, message: event.text, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: presentationData.strings.Common_OK, style: .default))
+            context.sharedContext.mainWindow?.presentNative(alert)
+        }
+        for event in result.events where event.type == "toast" || event.type == "log" {
+            showResult(event.text, presentationData: presentationData)
+        }
+        if let resultText = result.resultText {
+            showResult(resultText, presentationData: presentationData)
+        } else if result.events.isEmpty {
+            showResult("Ran successfully (no return value, no events).", presentationData: presentationData)
+        }
+    }
+
     func runPlugin(named filename: String, presentationData: PresentationData) {
-        let result = SGPythonRuntime.run(fileAt: SGPluginsStore.path(for: filename))
-        showResult(result, presentationData: presentationData)
+        guard let result = SGPythonRuntime.callFunctionRich(scriptPath: SGPluginsStore.path(for: filename), functionName: "transform", argumentsJSON: [:]) else {
+            showResult("Plugin failed to run -- check device console log for the traceback.", presentationData: presentationData)
+            return
+        }
+        presentCallResult(result, presentationData: presentationData)
     }
 
     func deletePlugin(named filename: String, presentationData: PresentationData) {

@@ -74,6 +74,60 @@ simple send/log calls) usually ports fine, rewritten against our contract
 above; one reaching into the classes above doesn't, regardless of how much
 time you put into it.
 
+## The `vibo` host object
+
+Every plugin run through **Run** in the Plugins screen, or through an
+`on_send` hook (below), gets a global `vibo` with:
+
+- `vibo.log(message)` / `vibo.toast(text)` -- shown as an overlay notice
+  after your plugin finishes.
+- `vibo.alert(text, title=None)` -- shown as a real dialog after your
+  plugin finishes.
+- `vibo.get_setting(key, default=None)` / `vibo.set_setting(key, value)` --
+  your plugin's own small persistent JSON store, keyed by your plugin's
+  filename. Survives between runs; nothing else can read it.
+
+None of these fire *while* your code is running -- there's no live channel
+back into a running script, so calls are queued and replayed once your
+`transform` returns. Call them as many times as you like; order among
+themselves is preserved.
+
+`transform` itself can now return anything JSON-safe, not just a string --
+a number, a list, a dict, `None`. A plain string is shown as-is; anything
+else is shown as its JSON form. Returning `None` and using `vibo.toast`/
+`vibo.alert` instead is completely fine if a plugin's real output is a
+side effect, not a value.
+
+## Automatic hooks
+
+Give your plugin's file a first line of exactly:
+
+```python
+# vibo-hook: on_send
+```
+
+and its `transform` runs automatically on every outgoing plain-text
+message, chained with any other installed hook plugin (alphabetical by
+filename) -- each one sees the previous one's output as its `text`. A
+plugin that errors, isn't found, or returns the text unchanged is skipped
+silently; nothing ever blocks sending. There's no per-plugin on/off
+switch yet -- having the plugin installed *is* the switch, so remove or
+rename the file to stop it running.
+
+`on_send` is the only hook name the app actually acts on today. The
+`# vibo-hook: <name>` line is meant to carry future hook names (like
+`on_receive`) the same way once something in the app looks for them --
+using an unrecognized name today is just inert, not an error.
+
+## What still can't happen: custom UI
+
+A plugin cannot add its own tab, screen, button, or any other visible UI
+element -- there's no declarative UI format for it to describe one in, and
+nothing on the Swift side would know how to render it. Genuinely new UI
+from a plugin (not just this app's own settings toggle, action-sheet, and
+overlay/dialog plumbing calling into `vibo`/hooks) is a real gap, not a
+missing convenience method -- it needs its own design before it can exist.
+
 ## Bringing over an idea from somewhere else
 
 Don't copy the file — port the *technique*. Read what it computes as a
@@ -85,12 +139,14 @@ comments.
 
 ## What's not built yet
 
-- No automatic hooks. Nothing runs your plugin on a message/event unless
-  something in the app specifically calls it — like `animefy.vibo`'s
-  settings toggle does. There's no generic "run this on every incoming
-  message" registration yet.
+- No hook beyond `on_send`. Nothing runs your plugin on any other event
+  (incoming messages, chat open, etc.) yet.
 - No manifest, permissions, versioning, or update mechanism — a plugin is
   just the file you dropped in; updating it means re-importing it.
-- Errors don't surface in the UI. A plugin that raises makes its call
-  return nothing; the actual traceback only shows up in a live device
-  console log, not in the app.
+- Errors still don't surface as a proper message in the UI when a plugin
+  raises — its call returns nothing, and the actual traceback only shows
+  up in a live device console log. Use `vibo.log`/`vibo.toast`/`vibo.alert`
+  to report your own problems back to the user instead of letting an
+  exception swallow the whole run.
+- No custom UI (see above) and no per-plugin on/off switch for hooks —
+  installed is enabled.

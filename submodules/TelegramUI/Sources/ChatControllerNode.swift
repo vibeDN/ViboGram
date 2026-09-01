@@ -5098,6 +5098,21 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                     }
                 }
 
+                // MARK: ViboGram - generic on_send hooks: any installed
+                // plugin that opts in via a `# vibo-hook: on_send` first
+                // line (see SGPythonRuntime.applyOnSendHooks) runs here too,
+                // independent of animefy's own dedicated toggle above. No
+                // per-plugin enable switch yet -- installing such a plugin
+                // is what turns it on, same "no automatic hooks unless
+                // something in the app calls it" contract, except here the
+                // thing calling it is this generic loop rather than a
+                // feature-specific toggle.
+                let hookedText = SGPythonRuntime.applyOnSendHooks(to: inputText.string)
+                if hookedText != inputText.string {
+                    let baseAttributes = inputText.length > 0 ? inputText.attributes(at: 0, effectiveRange: nil) : [:]
+                    inputText = NSAttributedString(string: hookedText, attributes: baseAttributes)
+                }
+
                 var mediaReference: AnyMediaReference?
                 var webpage: TelegramMediaWebpage?
                 if let urlPreview = self.chatPresentationInterfaceState.urlPreview {

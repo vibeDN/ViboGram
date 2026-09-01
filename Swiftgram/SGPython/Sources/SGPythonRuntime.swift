@@ -250,6 +250,199 @@ public enum SGPythonRuntime {
         return result
     }
 
+    // MARK: ViboGram - one entry a plugin pushed via `vibo.log`/`vibo.toast`/
+    // `vibo.alert` during its run (see callFunctionRich). Order-preserved
+    // relative to each other, but all delivered only after the whole script
+    // has finished -- there's no live channel back into a running
+    // PyRun_SimpleString call, so these are recorded Python-side and
+    // replayed by the caller once execution completes, not fired in real
+    // time as the plugin executes.
+    public struct SGPluginCallEvent {
+        public let type: String // "log" | "toast" | "alert"
+        public let text: String
+        public let title: String?
+    }
+
+    public struct SGPluginCallResult {
+        // The plugin's return value: the raw string if it returned one,
+        // otherwise a pretty-printed JSON rendering of whatever JSON-safe
+        // value it did return (dict/list/number/bool); nil if it returned
+        // None/null.
+        public let resultText: String?
+        public let events: [SGPluginCallEvent]
+    }
+
+    // MARK: ViboGram - callFunction's richer sibling: gives the plugin a
+    // `vibo` host object (log/toast/alert -- queued during the run, applied
+    // by the caller after; get_setting/set_setting -- backed by a small
+    // per-plugin JSON file this function loads before running and writes
+    // back after, so a plugin can remember state across calls) and lets
+    // `transform` return any JSON-safe value, not just a string. Built on
+    // the exact same primitive as callFunction (one PyRun_SimpleString, a
+    // JSON file in, a JSON file out) -- the host object is plain Python
+    // defined in the prelude, not a new C-API bridge, so this carries none
+    // of the unverified-PyObject-API risk called out on callFunction.
+    // Left as a separate function rather than folding into callFunction so
+    // the already-proven animefy/ascii-art call sites are untouched.
+    public static func callFunctionRich(scriptPath: String, functionName: String, argumentsJSON: [String: Any]) -> SGPluginCallResult? {
+        guard start() else {
+            return nil
+        }
+        guard let source = try? String(contentsOfFile: scriptPath, encoding: .utf8) else {
+            return nil
+        }
+        let tempDir = FileManager.default.temporaryDirectory
+        let inputURL = tempDir.appendingPathComponent("sg_plugin_in_\(UUID().uuidString).json")
+        let outputURL = tempDir.appendingPathComponent("sg_plugin_out_\(UUID().uuidString).json")
+        defer {
+            try? FileManager.default.removeItem(at: inputURL)
+            try? FileManager.default.removeItem(at: outputURL)
+        }
+        guard let inputData = try? JSONSerialization.data(withJSONObject: argumentsJSON),
+              (try? inputData.write(to: inputURL)) != nil else {
+            return nil
+        }
+
+        // MARK: ViboGram - keyed by the plugin's own filename, not a
+        // caller-supplied id, so two different call sites invoking the same
+        // installed plugin share one state file (matches "the plugin
+        // remembers its own state", not "this call site remembers state on
+        // the plugin's behalf").
+        let stateFilePath = SGPluginsStore.stateFilePath(for: (scriptPath as NSString).lastPathComponent)
+
+        let prelude = """
+
+
+        import json as _sg_json
+
+        class _SgHost:
+            def __init__(self, state):
+                self._state = dict(state)
+                self.events = []
+
+            def log(self, message):
+                self.events.append({"type": "log", "text": str(message)})
+
+            def toast(self, text):
+                self.events.append({"type": "toast", "text": str(text)})
+
+            def alert(self, text, title=None):
+                self.events.append({"type": "alert", "text": str(text), "title": title})
+
+            def get_setting(self, key, default=None):
+                return self._state.get(key, default)
+
+            def set_setting(self, key, value):
+                self._state[key] = value
+
+        try:
+            with open(\"\(stateFilePath)\", "r", encoding="utf-8") as _sg_state_f:
+                _sg_initial_state = _sg_json.load(_sg_state_f)
+        except Exception:
+            _sg_initial_state = {}
+
+        vibo = _SgHost(_sg_initial_state)
+        """
+
+        let wrapper = """
+
+
+        with open(\"\(inputURL.path)\", "r", encoding="utf-8") as _sg_f:
+            _sg_args = _sg_json.load(_sg_f)
+        _sg_result = \(functionName)(_sg_args)
+        with open(\"\(outputURL.path)\", "w", encoding="utf-8") as _sg_f:
+            _sg_json.dump({"result": _sg_result, "events": vibo.events, "state": vibo._state}, _sg_f)
+        """
+
+        // MARK: ViboGram - the explicit "\n" matters: prelude's Swift
+        // multiline literal doesn't end in a trailing newline (its last
+        // content line sits right against the closing """), so without
+        // this, a plugin file whose own first line isn't blank gets glued
+        // directly onto prelude's last line as one line of source --
+        // confirmed by reproducing this exact concatenation in a standalone
+        // Python interpreter before it could otherwise only have shown up
+        // as an unexplained CI-only failure.
+        let fullSource = prelude + "\n" + source + wrapper
+        let status = fullSource.withCString { PyRun_SimpleString($0) }
+        guard status == 0 else {
+            return nil
+        }
+        guard let outputData = try? Data(contentsOf: outputURL),
+              let json = try? JSONSerialization.jsonObject(with: outputData) as? [String: Any] else {
+            return nil
+        }
+
+        if let state = json["state"] as? [String: Any], !state.isEmpty {
+            try? JSONSerialization.data(withJSONObject: state).write(to: URL(fileURLWithPath: stateFilePath))
+        }
+
+        var events: [SGPluginCallEvent] = []
+        if let rawEvents = json["events"] as? [[String: Any]] {
+            for rawEvent in rawEvents {
+                guard let type = rawEvent["type"] as? String, let text = rawEvent["text"] as? String else { continue }
+                events.append(SGPluginCallEvent(type: type, text: text, title: rawEvent["title"] as? String))
+            }
+        }
+
+        let rawResult = json["result"]
+        let resultText: String?
+        if let text = rawResult as? String {
+            resultText = text
+        } else if rawResult == nil || rawResult is NSNull {
+            resultText = nil
+        } else if let other = rawResult,
+                  let data = try? JSONSerialization.data(withJSONObject: ["result": other], options: [.prettyPrinted]),
+                  let text = String(data: data, encoding: .utf8) {
+            resultText = text
+        } else {
+            resultText = nil
+        }
+
+        return SGPluginCallResult(resultText: resultText, events: events)
+    }
+
+    // MARK: ViboGram - generic automatic hook: any installed plugin whose
+    // FIRST LINE is exactly `# vibo-hook: on_send` gets its `transform`
+    // called on every outgoing plain-text message, chained in
+    // installedPlugins() (alphabetical) order -- each plugin sees the
+    // previous one's output. A plugin that fails, isn't found, or returns
+    // the text unchanged is silently skipped (same "never block sending"
+    // philosophy as the animefy call site). Deliberately just a first-line
+    // string check, not real manifest parsing or executing the file to ask
+    // it -- cheap enough to run on every send with zero installed
+    // hook-plugins, and needs no new C-API surface. Animefy itself doesn't
+    // carry this marker (it runs via its own dedicated Settings toggle in
+    // ChatControllerNode, with its own options dict) so it's never
+    // double-applied here.
+    //
+    // The `# vibo-hook: <name>` marker is deliberately generic -- today
+    // only "on_send" is actually consumed by the app, but the same
+    // convention is meant to carry future hook names (e.g. on_receive) once
+    // something calls a matching applyOn<X>Hooks, without inventing a new
+    // declaration mechanism each time.
+    public static func applyOnSendHooks(to text: String) -> String {
+        var current = text
+        for filename in SGPluginsStore.installedPlugins() {
+            let path = SGPluginsStore.path(for: filename)
+            guard let firstLine = firstLine(ofFileAt: path), firstLine.trimmingCharacters(in: .whitespaces) == "# vibo-hook: on_send" else {
+                continue
+            }
+            guard let callResult = callFunctionRich(scriptPath: path, functionName: "transform", argumentsJSON: ["text": current]),
+                  let transformed = callResult.resultText, transformed != current else {
+                continue
+            }
+            current = transformed
+        }
+        return current
+    }
+
+    private static func firstLine(ofFileAt path: String) -> String? {
+        guard let data = FileManager.default.contents(atPath: path), let text = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return text.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init)
+    }
+
     // MARK: ViboGram - "Anime-ify" outgoing text, as an actual installed
     // plugin (not a hardcoded Swift feature) so the Settings toggle
     // exercises the real plugin-loading path (SGPythonRuntime.callFunction)
@@ -344,6 +537,23 @@ public enum SGPluginsStore {
 
     public static func deletePlugin(named filename: String) throws {
         try FileManager.default.removeItem(at: directory.appendingPathComponent(filename))
+    }
+
+    // MARK: ViboGram - per-plugin persistent storage for the `vibo` host API
+    // (get_setting/set_setting -- see callFunctionRich). One JSON file per
+    // plugin filename, hidden alongside the plugins themselves; never
+    // enumerated by installedPlugins() since it doesn't match
+    // acceptedExtensions.
+    private static var stateDirectory: URL {
+        let dir = directory.appendingPathComponent(".state", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dir.path) {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir
+    }
+
+    public static func stateFilePath(for filename: String) -> String {
+        return stateDirectory.appendingPathComponent(filename + ".json").path
     }
 }
 
