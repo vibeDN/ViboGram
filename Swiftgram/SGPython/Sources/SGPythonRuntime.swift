@@ -277,6 +277,11 @@ public enum SGPythonRuntime {
         // instead of showing it to the user as text.
         public let rawResult: Any?
         public let events: [SGPluginCallEvent]
+        // The plugin's own traceback text, if `transform`/`settings`/etc.
+        // raised -- nil when it returned normally. A caller should check
+        // this BEFORE reading resultText/rawResult (both are meaningless,
+        // just None, on an error).
+        public let errorText: String?
     }
 
     // MARK: ViboGram - callFunction's richer sibling: gives the plugin a
@@ -407,14 +412,33 @@ public enum SGPythonRuntime {
         vibo = _SgHost(_sg_initial_state, _sg_host_info)
         """
 
+        // MARK: ViboGram - the try/except is the actual fix for "errors
+        // don't surface in the UI" (docs/plugin-authoring.md's own listed
+        // gap): a raised exception used to make the whole
+        // PyRun_SimpleString call fail (nonzero exit), so callFunctionRich
+        // returned nil and every caller showed "check device console log"
+        // -- not because that's the only way to see it, just because
+        // nothing ever wrote it anywhere else. Catching it here means this
+        // PyRun_SimpleString call still succeeds (exit 0), and the
+        // traceback text rides home in the same output JSON everything
+        // else already uses. A genuine syntax error in the plugin's own
+        // top-level code still fails this call the old way -- it can't
+        // reach this try/except at all, since the file doesn't parse into
+        // running code in the first place.
         let wrapper = """
 
 
-        with open(\"\(inputURL.path)\", "r", encoding="utf-8") as _sg_f:
-            _sg_args = _sg_json.load(_sg_f)
-        _sg_result = \(functionName)(_sg_args)
+        import traceback as _sg_traceback
+        try:
+            with open(\"\(inputURL.path)\", "r", encoding="utf-8") as _sg_f:
+                _sg_args = _sg_json.load(_sg_f)
+            _sg_result = \(functionName)(_sg_args)
+            _sg_error = None
+        except Exception:
+            _sg_result = None
+            _sg_error = _sg_traceback.format_exc()
         with open(\"\(outputURL.path)\", "w", encoding="utf-8") as _sg_f:
-            _sg_json.dump({"result": _sg_result, "events": vibo.events, "state": vibo._state}, _sg_f)
+            _sg_json.dump({"result": _sg_result, "events": vibo.events, "state": vibo._state, "error": _sg_error}, _sg_f)
         """
 
         // MARK: ViboGram - the explicit "\n" matters: prelude's Swift
@@ -489,7 +513,8 @@ public enum SGPythonRuntime {
             resultText = nil
         }
 
-        return SGPluginCallResult(resultText: resultText, rawResult: rawResult, events: events)
+        let errorText = json["error"] as? String
+        return SGPluginCallResult(resultText: resultText, rawResult: rawResult, events: events, errorText: errorText)
     }
 
     // MARK: ViboGram - generic automatic hook: any installed plugin whose

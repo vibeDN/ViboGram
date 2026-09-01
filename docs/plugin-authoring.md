@@ -210,10 +210,11 @@ comments.
   (incoming messages, chat open, etc.) yet.
 - No manifest, permissions, versioning, or update mechanism — a plugin is
   just the file you dropped in; updating it means re-importing it.
-- Errors still don't surface as a proper message in the UI when a plugin
-  raises — its call returns nothing, and the actual traceback only shows
-  up in a live device console log. Use `vibo.log`/`vibo.toast`/`vibo.alert`
-  to report your own problems back to the user instead of letting an
-  exception swallow the whole run.
+- If your plugin raises, **Run** in the Plugins screen and the settings
+  screen both now show the actual traceback in a dialog — no more
+  guessing from a console log. This only applies when running through
+  the Plugins screen, though: an `on_send` hook that raises is still
+  silently skipped (never blocks sending), so use `vibo.log`/`vibo.toast`
+  there if you want the user to know something went wrong.
 - No custom UI (see above) and no per-plugin on/off switch for hooks —
   installed is enabled.

@@ -91,6 +91,19 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
     // channel from this UI, so it gets the same treatment as toast), then
     // the actual return value if the plugin gave one.
     func presentCallResult(_ result: SGPythonRuntime.SGPluginCallResult, presentationData: PresentationData) {
+        // MARK: ViboGram - this is the actual fix for docs/plugin-authoring.md's
+        // "errors don't surface in the UI" gap: a raised exception used to
+        // make the whole call return nil, so every caller showed "check
+        // device console log" -- now the traceback rides home in the
+        // result and gets shown directly. Checked first and returns early:
+        // an error means nothing else in `result` (events, resultText) is
+        // meaningful.
+        if let errorText = result.errorText {
+            let alert = UIAlertController(title: "Plugin error", message: errorText, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: presentationData.strings.Common_OK, style: .default))
+            context.sharedContext.mainWindow?.presentNative(alert)
+            return
+        }
         for event in result.events where event.type == "alert" {
             let alert = UIAlertController(title: event.title, message: event.text, preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: presentationData.strings.Common_OK, style: .default))

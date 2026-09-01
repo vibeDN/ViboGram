@@ -75,7 +75,14 @@ private func parseSettingWidgets(_ raw: Any?) -> [SGPluginSettingWidget] {
     return widgets
 }
 
-private func sgPluginSettingsEntries(widgets: [SGPluginSettingWidget], state: [String: Any]) -> [SGPluginSettingsEntry] {
+private func sgPluginSettingsEntries(widgets: [SGPluginSettingWidget], state: [String: Any], errorText: String?) -> [SGPluginSettingsEntry] {
+    if let errorText {
+        let id = SGItemListCounter()
+        return [
+            .header(id: id.count, section: .main, text: "settings() raised an exception", badge: nil),
+            .notice(id: id.count, section: .main, text: errorText),
+        ]
+    }
     var entries: [SGPluginSettingsEntry] = []
     let id = SGItemListCounter()
     for widget in widgets {
@@ -115,9 +122,14 @@ public func sgPluginDeclaresSettings(filename: String) -> Bool {
 public func sgPluginSettingsController(context: AccountContext, pluginFilename: String) -> ViewController {
     var presentControllerImpl: ((ViewController, ViewControllerPresentationArguments?) -> Void)?
 
-    let widgets = parseSettingWidgets(
-        SGPythonRuntime.callFunctionRich(scriptPath: SGPluginsStore.path(for: pluginFilename), functionName: "settings", argumentsJSON: [:])?.rawResult
-    )
+    let settingsCallResult = SGPythonRuntime.callFunctionRich(scriptPath: SGPluginsStore.path(for: pluginFilename), functionName: "settings", argumentsJSON: [:])
+    let widgets = parseSettingWidgets(settingsCallResult?.rawResult)
+    // MARK: ViboGram - show the plugin's own traceback if settings() raised,
+    // instead of falling through to the generic "returned nothing usable"
+    // (which is indistinguishable from "this plugin just has no settings
+    // worth showing" -- an author debugging their own settings() needs to
+    // see which one actually happened).
+    let settingsErrorText = settingsCallResult?.errorText
     let statePromise = ValuePromise<[String: Any]>(SGPythonRuntime.readState(for: pluginFilename), ignoreRepeated: false)
     func refreshState() {
         statePromise.set(SGPythonRuntime.readState(for: pluginFilename))
@@ -162,7 +174,7 @@ public func sgPluginSettingsController(context: AccountContext, pluginFilename: 
 
     let signal = combineLatest(context.sharedContext.presentationData, statePromise.get())
     |> map { presentationData, state -> (ItemListControllerState, (ItemListNodeState, Any)) in
-        let entries = sgPluginSettingsEntries(widgets: widgets, state: state)
+        let entries = sgPluginSettingsEntries(widgets: widgets, state: state, errorText: settingsErrorText)
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text(pluginFilename), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
         let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: entries, style: .blocks, ensureVisibleItemTag: nil, initialScrollToItem: nil)
         return (controllerState, (listState, arguments))
