@@ -327,6 +327,20 @@ public enum SGPluginsStore {
         try? builtinAnimefyPluginSource.write(to: destURL, atomically: true, encoding: .utf8)
         return builtinAnimefyPluginFilename
     }
+
+    // MARK: ViboGram - ASCII-art plugin, Python half (see SGAsciiArtBridge
+    // in SGPluginsUI for the Swift-side image decode/downsample). Idea +
+    // mechanism (luminance-to-character ladder, darkest-to-lightest,
+    // dark-theme invert) ported from Margelet's own equivalent plugin; the
+    // character ladder here is our own choice.
+    public static let builtinAsciiArtPluginFilename = "ascii_art.plugin"
+
+    @discardableResult
+    public static func installBuiltinAsciiArtPlugin() -> String {
+        let destURL = directory.appendingPathComponent(builtinAsciiArtPluginFilename)
+        try? builtinAsciiArtPluginSource.write(to: destURL, atomically: true, encoding: .utf8)
+        return builtinAsciiArtPluginFilename
+    }
 }
 
 private let builtinAnimefyPluginSource = """
@@ -457,4 +471,43 @@ def transform(args):
     \"\"\"Entry point called by SGPythonRuntime.callFunction: args is a dict
     with "text" (str) and optional "intensity"/"options" keys.\"\"\"
     return animefy(args.get("text", ""), args.get("intensity", "normal"), args.get("options"))
+"""
+
+private let builtinAsciiArtPluginSource = """
+# ViboGram built-in plugin: ASCII art from a photo.
+# Idea and mechanism ported from Margelet's own equivalent plugin
+# (luminance-to-character ladder from darkest to lightest, optional invert
+# for dark themes). Image decoding and aspect-corrected downsampling happen
+# on the Swift side (SGAsciiArtBridge) -- our bundled stdlib has no image
+# codec -- so this plugin only turns an already-computed brightness grid
+# into the rendered art. The character ladder below is our own choice.
+
+LADDER = "#%*+=-:. "
+
+
+def render(grid, invert):
+    ladder = LADDER[::-1] if invert else LADDER
+    last = len(ladder) - 1
+    lines = []
+    for row in grid:
+        line = []
+        for luminance in row:
+            luminance = max(0, min(255, int(luminance)))
+            line.append(ladder[luminance * last // 255])
+        lines.append("".join(line).rstrip())
+    return "\\n".join(lines)
+
+
+def transform(args):
+    \"\"\"Entry point called by SGPythonRuntime.callFunction: args is a dict
+    with "grid" (list of rows, each a list of 0-255 int luminance values)
+    and optional "invert" (bool). Swift has already picked columns/rows and
+    computed per-cell luminance -- this only maps brightness to characters.
+    \"\"\"
+    grid = args.get("grid") or []
+    invert = bool(args.get("invert", False))
+    if not grid:
+        return ""
+    art = render(grid, invert)
+    return "```\\n" + art + "\\n```"
 """

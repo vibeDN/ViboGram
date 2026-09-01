@@ -53,6 +53,15 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
     var presentControllerImpl: ((ViewController, ViewControllerPresentationArguments?) -> Void)?
     var pushControllerImpl: ((ViewController) -> Void)?
 
+    // MARK: ViboGram - seed the built-in example plugins so they're visible
+    // here even if their own settings toggle (animefy) was never touched,
+    // or there is no separate toggle at all (ascii-art). Re-written every
+    // time the screen opens (not just-if-missing), matching
+    // installBuiltinAnimefyPlugin's own reasoning: ships an updated default
+    // without a stale copy silently shadowing it.
+    SGPythonRuntime.installBuiltinAnimefyPlugin()
+    SGPythonRuntime.installBuiltinAsciiArtPlugin()
+
     let installedPluginsPromise = ValuePromise<[String]>(SGPluginsStore.installedPlugins(), ignoreRepeated: false)
     func refreshInstalledPlugins() {
         installedPluginsPromise.set(SGPluginsStore.installedPlugins())
@@ -82,18 +91,40 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
     }
 
     func presentPluginActions(filename: String, presentationData: PresentationData) {
+        // MARK: ViboGram - forward-declared like presentControllerImpl/
+        // pushControllerImpl above: the buttons below need a dismiss
+        // closure before `actionSheet` itself exists, so they capture this
+        // var (by reference, as any enclosing-scope var is) and it's given
+        // its real implementation once actionSheet is actually created.
+        var dismissActionSheet: (() -> Void)?
+
+        var runButtons: [ActionSheetItem] = [
+            ActionSheetButtonItem(title: "Run", color: .accent, action: {
+                dismissActionSheet?()
+                runPlugin(named: filename, presentationData: presentationData)
+            }),
+        ]
+        // MARK: ViboGram - the ascii-art plugin needs an image, not just "run
+        // it and see if it crashes" -- special-cased here rather than a
+        // general per-plugin input-type declaration, which doesn't exist
+        // yet (see docs/plugin-authoring.md).
+        if filename == SGPythonRuntime.builtinAsciiArtPluginFilename {
+            runButtons.append(ActionSheetButtonItem(title: "Run on Photo…", color: .accent, action: {
+                dismissActionSheet?()
+                presentAsciiArtPhotoPicker(pluginFilename: filename, presentationData: presentationData)
+            }))
+        }
+        runButtons.append(ActionSheetButtonItem(title: "Delete", color: .destructive, action: {
+            dismissActionSheet?()
+            deletePlugin(named: filename, presentationData: presentationData)
+        }))
+
         let actionSheet = ActionSheetController(presentationData: presentationData)
+        dismissActionSheet = { [weak actionSheet] in
+            actionSheet?.dismissAnimated()
+        }
         actionSheet.setItemGroups([
-            ActionSheetItemGroup(items: [
-                ActionSheetButtonItem(title: "Run", color: .accent, action: { [weak actionSheet] in
-                    actionSheet?.dismissAnimated()
-                    runPlugin(named: filename, presentationData: presentationData)
-                }),
-                ActionSheetButtonItem(title: "Delete", color: .destructive, action: { [weak actionSheet] in
-                    actionSheet?.dismissAnimated()
-                    deletePlugin(named: filename, presentationData: presentationData)
-                }),
-            ]),
+            ActionSheetItemGroup(items: runButtons),
             ActionSheetItemGroup(items: [
                 ActionSheetButtonItem(title: presentationData.strings.Common_Cancel, color: .accent, font: .bold, action: { [weak actionSheet] in
                     actionSheet?.dismissAnimated()
@@ -101,6 +132,33 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
             ]),
         ])
         presentControllerImpl?(actionSheet, ViewControllerPresentationArguments(presentationAnimation: .modalSheet))
+    }
+
+    func presentAsciiArtPhotoPicker(pluginFilename: String, presentationData: PresentationData) {
+        let picker = legacyICloudFilePicker(theme: presentationData.theme, mode: .import, documentTypes: ["public.image"], completion: { urls in
+            guard let sourceURL = urls.first else { return }
+            let didStartAccessing = sourceURL.startAccessingSecurityScopedResource()
+            defer {
+                if didStartAccessing {
+                    sourceURL.stopAccessingSecurityScopedResource()
+                }
+            }
+            guard let data = try? Data(contentsOf: sourceURL), let image = UIImage(data: data) else {
+                showResult("Couldn't read that as an image.", presentationData: presentationData)
+                return
+            }
+            guard let grid = SGAsciiArtBridge.brightnessGrid(from: image, requestedColumns: 40) else {
+                showResult("Couldn't process that image.", presentationData: presentationData)
+                return
+            }
+            let pluginPath = SGPluginsStore.path(for: pluginFilename)
+            let result = SGPythonRuntime.callFunction(scriptPath: pluginPath, functionName: "transform", argumentsJSON: [
+                "grid": grid.values,
+                "invert": false,
+            ])
+            showResult(result ?? "Plugin call failed -- check device console log.", presentationData: presentationData)
+        })
+        presentControllerImpl?(picker, nil)
     }
 
     func presentImportFromURL(presentationData: PresentationData) {
