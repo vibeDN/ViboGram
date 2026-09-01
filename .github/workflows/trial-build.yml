@@ -318,6 +318,30 @@ jobs:
           path: smoke-test-screenshot.png
           if-no-files-found: warn
 
+      # MARK: ViboGram - the simulator .app never made it out of the runner
+      # before this: only a screenshot did, which is enough to confirm launch
+      # doesn't crash but nothing else. Zipping and uploading the actual
+      # bundle lets it be installed on anyone's own local simulator
+      # (`unzip`, then `xcrun simctl install <device> ViboGram.app`) for real
+      # interactive testing -- no code signing needed for the simulator, so
+      # this doesn't wait on cert/profile secrets the way the device IPA does.
+      - name: Zip and upload simulator .app
+        if: always()
+        run: |
+          set -euo pipefail
+          APP_PATH=$(find -L "$HOME/derived-sim" -iname "*.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app found to zip" >&2
+            exit 0
+          fi
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" simulator-app.zip
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulator-app
+          path: simulator-app.zip
+          if-no-files-found: warn
+
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
