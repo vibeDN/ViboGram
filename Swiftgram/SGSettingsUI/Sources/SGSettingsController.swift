@@ -70,6 +70,12 @@ private enum SGBoolSetting: String {
     case keepBannedChatsVisible
     case restoreDeletedGifts
     case localPremiumUnlockEnabled
+    case animefyEnabled
+    case animefyWordSwaps
+    case animefyStutter
+    case animefyParticles
+    case animefyKaomoji
+    case animefyHearts
     case hideStories
     case uploadSpeedBoost
     case showProfileId
@@ -251,6 +257,17 @@ private func SGControllerEntries(presentationData: PresentationData, callListSet
     entries.append(.notice(id: id.count, section: .privacy, text: i18n("Settings.RestoreDeletedGifts.Notice", lang)))
     entries.append(.toggle(id: id.count, section: .privacy, settingName: .localPremiumUnlockEnabled, value: SGSimpleSettings.shared.localPremiumUnlockEnabled, text: i18n("Settings.LocalPremiumUnlock", lang), enabled: true))
     entries.append(.notice(id: id.count, section: .privacy, text: i18n("Settings.LocalPremiumUnlock.Notice", lang)))
+    // MARK: ViboGram - "Anime-ify" outgoing text (idea + mechanism ported
+    // from Margelet, own word/kaomoji lists -- see SGAnimefy).
+    entries.append(.toggle(id: id.count, section: .privacy, settingName: .animefyEnabled, value: SGSimpleSettings.shared.animefyEnabled, text: "Anime-ify sent messages", enabled: true))
+    if SGSimpleSettings.shared.animefyEnabled {
+        entries.append(.toggle(id: id.count, section: .privacy, settingName: .animefyWordSwaps, value: SGSimpleSettings.shared.animefyWordSwaps, text: "Word swaps", enabled: true))
+        entries.append(.toggle(id: id.count, section: .privacy, settingName: .animefyStutter, value: SGSimpleSettings.shared.animefyStutter, text: "Stutter first word", enabled: true))
+        entries.append(.toggle(id: id.count, section: .privacy, settingName: .animefyParticles, value: SGSimpleSettings.shared.animefyParticles, text: "Trailing particles", enabled: true))
+        entries.append(.toggle(id: id.count, section: .privacy, settingName: .animefyKaomoji, value: SGSimpleSettings.shared.animefyKaomoji, text: "Kaomoji", enabled: true))
+        entries.append(.toggle(id: id.count, section: .privacy, settingName: .animefyHearts, value: SGSimpleSettings.shared.animefyHearts, text: "Heart tail", enabled: true))
+        entries.append(.notice(id: id.count, section: .privacy, text: "Commands, links and mentions are left untouched. If the result would be too long, the original text is sent instead."))
+    }
 
     entries.append(.header(id: id.count, section: .stories, text: strings.AutoDownloadSettings_Stories.uppercased(), badge: nil))
     entries.append(.toggle(id: id.count, section: .stories, settingName: .hideStories, value: SGSimpleSettings.shared.hideStories, text: i18n("Settings.Stories.Hide", lang), enabled: true))
@@ -488,6 +505,18 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
             SGSimpleSettings.shared.restoreDeletedGifts = value
         case .localPremiumUnlockEnabled:
             SGSimpleSettings.shared.localPremiumUnlockEnabled = value
+        case .animefyEnabled:
+            SGSimpleSettings.shared.animefyEnabled = value
+        case .animefyWordSwaps:
+            SGSimpleSettings.shared.animefyWordSwaps = value
+        case .animefyStutter:
+            SGSimpleSettings.shared.animefyStutter = value
+        case .animefyParticles:
+            SGSimpleSettings.shared.animefyParticles = value
+        case .animefyKaomoji:
+            SGSimpleSettings.shared.animefyKaomoji = value
+        case .animefyHearts:
+            SGSimpleSettings.shared.animefyHearts = value
         case .hideStories:
             SGSimpleSettings.shared.hideStories = value
         case .showProfileId:

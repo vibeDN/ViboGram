@@ -1,5 +1,6 @@
 import Foundation
 import SGSimpleSettings
+import SGAnimefy
 import UIKit
 import AsyncDisplayKit
 import Postbox
@@ -5062,8 +5063,30 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             if peerId?.namespace != Namespaces.Peer.SecretChat, let interactiveEmojis = self.interactiveEmojis, interactiveEmojis.emojis.contains(trimmedInputText), effectiveInputText.attribute(ChatTextInputAttributes.customEmoji, at: 0, effectiveRange: nil) == nil {
                 messages.append(.message(text: "", attributes: [], inlineStickers: [:], mediaReference: AnyMediaReference.standalone(media: TelegramMediaDice(emoji: trimmedInputText)), threadId: self.chatLocation.threadId, replyToMessageId: self.chatPresentationInterfaceState.interfaceState.replyMessageSubject?.subjectModel, replyToStoryId: nil, localGroupingKey: nil, correlationId: nil, bubbleUpEmojiOrStickersets: []))
             } else {
-                let inputText = convertMarkdownToAttributes(effectiveInputText)
-                
+                var inputText = convertMarkdownToAttributes(effectiveInputText)
+                // MARK: ViboGram - "Anime-ify" outgoing text (see SGAnimefy).
+                // Only reached for genuinely plain-text sends (this branch,
+                // not the rich-message/dice ones above); applied to the raw
+                // string and rebuilt as a fresh attributed string, so any
+                // rich per-run formatting on the original text is
+                // intentionally not preserved once this transform actually
+                // changes something -- keeping the two working correctly
+                // together needs re-threading attribute ranges through
+                // word-length changes, not attempted here.
+                if SGSimpleSettings.shared.animefyEnabled {
+                    let transformed = SGAnimefy.transform(inputText.string, intensity: .normal, options: SGAnimefyOptions(
+                        wordSwaps: SGSimpleSettings.shared.animefyWordSwaps,
+                        stutter: SGSimpleSettings.shared.animefyStutter,
+                        particles: SGSimpleSettings.shared.animefyParticles,
+                        kaomoji: SGSimpleSettings.shared.animefyKaomoji,
+                        hearts: SGSimpleSettings.shared.animefyHearts
+                    ))
+                    if transformed != inputText.string {
+                        let baseAttributes = inputText.length > 0 ? inputText.attributes(at: 0, effectiveRange: nil) : [:]
+                        inputText = NSAttributedString(string: transformed, attributes: baseAttributes)
+                    }
+                }
+
                 var mediaReference: AnyMediaReference?
                 var webpage: TelegramMediaWebpage?
                 if let urlPreview = self.chatPresentationInterfaceState.urlPreview {

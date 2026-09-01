@@ -191,10 +191,17 @@ public enum SGPythonRuntime {
 // MARK: ViboGram - plugin file storage. Plugins live in the app's own
 // Documents directory (writable at runtime, unlike the read-only signed app
 // bundle) so they survive relaunches and can be added/removed without a
-// reinstall. One flat directory, .py files only -- no manifest parsing or
-// per-plugin subfolder yet, since there's no real plugin-loading API to
-// consume a manifest for until BasePlugin/hooks exist.
+// reinstall. One flat directory -- no manifest parsing or per-plugin
+// subfolder yet, since there's no real plugin-loading API to consume a
+// manifest for until BasePlugin/hooks exist.
+//
+// Extension: exteraGram's real plugin files use `.plugin` (confirmed against
+// an actual installed plugin, gift_stats.plugin -- plain Python source
+// despite the extension, per `file`: "Python script, Unicode text"). `.py`
+// is also accepted for anything hand-written/not exteraGram-sourced.
 public enum SGPluginsStore {
+    private static let acceptedExtensions: Set<String> = ["plugin", "py"]
+
     public static var directory: URL {
         let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let dir = base.appendingPathComponent("Plugins", isDirectory: true)
@@ -208,7 +215,7 @@ public enum SGPluginsStore {
         guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else {
             return []
         }
-        return files.filter { $0.pathExtension.lowercased() == "py" }.map { $0.lastPathComponent }.sorted()
+        return files.filter { acceptedExtensions.contains($0.pathExtension.lowercased()) }.map { $0.lastPathComponent }.sorted()
     }
 
     public static func path(for filename: String) -> String {
@@ -223,10 +230,10 @@ public enum SGPluginsStore {
     public static func importPlugin(from sourceURL: URL, suggestedName: String? = nil) throws -> String {
         var filename = suggestedName ?? sourceURL.lastPathComponent
         if filename.isEmpty {
-            filename = "plugin.py"
+            filename = "plugin.plugin"
         }
-        if !filename.lowercased().hasSuffix(".py") {
-            filename += ".py"
+        if !acceptedExtensions.contains((filename as NSString).pathExtension.lowercased()) {
+            filename += ".plugin"
         }
         let destURL = directory.appendingPathComponent(filename)
         if FileManager.default.fileExists(atPath: destURL.path) {

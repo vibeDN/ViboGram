@@ -190,6 +190,14 @@ public class SGSimpleSettings {
         case keepBannedChatsVisible
         case restoreDeletedGifts
         case localPremiumUnlockEnabled
+        // MARK: ViboGram - "Anime-ify" outgoing text (idea + mechanism ported
+        // from Margelet's "naruto" plugin; word/kaomoji lists are our own).
+        case animefyEnabled
+        case animefyWordSwaps
+        case animefyStutter
+        case animefyParticles
+        case animefyKaomoji
+        case animefyHearts
     }
     
     public enum DownloadSpeedBoostValues: String, CaseIterable {
@@ -398,6 +406,12 @@ public class SGSimpleSettings {
         Keys.allowSecretMediaScreenshotsAndSaving.rawValue: false,
         Keys.bypassIOSContentRestrictions.rawValue: false,
         Keys.antiDeleteEnabled.rawValue: false,
+        Keys.animefyEnabled.rawValue: false,
+        Keys.animefyWordSwaps.rawValue: true,
+        Keys.animefyStutter.rawValue: true,
+        Keys.animefyParticles.rawValue: true,
+        Keys.animefyKaomoji.rawValue: true,
+        Keys.animefyHearts.rawValue: true,
         Keys.keepBannedChatsVisible.rawValue: false,
         Keys.restoreDeletedGifts.rawValue: false,
         Keys.localPremiumUnlockEnabled.rawValue: false
@@ -691,6 +705,29 @@ public class SGSimpleSettings {
 
     @UserDefault(key: Keys.bypassIOSContentRestrictions.rawValue)
     public var bypassIOSContentRestrictions: Bool
+
+    // MARK: ViboGram - "Anime-ify" outgoing text. Idea + deterministic-seeded
+    // mechanism (word-swap/stutter/particle/kaomoji/heart-tail, gated by
+    // per-word pseudo-random rolls, skip-list for links/mentions/commands,
+    // length safety cutoff) ported from Margelet's own equivalent plugin --
+    // the actual word/kaomoji lists here are our own, not copied from theirs.
+    @UserDefault(key: Keys.animefyEnabled.rawValue)
+    public var animefyEnabled: Bool
+
+    @UserDefault(key: Keys.animefyWordSwaps.rawValue)
+    public var animefyWordSwaps: Bool
+
+    @UserDefault(key: Keys.animefyStutter.rawValue)
+    public var animefyStutter: Bool
+
+    @UserDefault(key: Keys.animefyParticles.rawValue)
+    public var animefyParticles: Bool
+
+    @UserDefault(key: Keys.animefyKaomoji.rawValue)
+    public var animefyKaomoji: Bool
+
+    @UserDefault(key: Keys.animefyHearts.rawValue)
+    public var animefyHearts: Bool
 
     // MARK: ViboGram - anti-delete (Tier 3). Cloud-chat messages deleted by the
     // other side are kept locally (tagged, not removed) instead of vanishing.

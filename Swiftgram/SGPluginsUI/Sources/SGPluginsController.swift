@@ -34,7 +34,7 @@ private func sgPluginsEntries(installedPlugins: [String]) -> [SGPluginsEntry] {
     var entries: [SGPluginsEntry] = []
     let id = SGItemListCounter()
 
-    entries.append(.header(id: id.count, section: .importActions, text: "Plugins are single .py files. This only proves a plugin's top-level code runs without crashing -- there is no BasePlugin/hook API to actually integrate with the app yet.", badge: nil))
+    entries.append(.header(id: id.count, section: .importActions, text: "Plugins are single .plugin (or .py) files, exteraGram's format. This only proves a plugin's top-level code runs without crashing -- there is no BasePlugin/hook API to actually integrate with the app yet, so anything importing base_plugin/client_utils/etc. will fail immediately, and plugins reaching into Android/Java internals (org.telegram.*, java.*) can never work on iOS.", badge: nil))
     entries.append(.action(id: id.count, section: .importActions, actionType: .importFromFile, text: "Import from Files…", kind: .generic))
     entries.append(.action(id: id.count, section: .importActions, actionType: .importFromURL, text: "Import from URL…", kind: .generic))
 
