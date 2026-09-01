@@ -249,6 +249,38 @@ public enum SGPythonRuntime {
         }
         return result
     }
+
+    // MARK: ViboGram - "Anime-ify" outgoing text, as an actual installed
+    // plugin (not a hardcoded Swift feature) so the Settings toggle
+    // exercises the real plugin-loading path (SGPythonRuntime.callFunction)
+    // instead of simulating it. Idea + mechanism ported from Margelet's own
+    // equivalent plugin; the word/kaomoji/particle lists here are our own.
+    // Written out fresh every time it's needed (not just-if-missing) so a
+    // future app update can ship a revised default without the user's
+    // existing copy shadowing it -- if someone wants to keep editing their
+    // own version instead, they should rename it.
+    public static let builtinAnimefyPluginFilename = "animefy.plugin"
+
+    @discardableResult
+    public static func installBuiltinAnimefyPlugin() -> String {
+        let destURL = SGPluginsStore.directory.appendingPathComponent(builtinAnimefyPluginFilename)
+        try? builtinAnimefyPluginSource.write(to: destURL, atomically: true, encoding: .utf8)
+        return builtinAnimefyPluginFilename
+    }
+
+    // MARK: ViboGram - ASCII-art plugin, Python half (see SGAsciiArtBridge
+    // in SGPluginsUI for the Swift-side image decode/downsample). Idea +
+    // mechanism (luminance-to-character ladder, darkest-to-lightest,
+    // dark-theme invert) ported from Margelet's own equivalent plugin; the
+    // character ladder here is our own choice.
+    public static let builtinAsciiArtPluginFilename = "ascii_art.plugin"
+
+    @discardableResult
+    public static func installBuiltinAsciiArtPlugin() -> String {
+        let destURL = SGPluginsStore.directory.appendingPathComponent(builtinAsciiArtPluginFilename)
+        try? builtinAsciiArtPluginSource.write(to: destURL, atomically: true, encoding: .utf8)
+        return builtinAsciiArtPluginFilename
+    }
 }
 
 // MARK: ViboGram - plugin file storage. Plugins live in the app's own
@@ -308,38 +340,6 @@ public enum SGPluginsStore {
 
     public static func deletePlugin(named filename: String) throws {
         try FileManager.default.removeItem(at: directory.appendingPathComponent(filename))
-    }
-
-    // MARK: ViboGram - "Anime-ify" outgoing text, as an actual installed
-    // plugin (not a hardcoded Swift feature) so the Settings toggle
-    // exercises the real plugin-loading path (SGPythonRuntime.callFunction)
-    // instead of simulating it. Idea + mechanism ported from Margelet's own
-    // equivalent plugin; the word/kaomoji/particle lists here are our own.
-    // Written out fresh every time it's needed (not just-if-missing) so a
-    // future app update can ship a revised default without the user's
-    // existing copy shadowing it -- if someone wants to keep editing their
-    // own version instead, they should rename it.
-    public static let builtinAnimefyPluginFilename = "animefy.plugin"
-
-    @discardableResult
-    public static func installBuiltinAnimefyPlugin() -> String {
-        let destURL = directory.appendingPathComponent(builtinAnimefyPluginFilename)
-        try? builtinAnimefyPluginSource.write(to: destURL, atomically: true, encoding: .utf8)
-        return builtinAnimefyPluginFilename
-    }
-
-    // MARK: ViboGram - ASCII-art plugin, Python half (see SGAsciiArtBridge
-    // in SGPluginsUI for the Swift-side image decode/downsample). Idea +
-    // mechanism (luminance-to-character ladder, darkest-to-lightest,
-    // dark-theme invert) ported from Margelet's own equivalent plugin; the
-    // character ladder here is our own choice.
-    public static let builtinAsciiArtPluginFilename = "ascii_art.plugin"
-
-    @discardableResult
-    public static func installBuiltinAsciiArtPlugin() -> String {
-        let destURL = directory.appendingPathComponent(builtinAsciiArtPluginFilename)
-        try? builtinAsciiArtPluginSource.write(to: destURL, atomically: true, encoding: .utf8)
-        return builtinAsciiArtPluginFilename
     }
 }
 
