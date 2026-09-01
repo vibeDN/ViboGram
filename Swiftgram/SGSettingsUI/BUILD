@@ -24,6 +24,7 @@ swift_library(
         "//Swiftgram/SGAPIToken:SGAPIToken",
         "//Swiftgram/SGProUI:SGProUI",
         "//Swiftgram/SGPluginsUI:SGPluginsUI",
+        "//Swiftgram/SGPython:SGPython",
         "//submodules/SettingsUI:SettingsUI",
         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
         "//submodules/Display:Display",

@@ -186,6 +186,69 @@ public enum SGPythonRuntime {
             return "Plugin raised an exception (exit status \(status)) -- check device console log for the traceback."
         }
     }
+
+    // MARK: ViboGram - first real "call a plugin function and use its actual
+    // return value" path, as opposed to run(fileAt:)/runSmokeTest's "did it
+    // crash". Deliberately built on PyRun_SimpleString alone -- the one
+    // primitive already confirmed working end-to-end through a real CI
+    // build -- rather than the lower-level PyObject/PyDict C API
+    // (PyRun_String, PyObject_CallFunctionObjArgs, PyUnicode_*, ...), which
+    // this embedding has never exercised and can't be verified without
+    // another full build cycle. Instead, the argument dict crosses the
+    // boundary as a JSON file Swift writes, the plugin source plus a small
+    // generated wrapper snippet (which decodes it, calls `functionName`,
+    // and JSON-encodes the return value) run together as one
+    // PyRun_SimpleString, and Swift reads the result back from a second
+    // JSON file. Slower and more roundabout than a direct PyObject call,
+    // but has no new C API surface to get wrong blind.
+    public static func callFunction(scriptPath: String, functionName: String, argumentsJSON: [String: Any]) -> String? {
+        guard start() else {
+            return nil
+        }
+        guard let source = try? String(contentsOfFile: scriptPath, encoding: .utf8) else {
+            return nil
+        }
+        let tempDir = FileManager.default.temporaryDirectory
+        let inputURL = tempDir.appendingPathComponent("sg_plugin_in_\(UUID().uuidString).json")
+        let outputURL = tempDir.appendingPathComponent("sg_plugin_out_\(UUID().uuidString).json")
+        defer {
+            try? FileManager.default.removeItem(at: inputURL)
+            try? FileManager.default.removeItem(at: outputURL)
+        }
+        guard let inputData = try? JSONSerialization.data(withJSONObject: argumentsJSON),
+              (try? inputData.write(to: inputURL)) != nil else {
+            return nil
+        }
+
+        // MARK: ViboGram - the two temp paths are ours (UUID-named, under
+        // the app's own temporary directory), never plugin- or
+        // user-controlled, so embedding them as literal Python string
+        // constants here doesn't need escaping the way `argumentsJSON`'s
+        // actual content does (which is why that crosses via a JSON file
+        // instead of being spliced into source text at all).
+        let wrapper = """
+
+
+        import json as _sg_json
+        with open(\"\(inputURL.path)\", "r", encoding="utf-8") as _sg_f:
+            _sg_args = _sg_json.load(_sg_f)
+        _sg_result = \(functionName)(_sg_args)
+        with open(\"\(outputURL.path)\", "w", encoding="utf-8") as _sg_f:
+            _sg_json.dump({"result": _sg_result}, _sg_f)
+        """
+
+        let fullSource = source + wrapper
+        let status = fullSource.withCString { PyRun_SimpleString($0) }
+        guard status == 0 else {
+            return nil
+        }
+        guard let outputData = try? Data(contentsOf: outputURL),
+              let json = try? JSONSerialization.jsonObject(with: outputData) as? [String: Any],
+              let result = json["result"] as? String else {
+            return nil
+        }
+        return result
+    }
 }
 
 // MARK: ViboGram - plugin file storage. Plugins live in the app's own
@@ -246,4 +309,152 @@ public enum SGPluginsStore {
     public static func deletePlugin(named filename: String) throws {
         try FileManager.default.removeItem(at: directory.appendingPathComponent(filename))
     }
+
+    // MARK: ViboGram - "Anime-ify" outgoing text, as an actual installed
+    // plugin (not a hardcoded Swift feature) so the Settings toggle
+    // exercises the real plugin-loading path (SGPythonRuntime.callFunction)
+    // instead of simulating it. Idea + mechanism ported from Margelet's own
+    // equivalent plugin; the word/kaomoji/particle lists here are our own.
+    // Written out fresh every time it's needed (not just-if-missing) so a
+    // future app update can ship a revised default without the user's
+    // existing copy shadowing it -- if someone wants to keep editing their
+    // own version instead, they should rename it.
+    public static let builtinAnimefyPluginFilename = "animefy.plugin"
+
+    @discardableResult
+    public static func installBuiltinAnimefyPlugin() -> String {
+        let destURL = directory.appendingPathComponent(builtinAnimefyPluginFilename)
+        try? builtinAnimefyPluginSource.write(to: destURL, atomically: true, encoding: .utf8)
+        return builtinAnimefyPluginFilename
+    }
 }
+
+private let builtinAnimefyPluginSource = """
+# ViboGram built-in plugin: "Anime-ify" outgoing text.
+# Idea and mechanism ported from Margelet's own equivalent plugin
+# (deterministic per-message/per-word pseudo-random rolls gating a word-swap
+# dictionary, first-word stutter, trailing particle, kaomoji insertion, and
+# a heart tail; links/mentions/commands are skipped; a length safety cutoff
+# falls back to the untouched text). Word/kaomoji/particle lists below are
+# our own, not the source plugin's content.
+
+WORD_SWAPS = {
+    "привет": "приветик",
+    "пока": "покеда",
+    "да": "агась",
+    "нет": "не-а",
+    "спасибо": "спасибки",
+    "круто": "класн\\u00f3",
+    "хорошо": "чудненько",
+    "ладно": "лады",
+}
+KAOMOJI = ["(^_^)", "(-_-)", "(o_o)", "\\\\(^o^)/", "(^w^)"]
+PARTICLES = ["нья", "десу", "кун", "тян"]
+HEARTS = ["<3", "*", "~"]
+LENGTH_CEILING = 4096
+
+
+def _seed(text, salt):
+    h = 5381
+    for ch in text:
+        h = (h * 131 + ord(ch)) & 0xFFFFFFF
+    return (h + salt * 7919) & 0xFFFFFFF
+
+
+def _roll(text, word_index, axis):
+    return (_seed(text, word_index * 10 + axis) % 1000) / 1000.0
+
+
+_THRESHOLDS = {
+    "mild": {"swap": 0.15, "stutter": 0.08, "particle": 0.06, "kaomoji": 0.06, "hearts": 1},
+    "normal": {"swap": 0.3, "stutter": 0.18, "particle": 0.15, "kaomoji": 0.15, "hearts": 2},
+    "max": {"swap": 0.55, "stutter": 0.35, "particle": 0.3, "kaomoji": 0.3, "hearts": 3},
+}
+
+
+def _is_untouchable(word):
+    lower = word.lower()
+    if not lower:
+        return True
+    if lower[0] in "@#/":
+        return True
+    for marker in ("://", "t.me/", "www.", ".com", ".ru", ".org", ".\\u0440\\u0444"):
+        if marker in lower:
+            return True
+    return False
+
+
+def _split_punctuation(word):
+    start, end = 0, len(word)
+    while start < end and not word[start].isalnum():
+        start += 1
+    while end > start and not word[end - 1].isalnum():
+        end -= 1
+    return word[:start], word[start:end], word[end:]
+
+
+def _match_case(original, replacement):
+    if len(original) > 1 and original.isupper():
+        return replacement.upper()
+    if original[:1].isupper():
+        return replacement[:1].upper() + replacement[1:]
+    return replacement
+
+
+def _stutter(word):
+    if not word or not word[0].isalpha():
+        return word
+    return word[0] + "-" + word
+
+
+def animefy(text, intensity="normal", options=None):
+    if not text or not text.strip():
+        return text
+    if text.lstrip()[:1] == "/":
+        return text
+    options = options or {}
+    bar = _THRESHOLDS.get(intensity, _THRESHOLDS["normal"])
+
+    out = []
+    word_index = 0
+    is_first = True
+    for word in text.split(" "):
+        if not word:
+            out.append(word)
+            continue
+        word_index += 1
+        if _is_untouchable(word):
+            out.append(word)
+            is_first = False
+            continue
+        lead, core, trail = _split_punctuation(word)
+        if core:
+            lower = core.lower()
+            if options.get("word_swaps", True) and lower in WORD_SWAPS and _roll(text, word_index, 1) < bar["swap"]:
+                core = _match_case(core, WORD_SWAPS[lower])
+            if options.get("stutter", True) and is_first and _roll(text, word_index, 2) < bar["stutter"]:
+                core = _stutter(core)
+            if options.get("particles", True) and _roll(text, word_index, 3) < bar["particle"]:
+                pick = PARTICLES[int(_roll(text, word_index, 4) * len(PARTICLES)) % len(PARTICLES)]
+                core = core + "-" + pick
+        out.append(lead + core + trail)
+        is_first = False
+        if options.get("kaomoji", True) and _roll(text, word_index, 5) < bar["kaomoji"]:
+            pick = KAOMOJI[int(_roll(text, word_index, 6) * len(KAOMOJI)) % len(KAOMOJI)]
+            out.append(pick)
+
+    result = " ".join(out)
+    if options.get("hearts", True) and bar["hearts"] > 0:
+        tail = [HEARTS[int(_roll(text, 100 + i, 8) * len(HEARTS)) % len(HEARTS)] for i in range(bar["hearts"])]
+        if tail:
+            result = result + " " + "".join(tail)
+    if len(result) > LENGTH_CEILING:
+        return text
+    return result
+
+
+def transform(args):
+    \"\"\"Entry point called by SGPythonRuntime.callFunction: args is a dict
+    with "text" (str) and optional "intensity"/"options" keys.\"\"\"
+    return animefy(args.get("text", ""), args.get("intensity", "normal"), args.get("options"))
+"""

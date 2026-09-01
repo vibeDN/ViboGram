@@ -1,6 +1,6 @@
 import Foundation
 import SGSimpleSettings
-import SGAnimefy
+import SGPython
 import UIKit
 import AsyncDisplayKit
 import Postbox
@@ -5064,24 +5064,35 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                 messages.append(.message(text: "", attributes: [], inlineStickers: [:], mediaReference: AnyMediaReference.standalone(media: TelegramMediaDice(emoji: trimmedInputText)), threadId: self.chatLocation.threadId, replyToMessageId: self.chatPresentationInterfaceState.interfaceState.replyMessageSubject?.subjectModel, replyToStoryId: nil, localGroupingKey: nil, correlationId: nil, bubbleUpEmojiOrStickersets: []))
             } else {
                 var inputText = convertMarkdownToAttributes(effectiveInputText)
-                // MARK: ViboGram - "Anime-ify" outgoing text (see SGAnimefy).
-                // Only reached for genuinely plain-text sends (this branch,
-                // not the rich-message/dice ones above); applied to the raw
-                // string and rebuilt as a fresh attributed string, so any
-                // rich per-run formatting on the original text is
-                // intentionally not preserved once this transform actually
-                // changes something -- keeping the two working correctly
-                // together needs re-threading attribute ranges through
-                // word-length changes, not attempted here.
+                // MARK: ViboGram - "Anime-ify" outgoing text -- runs as an
+                // actual installed plugin (Swiftgram/SGPython's
+                // animefy.plugin) through SGPythonRuntime.callFunction, not
+                // hardcoded Swift logic, so enabling this setting exercises
+                // the real plugin-execution path. Only reached for
+                // genuinely plain-text sends (this branch, not the
+                // rich-message/dice ones above); applied to the raw string
+                // and rebuilt as a fresh attributed string, so any rich
+                // per-run formatting on the original text is intentionally
+                // not preserved once this transform actually changes
+                // something -- keeping the two working correctly together
+                // needs re-threading attribute ranges through word-length
+                // changes, not attempted here. A missing/failed plugin call
+                // silently no-ops (sends the untouched text) rather than
+                // blocking sending.
                 if SGSimpleSettings.shared.animefyEnabled {
-                    let transformed = SGAnimefy.transform(inputText.string, intensity: .normal, options: SGAnimefyOptions(
-                        wordSwaps: SGSimpleSettings.shared.animefyWordSwaps,
-                        stutter: SGSimpleSettings.shared.animefyStutter,
-                        particles: SGSimpleSettings.shared.animefyParticles,
-                        kaomoji: SGSimpleSettings.shared.animefyKaomoji,
-                        hearts: SGSimpleSettings.shared.animefyHearts
-                    ))
-                    if transformed != inputText.string {
+                    let pluginPath = SGPluginsStore.path(for: SGPythonRuntime.installBuiltinAnimefyPlugin())
+                    let options: [String: Any] = [
+                        "word_swaps": SGSimpleSettings.shared.animefyWordSwaps,
+                        "stutter": SGSimpleSettings.shared.animefyStutter,
+                        "particles": SGSimpleSettings.shared.animefyParticles,
+                        "kaomoji": SGSimpleSettings.shared.animefyKaomoji,
+                        "hearts": SGSimpleSettings.shared.animefyHearts,
+                    ]
+                    if let transformed = SGPythonRuntime.callFunction(scriptPath: pluginPath, functionName: "transform", argumentsJSON: [
+                        "text": inputText.string,
+                        "intensity": "normal",
+                        "options": options,
+                    ]), transformed != inputText.string {
                         let baseAttributes = inputText.length > 0 ? inputText.attributes(at: 0, effectiveRange: nil) : [:]
                         inputText = NSAttributedString(string: transformed, attributes: baseAttributes)
                     }

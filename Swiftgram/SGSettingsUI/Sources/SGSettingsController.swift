@@ -7,6 +7,7 @@ import SGAPIToken
 import SGItemListUI
 import SGProUI
 import SGPluginsUI
+import SGPython
 import SettingsUI
 import Foundation
 import UIKit
@@ -507,6 +508,14 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
             SGSimpleSettings.shared.localPremiumUnlockEnabled = value
         case .animefyEnabled:
             SGSimpleSettings.shared.animefyEnabled = value
+            if value {
+                // MARK: ViboGram - write the plugin file out as soon as the
+                // toggle is switched on, not just lazily on next send, so
+                // it's immediately visible/inspectable in the Plugins
+                // screen (proves this is a real installed plugin, not a
+                // simulated one).
+                SGPythonRuntime.installBuiltinAnimefyPlugin()
+            }
         case .animefyWordSwaps:
             SGSimpleSettings.shared.animefyWordSwaps = value
         case .animefyStutter:
