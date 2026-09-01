@@ -1,5 +1,6 @@
 import Foundation
 import Python
+import UIKit
 
 // MARK: ViboGram - Tier 4 plugin system, Swift-side interpreter lifecycle
 // wrapper around CPython's embedding C API (docs.python.org/3/c-api/init_config.html).
@@ -308,7 +309,35 @@ public enum SGPythonRuntime {
         // installed plugin share one state file (matches "the plugin
         // remembers its own state", not "this call site remembers state on
         // the plugin's behalf").
-        let stateFilePath = SGPluginsStore.stateFilePath(for: (scriptPath as NSString).lastPathComponent)
+        let filename = (scriptPath as NSString).lastPathComponent
+        let stateFilePath = SGPluginsStore.stateFilePath(for: filename)
+
+        // MARK: ViboGram - read-only host info, computed once up front (no
+        // live channel back into a running script, same reasoning as
+        // get_setting's preload) so `vibo.get_clipboard()`/`device_info()`/
+        // `list_plugins()`/`data_dir()` can return a real value the instant
+        // they're called instead of only ever queuing something for later.
+        let hostInfoFilePath = tempDir.appendingPathComponent("sg_plugin_host_\(UUID().uuidString).json").path
+        defer {
+            try? FileManager.default.removeItem(atPath: hostInfoFilePath)
+        }
+        let isDarkTheme = UIScreen.main.traitCollection.userInterfaceStyle == .dark
+        let hostInfo: [String: Any] = [
+            "clipboard": UIPasteboard.general.string ?? NSNull(),
+            "device_info": [
+                "os_version": UIDevice.current.systemVersion,
+                "device_model": UIDevice.current.model,
+                "app_version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "",
+                "locale": Locale.current.identifier,
+                "is_dark_theme": isDarkTheme,
+            ],
+            "plugins": SGPluginsStore.installedPlugins(),
+            "data_dir": SGPluginsStore.dataDirectory(for: filename),
+        ]
+        guard let hostInfoData = try? JSONSerialization.data(withJSONObject: hostInfo),
+              (try? hostInfoData.write(to: URL(fileURLWithPath: hostInfoFilePath))) != nil else {
+            return nil
+        }
 
         let prelude = """
 
@@ -316,15 +345,16 @@ public enum SGPythonRuntime {
         import json as _sg_json
 
         class _SgHost:
-            def __init__(self, state):
+            def __init__(self, state, host_info):
                 self._state = dict(state)
+                self._host_info = dict(host_info)
                 self.events = []
 
             def log(self, message):
                 self.events.append({"type": "log", "text": str(message)})
 
-            def toast(self, text):
-                self.events.append({"type": "toast", "text": str(text)})
+            def toast(self, text, style="info"):
+                self.events.append({"type": "toast", "text": str(text), "title": style})
 
             def alert(self, text, title=None):
                 self.events.append({"type": "alert", "text": str(text), "title": title})
@@ -335,13 +365,40 @@ public enum SGPythonRuntime {
             def set_setting(self, key, value):
                 self._state[key] = value
 
+            def get_clipboard(self):
+                return self._host_info.get("clipboard")
+
+            def set_clipboard(self, text):
+                self.events.append({"type": "set_clipboard", "text": str(text)})
+
+            def haptic(self, style="light"):
+                self.events.append({"type": "haptic", "text": str(style)})
+
+            def share(self, text):
+                self.events.append({"type": "share", "text": str(text)})
+
+            def device_info(self):
+                return self._host_info.get("device_info", {})
+
+            def list_plugins(self):
+                return self._host_info.get("plugins", [])
+
+            def data_dir(self):
+                return self._host_info.get("data_dir", "")
+
         try:
             with open(\"\(stateFilePath)\", "r", encoding="utf-8") as _sg_state_f:
                 _sg_initial_state = _sg_json.load(_sg_state_f)
         except Exception:
             _sg_initial_state = {}
 
-        vibo = _SgHost(_sg_initial_state)
+        try:
+            with open(\"\(hostInfoFilePath)\", "r", encoding="utf-8") as _sg_host_f:
+                _sg_host_info = _sg_json.load(_sg_host_f)
+        except Exception:
+            _sg_host_info = {}
+
+        vibo = _SgHost(_sg_initial_state, _sg_host_info)
         """
 
         let wrapper = """
@@ -381,6 +438,34 @@ public enum SGPythonRuntime {
             for rawEvent in rawEvents {
                 guard let type = rawEvent["type"] as? String, let text = rawEvent["text"] as? String else { continue }
                 events.append(SGPluginCallEvent(type: type, text: text, title: rawEvent["title"] as? String))
+            }
+        }
+
+        // MARK: ViboGram - clipboard/haptic are plain device-level side
+        // effects with no UI to present (unlike toast/alert/share), so
+        // they're applied right here regardless of caller -- an on_send
+        // hook plugin gets these "for free" even though ChatControllerNode
+        // never looks at .events itself. Must run on the same thread
+        // callFunctionRich was called on; every current call site is
+        // already main-thread (button taps, the message-send path), same
+        // assumption UIAlertController presentation elsewhere in this
+        // subsystem already makes.
+        for event in events {
+            switch event.type {
+            case "set_clipboard":
+                UIPasteboard.general.string = event.text
+            case "haptic":
+                switch event.text {
+                case "success", "warning", "error":
+                    let generator = UINotificationFeedbackGenerator()
+                    let style: UINotificationFeedbackGenerator.FeedbackType = event.text == "success" ? .success : (event.text == "warning" ? .warning : .error)
+                    generator.notificationOccurred(style)
+                default:
+                    let style: UIImpactFeedbackGenerator.FeedbackStyle = event.text == "heavy" ? .heavy : (event.text == "medium" ? .medium : .light)
+                    UIImpactFeedbackGenerator(style: style).impactOccurred()
+                }
+            default:
+                break
             }
         }
 
@@ -554,6 +639,29 @@ public enum SGPluginsStore {
 
     public static func stateFilePath(for filename: String) -> String {
         return stateDirectory.appendingPathComponent(filename + ".json").path
+    }
+
+    // MARK: ViboGram - a whole sandboxed directory per plugin (`vibo.data_dir()`),
+    // not just the single JSON blob get_setting/set_setting gives -- for
+    // anything a plugin wants to store as real files (its own bigger JSON
+    // documents, generated text, whatever), not just small key/value state.
+    // One subfolder per plugin filename under a hidden `.data` directory,
+    // same "hidden alongside the plugins, never enumerated as one" pattern
+    // as stateDirectory.
+    private static var dataRootDirectory: URL {
+        let dir = directory.appendingPathComponent(".data", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dir.path) {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir
+    }
+
+    public static func dataDirectory(for filename: String) -> String {
+        let dir = dataRootDirectory.appendingPathComponent(filename, isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dir.path) {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir.path
     }
 }
 

@@ -80,17 +80,46 @@ Every plugin run through **Run** in the Plugins screen, or through an
 `on_send` hook (below), gets a global `vibo` with:
 
 - `vibo.log(message)` / `vibo.toast(text)` -- shown as an overlay notice
-  after your plugin finishes.
+  after your plugin finishes. (Only when run from the Plugins screen's
+  **Run** button -- an `on_send` hook's toast/log/alert/share calls are
+  recorded but nothing currently displays them, since a message send
+  shouldn't interrupt itself with a dialog.)
 - `vibo.alert(text, title=None)` -- shown as a real dialog after your
-  plugin finishes.
+  plugin finishes. Same Plugins-screen-only caveat as above.
+- `vibo.share(text)` -- the system share sheet (AirDrop, Files, any other
+  app), not Telegram's own in-chat share. Same Plugins-screen-only caveat.
 - `vibo.get_setting(key, default=None)` / `vibo.set_setting(key, value)` --
   your plugin's own small persistent JSON store, keyed by your plugin's
   filename. Survives between runs; nothing else can read it.
+- `vibo.data_dir()` -- a real directory path, yours alone (also keyed by
+  filename), for anything bigger than get_setting's one JSON blob. Use
+  plain `open()`/`os.path.join(vibo.data_dir(), "...")` against it -- no
+  special API, just a sandboxed folder.
+- `vibo.get_clipboard()` -- the system clipboard's current text, or
+  `None`. `vibo.set_clipboard(text)` -- replaces it. This one **does**
+  take effect immediately, from any call site, `on_send` hooks included --
+  there's no dialog involved, so nothing needs to wait for the Plugins
+  screen to display it.
+- `vibo.haptic(style="light")` -- a haptic tap. `style` is one of
+  `"light"`, `"medium"`, `"heavy"`, `"success"`, `"warning"`, `"error"`.
+  Same immediate-effect, works-from-any-caller behavior as the clipboard
+  calls.
+- `vibo.device_info()` -- a dict: `os_version`, `device_model`,
+  `app_version`, `locale`, `is_dark_theme`. Read-only, computed fresh each
+  call.
+- `vibo.list_plugins()` -- filenames of every currently installed plugin
+  (yours included). Read-only.
 
-None of these fire *while* your code is running -- there's no live channel
-back into a running script, so calls are queued and replayed once your
-`transform` returns. Call them as many times as you like; order among
-themselves is preserved.
+None of `log`/`toast`/`alert`/`share` fire *while* your code is running --
+there's no live channel back into a running script, so those four are
+queued and only actually shown once your `transform` returns. Call them
+as many times as you like; order among themselves is preserved.
+`get_clipboard`/`device_info`/`list_plugins`/`data_dir` are the opposite:
+computed once right before your script starts, so they read as of when
+your plugin was *called*, not as of when you happen to read them inside
+your own code. `set_clipboard`/`haptic` take effect immediately after your
+script finishes, same as the queued ones, but need no UI to do it, so
+they fire from every call site (Plugins screen or `on_send` hook alike).
 
 `transform` itself can now return anything JSON-safe, not just a string --
 a number, a list, a dict, `None`. A plain string is shown as-is; anything

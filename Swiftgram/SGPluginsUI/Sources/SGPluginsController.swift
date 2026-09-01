@@ -67,10 +67,18 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
         installedPluginsPromise.set(SGPluginsStore.installedPlugins())
     }
 
-    func showResult(_ text: String, presentationData: PresentationData) {
+    // MARK: ViboGram - `succeed` styling for `vibo.toast(text, style="success")`
+    // (the rest -- "info", anything unrecognized -- stays the plain overlay
+    // this already was), matching exteraGram's BulletinHelper distinguishing
+    // show_info/show_success as separate calls; we fold it into one call
+    // with a style argument instead of separate methods.
+    func showResult(_ text: String, style: String = "info", presentationData: PresentationData) {
+        let content: UndoOverlayContent = style == "success"
+            ? .succeed(text: text, timeout: nil, customUndoText: nil)
+            : .info(title: nil, text: text, timeout: nil, customUndoText: nil)
         presentControllerImpl?(UndoOverlayController(
             presentationData: presentationData,
-            content: .info(title: nil, text: text, timeout: nil, customUndoText: nil),
+            content: content,
             elevatedLayout: false,
             action: { _ in return false }
         ), nil)
@@ -88,8 +96,22 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
             alert.addAction(UIAlertAction(title: presentationData.strings.Common_OK, style: .default))
             context.sharedContext.mainWindow?.presentNative(alert)
         }
+        // MARK: ViboGram - vibo.share(text): the system share sheet, not
+        // Telegram's own in-app chat-share -- lets a plugin hand its
+        // output to AirDrop/Files/any other app, same primitive already
+        // used for the plugin-source-file export (QrCodeScreen.swift is
+        // the other precedent for presentNativeController + this
+        // UIActivityViewController pattern in this codebase).
+        for event in result.events where event.type == "share" {
+            let activityController = UIActivityViewController(activityItems: [event.text], applicationActivities: nil)
+            if let window = context.sharedContext.mainWindow {
+                activityController.popoverPresentationController?.sourceView = window.hostView.containerView
+                activityController.popoverPresentationController?.sourceRect = CGRect(origin: CGPoint(x: window.hostView.containerView.bounds.width / 2.0, y: window.hostView.containerView.bounds.height - 1.0), size: CGSize(width: 1.0, height: 1.0))
+            }
+            context.sharedContext.applicationBindings.presentNativeController(activityController)
+        }
         for event in result.events where event.type == "toast" || event.type == "log" {
-            showResult(event.text, presentationData: presentationData)
+            showResult(event.text, style: event.title ?? "info", presentationData: presentationData)
         }
         if let resultText = result.resultText {
             showResult(resultText, presentationData: presentationData)
