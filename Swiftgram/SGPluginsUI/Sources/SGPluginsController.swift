@@ -61,9 +61,6 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
     // without a stale copy silently shadowing it.
     SGPythonRuntime.installBuiltinAnimefyPlugin()
     SGPythonRuntime.installBuiltinAsciiArtPlugin()
-    SGPythonRuntime.installBuiltinWordCountPlugin()
-    SGPythonRuntime.installBuiltinPasswordGenPlugin()
-    SGPythonRuntime.installBuiltinTextCleanerPlugin()
 
     let installedPluginsPromise = ValuePromise<[String]>(SGPluginsStore.installedPlugins(), ignoreRepeated: false)
     func refreshInstalledPlugins() {
