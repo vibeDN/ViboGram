@@ -17,18 +17,15 @@ swift_library(
     deps = [
         "//third-party/python:Python",
     ],
-    # MARK: ViboGram - resources (data), not deps: rules_apple docs are
-    # explicit that resource bundles attach to a library's `data` attribute,
-    # propagating up to whatever app target eventually links this in. The
-    # lib-dynload bundle is select()-ed per build config since device and
-    # simulator ship different compiled .so files under the same in-bundle
-    # name (see third-party/python/BUILD) -- only one can be present at once.
-    data = [
-        "//third-party/python:PythonStdlib",
-    ] + select({
-        "@build_bazel_rules_apple//apple:ios_arm64": ["//third-party/python:PythonLibDynloadDevice"],
-        "//build-system:ios_sim_arm64": ["//third-party/python:PythonLibDynloadSimulator"],
-    }),
+    # MARK: ViboGram - bugfix: `data` on this library was meant to
+    # auto-propagate these resource bundles to whatever app target links
+    # SGPython in (rules_apple's documented resource-propagation mechanism),
+    # but confirmed live (Python Smoke Test: "resource bundle not found,
+    # isBundled=false") that it never actually reached the shipped .app.
+    # Moved to an explicit `resources` entry on the app target itself
+    # (Telegram/BUILD) instead of chasing why propagation didn't fire here --
+    # removed from here so the same files aren't listed as inputs to two
+    # different bundling paths (Bazel errors on duplicate bundle contents).
     visibility = [
         "//visibility:public",
     ],

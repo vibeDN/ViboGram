@@ -4,7 +4,12 @@ import TelegramCore
 import TelegramUIPreferences
 
 public let defaultDarkPresentationTheme = makeDefaultDarkPresentationTheme(preview: false)
-public let defaultDarkColorPresentationTheme = customizeDefaultDarkPresentationTheme(theme: defaultDarkPresentationTheme, editing: false, title: nil, accentColor: UIColor(rgb: 0x3e88f7), backgroundColors: [], bubbleColors: [], animateBubbleColors: false, wallpaper: nil, baseColor: nil)
+// MARK: ViboGram - branding: matches defaultDayAccentColor
+// (DefaultDayPresentationTheme.swift) -- was still Telegram's stock blue
+// (0x3e88f7) here, so a fresh install landing in dark mode (the common case
+// on most devices) still showed blue links/buttons despite the day theme
+// already being fixed.
+public let defaultDarkColorPresentationTheme = customizeDefaultDarkPresentationTheme(theme: defaultDarkPresentationTheme, editing: false, title: nil, accentColor: UIColor(rgb: 0x6CBC77), backgroundColors: [], bubbleColors: [], animateBubbleColors: false, wallpaper: nil, baseColor: nil)
 
 private extension PresentationThemeBaseColor {
     var colorWallpaper: (BuiltinWallpaperData, Int32, [UInt32])? {

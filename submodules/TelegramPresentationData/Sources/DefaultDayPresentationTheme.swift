@@ -53,7 +53,12 @@ public func dateFillNeedsBlur(theme: PresentationTheme, wallpaper: TelegramWallp
 
 public let defaultServiceBackgroundColor = UIColor(rgb: 0x000000, alpha: 0.2)
 public let defaultPresentationTheme = makeDefaultDayPresentationTheme(serviceBackgroundColor: defaultServiceBackgroundColor, day: false, preview: false)
-public let defaultDayAccentColor = UIColor(rgb: 0x0088ff)
+// MARK: ViboGram - branding: default accent was still Telegram's stock blue.
+// This is the darker stop of the actual app icon's gradient
+// (Telegram-iOS/Swiftgram.icon/icon.json, srgb 0.42353,0.73725,0.46667) so
+// the very first thing a fresh install shows (links, buttons, the selected
+// tab) already matches the icon on the home screen, not a mismatched blue.
+public let defaultDayAccentColor = UIColor(rgb: 0x6CBC77)
 
 public func customizeDefaultDayTheme(theme: PresentationTheme, editing: Bool, title: String?, accentColor: UIColor?, outgoingAccentColor: UIColor?, backgroundColors: [UInt32], bubbleColors: [UInt32], animateBubbleColors: Bool?, wallpaper forcedWallpaper: TelegramWallpaper? = nil, serviceBackgroundColor: UIColor?) -> PresentationTheme {
     if (theme.referenceTheme != .day && theme.referenceTheme != .dayClassic) {

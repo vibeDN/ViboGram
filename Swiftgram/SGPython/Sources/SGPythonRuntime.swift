@@ -162,4 +162,81 @@ public enum SGPythonRuntime {
         let status = PyRun_SimpleString("import sys; print('SGPython smoke test OK, sys.path =', sys.path)")
         return "Py_GetVersion() = \(version); PyRun_SimpleString exit status = \(status) (0 = success; check device console log for the printed sys.path)"
     }
+
+    // MARK: ViboGram - first real plugin-execution path (SGPluginsUI). Still
+    // just PyRun_SimpleString on the whole file's source, same as the smoke
+    // test -- no BasePlugin/hook machinery yet (see docs/plugin-system-tier4.md's
+    // exteraGram-ported API design for what that eventually needs to look
+    // like). This only proves a given .py file's top-level code executes
+    // without crashing the host process; a raised Python exception prints
+    // to the console (PyRun_SimpleString's own behavior) and is reflected
+    // here only as a nonzero exit status, not the exception text itself --
+    // good enough to confirm "does this plugin even run", not full test.
+    public static func run(fileAt path: String) -> String {
+        guard start() else {
+            return "SGPythonRuntime: start() failed -- \(lastError ?? "<no error captured>")"
+        }
+        guard let source = try? String(contentsOfFile: path, encoding: .utf8) else {
+            return "Failed to read plugin file at \(path)"
+        }
+        let status = source.withCString { PyRun_SimpleString($0) }
+        if status == 0 {
+            return "Ran successfully (exit status 0)."
+        } else {
+            return "Plugin raised an exception (exit status \(status)) -- check device console log for the traceback."
+        }
+    }
+}
+
+// MARK: ViboGram - plugin file storage. Plugins live in the app's own
+// Documents directory (writable at runtime, unlike the read-only signed app
+// bundle) so they survive relaunches and can be added/removed without a
+// reinstall. One flat directory, .py files only -- no manifest parsing or
+// per-plugin subfolder yet, since there's no real plugin-loading API to
+// consume a manifest for until BasePlugin/hooks exist.
+public enum SGPluginsStore {
+    public static var directory: URL {
+        let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let dir = base.appendingPathComponent("Plugins", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dir.path) {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir
+    }
+
+    public static func installedPlugins() -> [String] {
+        guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else {
+            return []
+        }
+        return files.filter { $0.pathExtension.lowercased() == "py" }.map { $0.lastPathComponent }.sorted()
+    }
+
+    public static func path(for filename: String) -> String {
+        return directory.appendingPathComponent(filename).path
+    }
+
+    // `sourceURL` is expected to already be a local file (either a
+    // security-scoped Files-app URL the caller has already
+    // started/stopped accessing, or a temp download destination) --
+    // this function only copies, it doesn't fetch.
+    @discardableResult
+    public static func importPlugin(from sourceURL: URL, suggestedName: String? = nil) throws -> String {
+        var filename = suggestedName ?? sourceURL.lastPathComponent
+        if filename.isEmpty {
+            filename = "plugin.py"
+        }
+        if !filename.lowercased().hasSuffix(".py") {
+            filename += ".py"
+        }
+        let destURL = directory.appendingPathComponent(filename)
+        if FileManager.default.fileExists(atPath: destURL.path) {
+            try FileManager.default.removeItem(at: destURL)
+        }
+        try FileManager.default.copyItem(at: sourceURL, to: destURL)
+        return filename
+    }
+
+    public static func deletePlugin(named filename: String) throws {
+        try FileManager.default.removeItem(at: directory.appendingPathComponent(filename))
+    }
 }

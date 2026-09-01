@@ -6,6 +6,7 @@ import SGAPIToken
 
 import SGItemListUI
 import SGProUI
+import SGPluginsUI
 import SettingsUI
 import Foundation
 import UIKit
@@ -153,6 +154,7 @@ private enum SGDisclosureLink: String {
     case appIcons
     case appBadges
     case customEditedLabel
+    case plugins
 }
 
 private struct PeerNameColorScreenState: Equatable {
@@ -381,6 +383,9 @@ private func SGControllerEntries(presentationData: PresentationData, callListSet
     // MARK: ViboGram - merged in from the former separate "Swiftgram Pro" screen, unlocked for everyone
     entries.append(.disclosure(id: id.count, section: .proBase, link: .sessionBackupManager, text: "SessionBackup.Title".i18n(lang)))
     entries.append(.disclosure(id: id.count, section: .proBase, link: .messageFilter, text: "MessageFilter.Title".i18n(lang)))
+    // MARK: ViboGram - Tier 4 plugin system, first real settings entry point
+    // (previously only reachable via the "tg://sg/plugins" deep link).
+    entries.append(.disclosure(id: id.count, section: .proBase, link: .plugins, text: "Plugins"))
     entries.append(.toggle(id: id.count, section: .proBase, settingName: .inputToolbar, value: SGSimpleSettings.shared.inputToolbar, text: "InputToolbar.Title".i18n(lang), enabled: true))
 
     entries.append(.header(id: id.count, section: .proNotifications, text: presentationData.strings.Notifications_Title.uppercased(), badge: nil))
@@ -834,6 +839,8 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
                 pushControllerImpl?(sgSessionBackupManagerController(context: context, presentationData: presentationData))
             case .messageFilter:
                 pushControllerImpl?(sgMessageFilterController(presentationData: presentationData))
+            case .plugins:
+                pushControllerImpl?(sgPluginsController(context: context))
             case .appIcons:
                 pushControllerImpl?(themeSettingsController(context: context, focusOnItemTag: .icon))
             case .appBadges:

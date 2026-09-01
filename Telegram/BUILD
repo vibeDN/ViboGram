@@ -1992,7 +1992,21 @@ ios_application(
     resources = [
         ":LaunchScreen",
         #":DefaultAppIcon",
-    ],
+        # MARK: ViboGram - Tier 4 plugin system. These bundles were declared
+        # in third-party/python/BUILD and attached to SGPython's own `data`
+        # attribute (meant to auto-propagate to whatever app links it in,
+        # per rules_apple's resource-propagation docs) but never actually
+        # reached this app target in practice -- confirmed live via the
+        # debug menu's Python Smoke Test: "resource bundle not found
+        # (isBundled=false)". Listing them explicitly here is the same
+        # select() SGPython/BUILD's now-removed `data` attribute used (kept
+        # for consistency with that already-proven project convention rather
+        # than a fresh apple_support-constraint config_setting).
+        "//third-party/python:PythonStdlib",
+    ] + select({
+        "@build_bazel_rules_apple//apple:ios_arm64": ["//third-party/python:PythonLibDynloadDevice"],
+        "//build-system:ios_sim_arm64": ["//third-party/python:PythonLibDynloadSimulator"],
+    }),
     frameworks = [
         ":MtProtoKitFramework",
         ":SwiftSignalKitFramework",

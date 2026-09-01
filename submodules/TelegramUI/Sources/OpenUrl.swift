@@ -1,5 +1,6 @@
 import SGDebugUI
 import SGSettingsUI
+import SGPluginsUI
 import UndoUI
 //
 import ContactListUI
@@ -883,6 +884,9 @@ func openExternalUrlImpl(context: AccountContext, urlContext: OpenURLContext, ur
                                 return
                             case "settings":
                                 navigationController?.pushViewController(sgSettingsController(context: context))
+                                return
+                            case "plugins":
+                                navigationController?.pushViewController(sgPluginsController(context: context))
                                 return
                             case "ios_settings":
                                 context.sharedContext.applicationBindings.openSettings()
