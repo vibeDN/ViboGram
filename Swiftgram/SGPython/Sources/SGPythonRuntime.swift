@@ -281,6 +281,41 @@ public enum SGPythonRuntime {
         try? builtinAsciiArtPluginSource.write(to: destURL, atomically: true, encoding: .utf8)
         return builtinAsciiArtPluginFilename
     }
+
+    // MARK: ViboGram - three standalone QoL utility plugins (word counter,
+    // password generator, text cleaner). Not ports of any specific source
+    // plugin -- common utility categories across plugin ecosystems, written
+    // fresh against our own transform(args) contract. Unlike animefy/
+    // ascii_art, nothing in the app calls these automatically yet (no
+    // generic "run on this text" hook exists -- see docs/plugin-authoring.md);
+    // they're seeded here so they're visible and runnable from the Plugins
+    // screen out of the box.
+    public static let builtinWordCountPluginFilename = "word_count.vibo"
+
+    @discardableResult
+    public static func installBuiltinWordCountPlugin() -> String {
+        let destURL = SGPluginsStore.directory.appendingPathComponent(builtinWordCountPluginFilename)
+        try? builtinWordCountPluginSource.write(to: destURL, atomically: true, encoding: .utf8)
+        return builtinWordCountPluginFilename
+    }
+
+    public static let builtinPasswordGenPluginFilename = "password_gen.vibo"
+
+    @discardableResult
+    public static func installBuiltinPasswordGenPlugin() -> String {
+        let destURL = SGPluginsStore.directory.appendingPathComponent(builtinPasswordGenPluginFilename)
+        try? builtinPasswordGenPluginSource.write(to: destURL, atomically: true, encoding: .utf8)
+        return builtinPasswordGenPluginFilename
+    }
+
+    public static let builtinTextCleanerPluginFilename = "text_cleaner.vibo"
+
+    @discardableResult
+    public static func installBuiltinTextCleanerPlugin() -> String {
+        let destURL = SGPluginsStore.directory.appendingPathComponent(builtinTextCleanerPluginFilename)
+        try? builtinTextCleanerPluginSource.write(to: destURL, atomically: true, encoding: .utf8)
+        return builtinTextCleanerPluginFilename
+    }
 }
 
 // MARK: ViboGram - plugin file storage. Plugins live in the app's own
@@ -514,4 +549,145 @@ def transform(args):
         return ""
     art = render(grid, invert)
     return "```\\n" + art + "\\n```"
+"""
+
+private let builtinWordCountPluginSource = """
+# ViboGram plugin: message stats (words / characters / estimated read time).
+# Genuinely useful QoL utility -- a common plugin category across
+# ecosystems, but this implementation and wording are our own.
+
+READING_WPM = 200
+
+
+def _stats(text):
+    stripped = text.strip()
+    words = stripped.split()
+    word_count = len(words)
+    char_count = len(text)
+    char_count_no_spaces = len(text.replace(\" \", \"\").replace(\"\\n\", \"\").replace(\"\\t\", \"\"))
+    sentence_count = sum(1 for ch in text if ch in \".!?\")
+    read_seconds = max(1, round(word_count / READING_WPM * 60))
+    minutes, seconds = divmod(read_seconds, 60)
+    read_str = f\"{minutes}m {seconds}s\" if minutes else f\"{seconds}s\"
+    return word_count, char_count, char_count_no_spaces, sentence_count, read_str
+
+
+def transform(args):
+    \"\"\"Entry point: args[\"text\"] is the message to measure. With no text,
+    returns a short usage note instead of failing -- there's no generic
+    \"run on the current message\" hook yet (see docs/plugin-authoring.md),
+    so hitting Run in the Plugins screen alone can't supply real text.\"\"\"
+    text = args.get(\"text\", \"\")
+    if not text.strip():
+        return \"Word Counter: pass {\\\"text\\\": \\\"...\\\"} to measure it -- no text was given.\"
+    words, chars, chars_ns, sentences, read = _stats(text)
+    return (
+        f\"{words} words, {chars} chars ({chars_ns} without spaces), \"
+        f\"{sentences} sentence(s), ~{read} to read aloud\"
+    )
+"""
+
+private let builtinPasswordGenPluginSource = """
+# ViboGram plugin: random password generator.
+# A standard utility, not ported from any specific source plugin.
+
+import random
+import string
+
+MIN_LENGTH = 4
+MAX_LENGTH = 128
+DEFAULT_LENGTH = 16
+AMBIGUOUS = \"Il1O0\"
+
+
+def _pool(use_upper, use_lower, use_digits, use_symbols, avoid_ambiguous):
+    pool = \"\"
+    if use_lower:
+        pool += string.ascii_lowercase
+    if use_upper:
+        pool += string.ascii_uppercase
+    if use_digits:
+        pool += string.digits
+    if use_symbols:
+        pool += \"!@#$%^&*()-_=+[]{}\"
+    if avoid_ambiguous:
+        pool = \"\".join(ch for ch in pool if ch not in AMBIGUOUS)
+    return pool
+
+
+def transform(args):
+    \"\"\"Entry point: all keys optional. length (int, default 16),
+    uppercase/lowercase/digits/symbols (bool, default True each),
+    avoid_ambiguous (bool, default False). Uses random.SystemRandom
+    (os.urandom-backed) rather than the default PRNG -- this is meant to
+    produce real passwords, not just look random.\"\"\"
+    length = args.get(\"length\", DEFAULT_LENGTH)
+    try:
+        length = int(length)
+    except (TypeError, ValueError):
+        length = DEFAULT_LENGTH
+    length = max(MIN_LENGTH, min(MAX_LENGTH, length))
+
+    pool = _pool(
+        args.get(\"uppercase\", True),
+        args.get(\"lowercase\", True),
+        args.get(\"digits\", True),
+        args.get(\"symbols\", True),
+        args.get(\"avoid_ambiguous\", False),
+    )
+    if not pool:
+        return \"Password Generator: at least one character set must stay enabled.\"
+
+    rng = random.SystemRandom()
+    return \"\".join(rng.choice(pool) for _ in range(length))
+"""
+
+private let builtinTextCleanerPluginSource = """
+# ViboGram plugin: message tidy-up (whitespace + smart-punctuation
+# normalization). A common QoL category, this implementation is our own.
+
+import re
+
+_SMART_QUOTES = {
+    \"“\": '\"', \"”\": '\"', \"„\": '\"', \"‟\": '\"',
+    \"‘\": \"'\", \"’\": \"'\", \"‚\": \"'\", \"‛\": \"'\",
+}
+_DASHES = {\"–\": \"-\", \"—\": \"-\"}
+_ZERO_WIDTH = (\"​\", \"‌\", \"‍\", \"﻿\")
+
+
+def _normalize_punctuation(text):
+    for src, dst in _SMART_QUOTES.items():
+        text = text.replace(src, dst)
+    for src, dst in _DASHES.items():
+        text = text.replace(src, dst)
+    for zw in _ZERO_WIDTH:
+        text = text.replace(zw, \"\")
+    return text
+
+
+def clean(text, collapse_blank_lines=True, straighten_quotes=True, cap_repeats=True):
+    if straighten_quotes:
+        text = _normalize_punctuation(text)
+    text = re.sub(r\"[ \\t]+\", \" \", text)
+    text = \"\\n\".join(line.strip() for line in text.split(\"\\n\"))
+    if collapse_blank_lines:
+        text = re.sub(r\"\\n{3,}\", \"\\n\\n\", text)
+    if cap_repeats:
+        text = re.sub(r\"([!?])\\1{2,}\", r\"\\1\\1\\1\", text)
+    return text.strip()
+
+
+def transform(args):
+    \"\"\"Entry point: args[\"text\"] is the message to tidy up. Optional bools:
+    collapse_blank_lines, straighten_quotes, cap_repeats (all default True).\"\"\"
+    text = args.get(\"text\", \"\")
+    if not text:
+        return \"Text Cleaner: pass {\\\"text\\\": \\\"...\\\"} to tidy it up -- no text was given.\"
+    return clean(
+        text,
+        collapse_blank_lines=args.get(\"collapse_blank_lines\", True),
+        straighten_quotes=args.get(\"straighten_quotes\", True),
+        cap_repeats=args.get(\"cap_repeats\", True),
+    )
 """
