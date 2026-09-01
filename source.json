@@ -10,11 +10,11 @@
       "subtitle": "ViboGram stable",
       "localizedDescription": "Hybrid Telegram fork for iOS — Swiftgram's base plus features ported from AyuGram4A (anti-delete, ghost mode, local Premium unlock) and Margelet (formatting effects, expandable input, badges) and some vibe✨",
       "iconURL": "https://raw.githubusercontent.com/vibeDN/ViboGram/main/assets/icon.png",
-      "downloadURL": "https://github.com/vibeDN/ViboGram/releases/download/0.3.8/ViboGram-1d3bce62.ipa",
-      "version": "0.3.8",
-      "versionDate": "2026-09-01T11:28:58Z",
-      "size": 178807081,
-      "sha256": "26c300ef4e4a5c5a95ed0b1a95d3e0723d4fe79305a2b249bcd7236778532157"
+      "downloadURL": "https://github.com/vibeDN/ViboGram/releases/download/0.3.9/ViboGram-1af528fe.ipa",
+      "version": "0.3.9",
+      "versionDate": "2026-09-01T15:54:43Z",
+      "size": 178824851,
+      "sha256": "d14fc5fd4129179dd9576a2bfd5c050b3b4b310975e4f4693a1e88242bd83c56"
     },
     {
       "name": "ViboGram Beta",
