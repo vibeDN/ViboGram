@@ -259,7 +259,7 @@ public enum SGPythonRuntime {
     // future app update can ship a revised default without the user's
     // existing copy shadowing it -- if someone wants to keep editing their
     // own version instead, they should rename it.
-    public static let builtinAnimefyPluginFilename = "animefy.plugin"
+    public static let builtinAnimefyPluginFilename = "animefy.vibo"
 
     @discardableResult
     public static func installBuiltinAnimefyPlugin() -> String {
@@ -273,7 +273,7 @@ public enum SGPythonRuntime {
     // mechanism (luminance-to-character ladder, darkest-to-lightest,
     // dark-theme invert) ported from Margelet's own equivalent plugin; the
     // character ladder here is our own choice.
-    public static let builtinAsciiArtPluginFilename = "ascii_art.plugin"
+    public static let builtinAsciiArtPluginFilename = "ascii_art.vibo"
 
     @discardableResult
     public static func installBuiltinAsciiArtPlugin() -> String {
@@ -295,7 +295,11 @@ public enum SGPythonRuntime {
 // despite the extension, per `file`: "Python script, Unicode text"). `.py`
 // is also accepted for anything hand-written/not exteraGram-sourced.
 public enum SGPluginsStore {
-    private static let acceptedExtensions: Set<String> = ["plugin", "py"]
+    // MARK: ViboGram - `.vibo` is our own extension (not exteraGram's
+    // `.plugin`, not Margelet's zip-based `.marp`); `.plugin`/`.py` are
+    // still accepted on import for anything brought over from elsewhere,
+    // but new plugins (including both built-ins) are written as `.vibo`.
+    private static let acceptedExtensions: Set<String> = ["vibo", "plugin", "py"]
 
     public static var directory: URL {
         let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -325,10 +329,10 @@ public enum SGPluginsStore {
     public static func importPlugin(from sourceURL: URL, suggestedName: String? = nil) throws -> String {
         var filename = suggestedName ?? sourceURL.lastPathComponent
         if filename.isEmpty {
-            filename = "plugin.plugin"
+            filename = "plugin.vibo"
         }
         if !acceptedExtensions.contains((filename as NSString).pathExtension.lowercased()) {
-            filename += ".plugin"
+            filename += ".vibo"
         }
         let destURL = directory.appendingPathComponent(filename)
         if FileManager.default.fileExists(atPath: destURL.path) {

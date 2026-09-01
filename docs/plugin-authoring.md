@@ -7,7 +7,7 @@ Python runtime is embedded, what's still unverified), see
 
 ## Quick start
 
-Create a file, `hello.plugin`:
+Create a file, `hello.vibo`:
 
 ```python
 def transform(args):
@@ -22,9 +22,10 @@ string out.
 
 ## The plugin contract
 
-- **File**: a single `.plugin` or `.py` file, plain Python. (`.plugin` is
-  just the extension exteraGram uses too, kept for familiarity — the
-  contract below is our own, not theirs.)
+- **File**: a single `.vibo` file, plain Python — our own extension. (`.plugin`
+  and `.py` are still accepted on import, for anything brought over from
+  exteraGram or elsewhere; new plugins, including both built-ins, ship as
+  `.vibo`.)
 - **Entry point**: a module-level function. The name doesn't have to be
   `transform` — whatever calls your plugin picks the name; the two built-in
   examples both happen to use `transform`.
@@ -38,14 +39,14 @@ string out.
 
 ## Two real examples
 
-**`animefy.plugin`** — text in, text out. Takes `{"text": ..., "intensity":
+**`animefy.vibo`** — text in, text out. Takes `{"text": ..., "intensity":
 ..., "options": {...}}`, returns the decorated string. Wired up for real:
 turning on **Settings → Anime-ify sent messages** calls this plugin on every
 outgoing message. This is the shape most plugins should aim for — pure
 function of JSON-safe input to a JSON-safe output, no platform access needed
 inside the plugin at all.
 
-**`ascii_art.plugin`** — a plugin that needs something Python alone can't
+**`ascii_art.vibo`** — a plugin that needs something Python alone can't
 do (decode an image). The **app** decodes the photo and computes a
 brightness value per output cell — that part happens in Swift because our
 bundled Python has no image codec. The **plugin** only receives the
@@ -85,7 +86,7 @@ comments.
 ## What's not built yet
 
 - No automatic hooks. Nothing runs your plugin on a message/event unless
-  something in the app specifically calls it — like `animefy.plugin`'s
+  something in the app specifically calls it — like `animefy.vibo`'s
   settings toggle does. There's no generic "run this on every incoming
   message" registration yet.
 - No manifest, permissions, versioning, or update mechanism — a plugin is

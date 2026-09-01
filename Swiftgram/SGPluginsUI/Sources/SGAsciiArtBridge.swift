@@ -9,7 +9,7 @@ import UIKit
 // on the host platform's own bitmap APIs for decode/scale rather than doing
 // it in pure Python -- decode and downsampling live here in Swift
 // (CoreGraphics), and only the brightness grid crosses into the actual
-// `.plugin` file (ascii_art.plugin) for the art-rendering step itself.
+// `.vibo` file (ascii_art.vibo) for the art-rendering step itself.
 public enum SGAsciiArtBridge {
     // A cell in a monospace font is roughly twice as tall as it is wide, so
     // half as many rows as a 1:1 sample of the image would need.
