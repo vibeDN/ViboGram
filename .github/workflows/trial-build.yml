@@ -144,10 +144,14 @@ jobs:
           # rules_xcodeproj auto-generates a scheme per Bazel target (hundreds of
           # them) -- picking the first line under "Schemes:" grabs some internal
           # helper (e.g. _LocalDebugOptions), not the actual app. The real app
-          # scheme is named after the product ("Swiftgram"); match it exactly.
-          SCHEME=$(awk '/Schemes:/{flag=1; next} flag && $1=="Swiftgram"{print $1; exit}' scheme_list.txt)
+          # scheme is named after the product's bundle_name/executable_name
+          # ("ViboGram" -- NOT the underlying Bazel target name, which is still
+          # "Swiftgram"; rules_xcodeproj schemes follow the former, this workflow
+          # broke once bundle_name/executable_name were pinned separately from
+          # the target name for branding); match it exactly.
+          SCHEME=$(awk '/Schemes:/{flag=1; next} flag && $1=="ViboGram"{print $1; exit}' scheme_list.txt)
           if [ -z "$SCHEME" ]; then
-            echo "Could not find a 'Swiftgram' scheme. Full scheme list:" >&2
+            echo "Could not find a 'ViboGram' scheme. Full scheme list:" >&2
             cat scheme_list.txt >&2
             exit 1
           fi
