@@ -148,14 +148,52 @@ rename the file to stop it running.
 `on_receive`) the same way once something in the app looks for them --
 using an unrecognized name today is just inert, not an error.
 
-## What still can't happen: custom UI
+## Your own settings screen
 
-A plugin cannot add its own tab, screen, button, or any other visible UI
-element -- there's no declarative UI format for it to describe one in, and
-nothing on the Swift side would know how to render it. Genuinely new UI
-from a plugin (not just this app's own settings toggle, action-sheet, and
-overlay/dialog plumbing calling into `vibo`/hooks) is a real gap, not a
-missing convenience method -- it needs its own design before it can exist.
+Define a `settings(args)` function -- it's called exactly like `transform`
+is, with `{}`, so it needs to accept the argument even though there's
+nothing useful in it yet -- and return a list of widgets:
+
+```python
+def settings(args):
+    return [
+        {"type": "header", "text": "Behavior"},
+        {"type": "switch", "key": "loud", "text": "Shout everything", "default": False},
+        {"type": "selector", "key": "tone", "text": "Tone", "default": 0, "items": ["Polite", "Neutral", "Rude"]},
+        {"type": "text", "text": "Changes apply on your next message."},
+    ]
+```
+
+A **Settings…** button appears in the plugin's action sheet automatically
+once it sees a `settings()` function in your file. Values the user picks
+are stored in the exact same per-plugin state your `transform` already
+reads with `vibo.get_setting`/`vibo.set_setting` -- nothing extra to wire
+up on your end, just read the keys you declared:
+
+```python
+def transform(args):
+    tone = ["polite", "neutral", "rude"][vibo.get_setting("tone", 0)]
+    loud = vibo.get_setting("loud", False)
+    ...
+```
+
+Widget types today: `header` (section title), `text` (a plain line, not
+clickable), `switch` (`key`, `text`, `default: bool`), `selector` (`key`,
+`text`, `default: int` index, `items: [str]`). This is the same shape as
+exteraGram's `create_settings()` Header/Switch/Selector/Text rows, ported
+to this app's own settings framework. Not ported: their free-text
+Input/EditText row -- our version doesn't have a keyed text-input widget
+yet, so a plugin needing arbitrary free text still has to get it some
+other way (e.g. Import from URL for a config file).
+
+## What still can't happen: custom UI beyond a settings screen
+
+A plugin cannot add its own tab, a button in the chat itself, or any
+visible UI beyond what's described above -- there's no general
+declarative UI format, just this one fixed settings-screen vocabulary,
+and nothing on the Swift side would know how to render anything outside
+it. A real generic UI system (arbitrary layouts, live callbacks while
+something is on screen) is still a gap, not a missing convenience method.
 
 ## Bringing over an idea from somewhere else
 

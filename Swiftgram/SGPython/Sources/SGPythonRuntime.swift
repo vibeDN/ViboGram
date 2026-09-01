@@ -268,8 +268,14 @@ public enum SGPythonRuntime {
         // The plugin's return value: the raw string if it returned one,
         // otherwise a pretty-printed JSON rendering of whatever JSON-safe
         // value it did return (dict/list/number/bool); nil if it returned
-        // None/null.
+        // None/null. Meant for display.
         public let resultText: String?
+        // The same return value, undecorated -- a String/NSNumber/Bool/
+        // [Any]/[String: Any]/NSNull straight out of JSONSerialization, for
+        // a caller that needs to consume structured data programmatically
+        // (e.g. the plugin-settings screen's `settings()` convention)
+        // instead of showing it to the user as text.
+        public let rawResult: Any?
         public let events: [SGPluginCallEvent]
     }
 
@@ -483,7 +489,7 @@ public enum SGPythonRuntime {
             resultText = nil
         }
 
-        return SGPluginCallResult(resultText: resultText, events: events)
+        return SGPluginCallResult(resultText: resultText, rawResult: rawResult, events: events)
     }
 
     // MARK: ViboGram - generic automatic hook: any installed plugin whose
@@ -639,6 +645,32 @@ public enum SGPluginsStore {
 
     public static func stateFilePath(for filename: String) -> String {
         return stateDirectory.appendingPathComponent(filename + ".json").path
+    }
+
+    // MARK: ViboGram - plain Swift read/merge/write against the exact same
+    // file `vibo.get_setting`/`set_setting` use -- for the plugin-settings
+    // screen (SGPluginSettingsController) to read/change a value without
+    // spinning up the interpreter for something as simple as a toggle flip.
+    // A plugin's own `transform` still sees changes made this way, since
+    // both paths read/write the identical file.
+    public static func readState(for filename: String) -> [String: Any] {
+        guard let data = FileManager.default.contents(atPath: stateFilePath(for: filename)),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return [:]
+        }
+        return json
+    }
+
+    @discardableResult
+    public static func writeState(for filename: String, merging updates: [String: Any]) -> Bool {
+        var state = readState(for: filename)
+        for (key, value) in updates {
+            state[key] = value
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: state) else {
+            return false
+        }
+        return (try? data.write(to: URL(fileURLWithPath: stateFilePath(for: filename)))) != nil
     }
 
     // MARK: ViboGram - a whole sandboxed directory per plugin (`vibo.data_dir()`),

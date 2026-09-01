@@ -161,6 +161,17 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
                 presentAsciiArtPhotoPicker(pluginFilename: filename, presentationData: presentationData)
             }))
         }
+        // MARK: ViboGram - only offered when the file plausibly defines a
+        // settings() function (see sgPluginDeclaresSettings) -- built-ins
+        // don't, most imported plugins won't either, so this stays hidden
+        // rather than cluttering every plugin's action sheet with a screen
+        // that would just say "nothing usable".
+        if sgPluginDeclaresSettings(filename: filename) {
+            runButtons.append(ActionSheetButtonItem(title: "Settings…", color: .accent, action: {
+                dismissActionSheet?()
+                pushControllerImpl?(sgPluginSettingsController(context: context, pluginFilename: filename))
+            }))
+        }
         runButtons.append(ActionSheetButtonItem(title: "Delete", color: .destructive, action: {
             dismissActionSheet?()
             deletePlugin(named: filename, presentationData: presentationData)
