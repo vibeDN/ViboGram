@@ -15,7 +15,7 @@
 /* Example: Hide "All Chats" */
 "Settings.Folders.AllChatsHidden" = "להסתיר \"%@\"";
 "Settings.Folders.RememberLast" = "פתח את התיקיה האחרונה";
-"Settings.Folders.RememberLast.Notice" = "Swiftgram תפתח את התיקיה שנעשה בה שימוש לאחרונה לאחר הפעלה מחדש או החלפת חשבון";
+"Settings.Folders.RememberLast.Notice" = "ViboGram תפתח את התיקיה שנעשה בה שימוש לאחרונה לאחר הפעלה מחדש או החלפת חשבון";
 
 "Settings.Folders.CompactNames" = "ריווח קטן יותר";
 "Settings.Folders.AllChatsTitle" = "כותרת \"כל הצ'אטים\"";
@@ -83,7 +83,7 @@
 "Common.RestartRequired" = "נדרש הפעלה מחדש";
 "Common.RestartNow" = "הפעל מחדש עכשיו";
 "Common.OpenTelegram" = "פתח טלגרם";
-"Common.UseTelegramForPremium" = "שים לב כי כדי לקבל Telegram Premium, עליך להשתמש באפליקציית Telegram הרשמית. לאחר שקיבלת טלגרם פרימיום, כל התכונות שלו יהיו זמינות ב־Swiftgram.";
+"Common.UseTelegramForPremium" = "שים לב כי כדי לקבל Telegram Premium, עליך להשתמש באפליקציית Telegram הרשמית. לאחר שקיבלת טלגרם פרימיום, כל התכונות שלו יהיו זמינות ב־ViboGram.";
 
 "Message.HoldToShowOrReport" = "החזק כדי להציג או לדווח.";
 
@@ -97,7 +97,7 @@
 "ContextMenu.SelectFromUser" = "בחר מהמשתמש";
 
 "Settings.ContextMenu" = "תפריט הקשר";
-"Settings.ContextMenu.Notice" = "פריטים מבוטלים יהיו זמינים בתת-תפריט 'Swiftgram'.";
+"Settings.ContextMenu.Notice" = "פריטים מבוטלים יהיו זמינים בתת-תפריט 'ViboGram'.";
 
 
 "Settings.ChatSwipeOptions" = "אפשרויות גלילה ברשימת צ'אטים";
@@ -122,7 +122,7 @@
 /* Date when chat was created. "created: 24 May 2016" */
 "Chat.Created" = "נוצר: %@";
 
-/* Date when user joined the chat. "Joined Swiftgram Chat" */
+/* Date when user joined the chat. "Joined ViboGram Chat" */
 "Chat.JoinedDateTitle" = "הצטרף/הצטרפה ב־%@";
 /* Date when user registered in Telegram. Will be shown like "Registered\n24 May 2016" */
 "Chat.RegDate" = "נרשם";
@@ -138,7 +138,7 @@
 "Settings.hideChannelBottomButton" = "הסתר פאנל תחתון של ערוץ";
 
 "Settings.CallConfirmation" = "אישור שיחה";
-"Settings.CallConfirmation.Notice" = "Swiftgram יבקש את אישורך לפני ביצוע שיחה.";
+"Settings.CallConfirmation.Notice" = "ViboGram יבקש את אישורך לפני ביצוע שיחה.";
 
 /* Confirmation before making a Call */
 "CallConfirmation.Audio.Title" = "לבצע שיחה?";
