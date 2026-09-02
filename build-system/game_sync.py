@@ -52,10 +52,16 @@ CARD_POOLS = {
         "Legendary": list(range(21, 24)),
     },
     "phone_pull": {
-        "Common": list(range(0, 10)),
+        # MARK: ViboGram - +[25] -- Fairphone appended after the
+        # Legendary tier additions, so its index isn't contiguous with
+        # the original 0-9 Common range. Append-only per
+        # phone_pull.vibo's own CARD_POOL comment.
+        "Common": list(range(0, 10)) + [25],
         "Rare": list(range(10, 16)),
         "Epic": list(range(16, 21)),
-        "Legendary": list(range(21, 24)),
+        # 21-24 now (was 21-23) -- Pixel 11 Pro XL 16GB/1TB appended as
+        # index 24.
+        "Legendary": list(range(21, 25)),
     },
 }
 RARITY_WEIGHTS = {"Common": 60, "Rare": 25, "Epic": 12, "Legendary": 3}
@@ -102,7 +108,7 @@ CARD_POWERS = {
     "phone_pull": [280, 220, 240, 200, 150, 300, 190, 230, 260, 210,
                    650, 680, 700, 720, 750, 600,
                    1600, 1550, 1400, 1580, 1650,
-                   2000, 1, 9999],
+                   2000, 1, 9999, 2100, 120],
 }
 # MARK: ViboGram - "искалось +- похожих в колодах картах": an opponent is
 # picked from cards within this fraction band of the battler's own power,

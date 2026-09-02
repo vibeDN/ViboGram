@@ -56,6 +56,12 @@ CARD_POOL = [
     ("iPhone 16 Pro Max", "Legendary", 2000),
     ("Nokia 3310", "Legendary", 1),  # indestructible, computationally a potato
     ("Dual Xeon 2670v2 Homelab Rig", "Legendary", 9999),  # not a phone, cheats the pool
+    # MARK: ViboGram - appended, not inserted -- this pool is now a live
+    # server-authoritative economy (see game_sync.py), so every card's
+    # index must stay stable forever once players can own it. New cards
+    # only ever go at the end.
+    ("Pixel 11 Pro XL 16GB/1TB", "Legendary", 2100),
+    ("Fairphone 5", "Common", 120),  # repairable, not fast -- weakest card in the pool
 ]
 
 RARITY_WEIGHTS = {"Common": 60, "Rare": 25, "Epic": 12, "Legendary": 3}
