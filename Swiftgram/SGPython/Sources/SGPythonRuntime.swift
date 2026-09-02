@@ -388,6 +388,9 @@ public enum SGPythonRuntime {
             def share(self, text):
                 self.events.append({"type": "share", "text": str(text)})
 
+            def open_url(self, url):
+                self.events.append({"type": "open_url", "text": str(url)})
+
             def device_info(self):
                 return self._host_info.get("device_info", {})
 
@@ -493,6 +496,15 @@ public enum SGPythonRuntime {
                 default:
                     let style: UIImpactFeedbackGenerator.FeedbackStyle = event.text == "heavy" ? .heavy : (event.text == "medium" ? .medium : .light)
                     UIImpactFeedbackGenerator(style: style).impactOccurred()
+                }
+            case "open_url":
+                // MARK: ViboGram - http(s) only, same restriction
+                // presentImportFromURL already applies to a pasted URL --
+                // a plugin shouldn't be able to trigger an arbitrary
+                // custom URL scheme (this app's own tg:// included) this
+                // casually, only hand the user off to a normal web link.
+                if let url = URL(string: event.text), let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+                    UIApplication.shared.open(url)
                 }
             default:
                 break

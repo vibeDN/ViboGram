@@ -133,12 +133,33 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
         }
     }
 
-    func runPlugin(named filename: String, presentationData: PresentationData) {
-        guard let result = SGPythonRuntime.callFunctionRich(scriptPath: SGPluginsStore.path(for: filename), functionName: "transform", argumentsJSON: [:]) else {
+    func runPlugin(named filename: String, argumentsJSON: [String: Any] = [:], presentationData: PresentationData) {
+        guard let result = SGPythonRuntime.callFunctionRich(scriptPath: SGPluginsStore.path(for: filename), functionName: "transform", argumentsJSON: argumentsJSON) else {
             showResult("Plugin failed to run -- check device console log for the traceback.", presentationData: presentationData)
             return
         }
         presentCallResult(result, presentationData: presentationData)
+    }
+
+    // MARK: ViboGram - closes a real gap: plain "Run" always calls
+    // transform({}), so a plugin like word_count/text_cleaner that expects
+    // args["text"] never gets anything meaningful to work with from this
+    // screen alone. "text" is the de-facto convention every text-shaped
+    // plugin here already uses (animefy, word_count, text_cleaner) --
+    // unconditional on every plugin rather than marker-gated, since
+    // prompting for text costs nothing and a plugin that ignores the key
+    // just behaves like plain Run.
+    func presentRunWithText(pluginFilename: String, presentationData: PresentationData) {
+        let alert = UIAlertController(title: "Run with Text", message: "Passed as args[\"text\"].", preferredStyle: .alert)
+        alert.addTextField { textField in
+            textField.placeholder = "Text"
+        }
+        alert.addAction(UIAlertAction(title: presentationData.strings.Common_Cancel, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Run", style: .default, handler: { [weak alert] _ in
+            let text = alert?.textFields?.first?.text ?? ""
+            runPlugin(named: pluginFilename, argumentsJSON: ["text": text], presentationData: presentationData)
+        }))
+        context.sharedContext.mainWindow?.presentNative(alert)
     }
 
     func deletePlugin(named filename: String, presentationData: PresentationData) {
@@ -162,6 +183,10 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
             ActionSheetButtonItem(title: "Run", color: .accent, action: {
                 dismissActionSheet?()
                 runPlugin(named: filename, presentationData: presentationData)
+            }),
+            ActionSheetButtonItem(title: "Run with Text…", color: .accent, action: {
+                dismissActionSheet?()
+                presentRunWithText(pluginFilename: filename, presentationData: presentationData)
             }),
         ]
         // MARK: ViboGram - the ascii-art plugin needs an image, not just "run

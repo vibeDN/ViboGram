@@ -18,7 +18,9 @@ def transform(args):
 Open **Settings → Plugins → Import from Files…** and pick it. Tap the plugin
 in the list, choose **Run** — it calls `transform({})` and shows you the
 result. That's the whole loop: one file, one function, one JSON dict in, one
-string out.
+string out. If your plugin actually wants text (like the two examples
+below), use **Run with Text…** instead — it prompts for a string and calls
+`transform({"text": ...})`.
 
 ## The plugin contract
 
@@ -88,6 +90,10 @@ Every plugin run through **Run** in the Plugins screen, or through an
   plugin finishes. Same Plugins-screen-only caveat as above.
 - `vibo.share(text)` -- the system share sheet (AirDrop, Files, any other
   app), not Telegram's own in-chat share. Same Plugins-screen-only caveat.
+- `vibo.open_url(url)` -- opens a link in the browser. `http`/`https`
+  only; anything else is silently ignored (no custom URL schemes, this
+  app's own `tg://` included). Takes effect immediately, like the
+  clipboard/haptic calls below -- no dialog involved.
 - `vibo.get_setting(key, default=None)` / `vibo.set_setting(key, value)` --
   your plugin's own small persistent JSON store, keyed by your plugin's
   filename. Survives between runs; nothing else can read it.
