@@ -1,0 +1,44 @@
+# ViboGram plugin: classic "love calculator" -- deterministic percentage
+# from two names (order-independent) plus a verdict. Standard novelty
+# utility, not a port of anything.
+
+__name__ = "Love Calculator"
+
+VERDICTS = [
+    (0, 20, "Better off as friends."),
+    (20, 40, "There's... something. Maybe."),
+    (40, 60, "Could go either way."),
+    (60, 80, "Pretty solid match!"),
+    (80, 101, "It's written in the stars."),
+]
+
+
+def _percentage(name_a, name_b):
+    key = "|".join(sorted([name_a.strip().lower(), name_b.strip().lower()]))
+    h = 5381
+    for ch in key:
+        h = (h * 131 + ord(ch)) & 0xFFFFFFF
+    return h % 101
+
+
+def _verdict(pct):
+    for low, high, text in VERDICTS:
+        if low <= pct < high:
+            return text
+    return VERDICTS[-1][2]
+
+
+def settings(args):
+    return [
+        {"type": "header", "text": "Love Calculator"},
+        {"type": "text", "text": "Use Run with Text… with \"Name1, Name2\"."},
+    ]
+
+
+def transform(args):
+    text = args.get("text", "")
+    names = [n.strip() for n in text.split(",") if n.strip()]
+    if len(names) != 2:
+        return "Love Calculator: use Run with Text… with \"Name1, Name2\"."
+    pct = _percentage(names[0], names[1])
+    return f"{names[0]} + {names[1]} = {pct}%\n{_verdict(pct)}"

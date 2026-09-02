@@ -1,0 +1,29 @@
+# ViboGram plugin: Ｆｕｌｌｗｉｄｔｈ ａｅｓｔｈｅｔｉｃ text converter (aka
+# "vaporwave text"). Standard utility, not a port of anything -- the ASCII
+# printable range 0x21-0x7E maps to the Unicode Fullwidth Forms block
+# (U+FF01-FF5E, a fixed +0xFEE0 offset), space maps to the ideographic
+# space U+3000.
+
+__name__ = "Vaporwave Text"
+
+
+def _fullwidth(text):
+    out = []
+    for ch in text:
+        code = ord(ch)
+        if ch == " ":
+            out.append("　")
+        elif 0x21 <= code <= 0x7E:
+            out.append(chr(code + 0xFEE0))
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def transform(args):
+    text = args.get("text", "")
+    if not text.strip():
+        return "Vaporwave Text: use Run with Text… to convert something."
+    result = _fullwidth(text)
+    vibo.set_clipboard(result)
+    return result

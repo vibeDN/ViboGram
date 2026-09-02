@@ -1,0 +1,27 @@
+# ViboGram plugin: sPoNgEbOb MoCkInG cAsE converter. Standard utility,
+# not a port of anything -- alternates upper/lower per LETTER (spaces and
+# punctuation don't consume a toggle slot), starting lowercase, the
+# classic mocking-meme format.
+
+__name__ = "Mock Case"
+
+
+def _mock(text):
+    out = []
+    upper_next = False
+    for ch in text:
+        if ch.isalpha():
+            out.append(ch.upper() if upper_next else ch.lower())
+            upper_next = not upper_next
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def transform(args):
+    text = args.get("text", "")
+    if not text.strip():
+        return "Mock Case: use Run with Text… to convert something."
+    result = _mock(text)
+    vibo.set_clipboard(result)
+    return result

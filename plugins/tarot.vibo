@@ -1,0 +1,42 @@
+# ViboGram plugin: one tarot card a day -- deterministic pick seeded by
+# today's date, so it's the same card all day and changes at midnight.
+# Standard novelty utility, not a port of anything; card list/meanings
+# are a small standard Major Arcana subset, written fresh, not copied
+# from any one deck's proprietary text.
+
+import datetime
+
+__name__ = "Daily Tarot"
+
+CARDS = [
+    ("The Fool", "New beginnings, a leap of faith."),
+    ("The Magician", "You have everything you need already."),
+    ("The High Priestess", "Trust your intuition today."),
+    ("The Empress", "Growth, comfort, abundance."),
+    ("The Emperor", "Structure and discipline pay off."),
+    ("The Lovers", "A choice about values, not just people."),
+    ("The Chariot", "Push through by sheer will."),
+    ("Strength", "Patience beats force today."),
+    ("The Hermit", "Some answers only come alone."),
+    ("Wheel of Fortune", "A shift is coming -- roll with it."),
+    ("Justice", "Fairness catches up, one way or another."),
+    ("The Hanged Man", "Waiting IS the move right now."),
+    ("Death", "Something needs to end for the next thing to start."),
+    ("Temperance", "Balance the extremes."),
+    ("The Devil", "Watch what you're actually attached to."),
+    ("The Tower", "A sudden shake-up, ultimately clarifying."),
+    ("The Star", "Hope, after the storm."),
+    ("The Moon", "Not everything is as it looks tonight."),
+    ("The Sun", "Good day to just be seen."),
+    ("Judgement", "A wake-up call worth listening to."),
+    ("The World", "A cycle closes -- well earned."),
+]
+
+
+def transform(args):
+    today = datetime.date.today().isoformat()
+    h = 5381
+    for ch in today:
+        h = (h * 131 + ord(ch)) & 0xFFFFFFF
+    name, meaning = CARDS[h % len(CARDS)]
+    return f"🔮 {name}\n{meaning}\n({today})"

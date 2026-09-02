@@ -25,6 +25,7 @@ private enum SGPluginsControllerSection: Int32, SGItemListSection {
 private enum SGPluginsAction: Hashable {
     case importFromFile
     case importFromURL
+    case pluginStore
     case plugin(filename: String)
 }
 
@@ -78,6 +79,7 @@ private func sgPluginsEntries(installedPlugins: [String]) -> [SGPluginsEntry] {
     entries.append(.header(id: id.count, section: .importActions, text: "Plugins are single .vibo files (.plugin/.py from elsewhere also import fine). This only proves a plugin's top-level code runs without crashing -- there is no BasePlugin/hook API to actually integrate with the app yet, so anything importing base_plugin/client_utils/etc. will fail immediately, and plugins reaching into Android/Java internals (org.telegram.*, java.*) can never work on iOS.", badge: nil))
     entries.append(.action(id: id.count, section: .importActions, actionType: .importFromFile, text: "Import from Files…", kind: .generic))
     entries.append(.action(id: id.count, section: .importActions, actionType: .importFromURL, text: "Import from URL…", kind: .generic))
+    entries.append(.action(id: id.count, section: .importActions, actionType: .pluginStore, text: "Plugin Store…", kind: .generic))
 
     if installedPlugins.isEmpty {
         entries.append(.notice(id: id.count, section: .installed, text: "No plugins installed yet."))
@@ -377,6 +379,8 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
             presentImportFromFile(presentationData: presentationData)
         case .importFromURL:
             presentImportFromURL(presentationData: presentationData)
+        case .pluginStore:
+            pushControllerImpl?(sgPluginStoreController(context: context))
         case let .plugin(filename):
             presentPluginActions(filename: filename, presentationData: presentationData)
         }
