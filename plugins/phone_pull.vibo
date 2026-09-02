@@ -1,14 +1,34 @@
 # ViboGram plugin: same daily-gacha-pull + auto-battle mechanic as
 # card_pull.vibo, reskinned as phones instead of fantasy monsters --
 # "power" is a single AnTuTu-style benchmark score, battles are just
-# score vs score. One pull per real calendar day (stored last-pull
-# date), persistent collection via vibo.get_setting/set_setting. Scores
-# below are flavor/relative-tier numbers, not real benchmark results.
+# score vs score. Two separate modes:
+#
+# - Practice (below, unchanged from the original version): instant,
+#   fully local, fun -- but a local vibo.get_setting/set_setting file is
+#   just as editable by the user as any other on-device file, so it is
+#   NOT the anti-cheat-protected record.
+#
+# - Official (server-verified): tapping Pull/Craft/Battle opens a
+#   pre-filled GitHub Issue (this plugin can't hold write credentials
+#   to commit anything itself -- see build-system/game_sync.py, which
+#   is the actual authority and independently re-rolls/validates
+#   everything server-side, never trusting whatever the client claims).
+#   Intentionally a little manual right now (check the Issue comment or
+#   your record file to see what you got) -- there's no live read-back
+#   into the app yet.
+#
+# Scores below are flavor/relative-tier numbers, not real benchmark
+# results.
 
 import random
 import datetime
+import secrets as _pysecrets
+import urllib.parse
 
 __name__ = "Phone Pull"
+
+GAME_ID = "phone_pull"
+REPO = "vibeDN/ViboGram"
 
 # name, rarity, score
 CARD_POOL = [
@@ -66,6 +86,19 @@ def _best_index(collection):
     return max(collection, key=lambda idx: CARD_POOL[idx][2])
 
 
+def _secret():
+    value = vibo.get_setting("secret", "")
+    if not value:
+        value = _pysecrets.token_hex(8)
+        vibo.set_setting("secret", value)
+    return value
+
+
+def _issue_url(title, body):
+    query = urllib.parse.urlencode({"title": title, "body": body, "labels": "game-sync"})
+    return f"https://github.com/{REPO}/issues/new?{query}"
+
+
 def settings(args):
     collection = vibo.get_setting("collection", [])
     last_pull = vibo.get_setting("last_pull_date", "")
@@ -73,12 +106,14 @@ def settings(args):
     losses = vibo.get_setting("losses", 0)
     draws = vibo.get_setting("draws", 0)
     can_pull = last_pull != _today()
+    username = vibo.get_setting("username", "")
 
     widgets = [
         {"type": "header", "text": "Phone Pull"},
-        {"type": "text", "text": "One pull per day. Power = benchmark score."},
-        {"type": "action", "id": "pull", "text": "Pull a Phone" if can_pull else "Already pulled today"},
-        {"type": "header", "text": f"Collection ({len(collection)})"},
+        {"type": "input", "key": "username", "text": "Telegram username", "default": username, "placeholder": "your_username, no @"},
+        {"type": "header", "text": "Practice (local only, not anti-cheat-protected)"},
+        {"type": "action", "id": "pull", "text": "Practice Pull" if can_pull else "Already practice-pulled today"},
+        {"type": "header", "text": f"Practice Collection ({len(collection)})"},
     ]
 
     if not collection:
@@ -88,9 +123,22 @@ def settings(args):
         widgets.append({"type": "text", "text": "Best phone: " + _card_text(best_idx)})
         for idx in reversed(collection[-5:]):
             widgets.append({"type": "text", "text": _card_text(idx)})
-        widgets.append({"type": "action", "id": "battle", "text": "Benchmark battle!"})
+        widgets.append({"type": "action", "id": "battle", "text": "Practice Benchmark Battle!"})
 
-    widgets.append({"type": "text", "text": f"Battles: {wins}W - {losses}L - {draws}D"})
+    widgets.append({"type": "text", "text": f"Practice battles: {wins}W - {losses}L - {draws}D"})
+
+    widgets.append({"type": "header", "text": "Official (server-verified, anti-cheat)"})
+    if not username:
+        widgets.append({"type": "text", "text": "Set your Telegram username above first."})
+    else:
+        widgets.append({"type": "text", "text": "Opens a pre-filled GitHub Issue -- a bot processes it and comments the real result within a minute or so."})
+        widgets.append({"type": "action", "id": "official_pull", "text": "Official Pull (opens GitHub)"})
+        widgets.append({"type": "input", "key": "craft_index", "text": "Card # to craft (from your last pull result / record file)", "default": vibo.get_setting("craft_index", ""), "placeholder": "e.g. 5"})
+        widgets.append({"type": "action", "id": "official_craft", "text": "Official Craft (opens GitHub)"})
+        widgets.append({"type": "input", "key": "battle_index", "text": "Card # to battle with (max 3 official battles/day)", "default": vibo.get_setting("battle_index", ""), "placeholder": "e.g. 5"})
+        widgets.append({"type": "action", "id": "official_battle", "text": "Official Battle (opens GitHub)"})
+        widgets.append({"type": "action", "id": "view_record", "text": "View my official record"})
+
     return widgets
 
 
@@ -98,10 +146,11 @@ def on_action(args):
     action_id = args.get("id")
     collection = vibo.get_setting("collection", [])
     last_pull = vibo.get_setting("last_pull_date", "")
+    username = vibo.get_setting("username", "")
 
     if action_id == "pull":
         if last_pull == _today():
-            vibo.toast("Already pulled today -- come back tomorrow.")
+            vibo.toast("Already practice-pulled today -- come back tomorrow.")
             return None
         idx = _pull_index()
         collection.append(idx)
@@ -111,6 +160,7 @@ def on_action(args):
         style = "success" if rarity in ("Epic", "Legendary") else "info"
         vibo.toast(f"You pulled: {_card_text(idx)}", style=style)
         vibo.play_sound("success" if rarity in ("Epic", "Legendary") else "default")
+
     elif action_id == "battle":
         if not collection:
             vibo.toast("Pull a phone first.")
@@ -130,6 +180,45 @@ def on_action(args):
         else:
             vibo.set_setting("draws", vibo.get_setting("draws", 0) + 1)
             vibo.toast(f"{my_name} ties {opp_name}. Draw.")
+
+    elif action_id == "official_pull":
+        if not username:
+            vibo.toast("Set your Telegram username first.")
+            return None
+        url = _issue_url(f"[pull:{GAME_ID}] {username}", f"secret={_secret()}")
+        vibo.open_url(url)
+        vibo.toast("Opened GitHub -- submit the issue, then check its comments in a bit for your phone.")
+
+    elif action_id == "official_craft":
+        if not username:
+            vibo.toast("Set your Telegram username first.")
+            return None
+        card_index = vibo.get_setting("craft_index", "")
+        if not str(card_index).strip():
+            vibo.toast("Enter a card number to craft first.")
+            return None
+        url = _issue_url(f"[craft:{GAME_ID}] {username}", f"secret={_secret()}\ncard_index={card_index}")
+        vibo.open_url(url)
+        vibo.toast("Opened GitHub -- submit the issue, then check its comments for the result.")
+
+    elif action_id == "official_battle":
+        if not username:
+            vibo.toast("Set your Telegram username first.")
+            return None
+        card_index = vibo.get_setting("battle_index", "")
+        if not str(card_index).strip():
+            vibo.toast("Enter a card number to battle with first.")
+            return None
+        url = _issue_url(f"[battle:{GAME_ID}] {username}", f"secret={_secret()}\ncard_index={card_index}")
+        vibo.open_url(url)
+        vibo.toast("Opened GitHub -- submit the issue, then check its comments for the result. Max 3 official battles/day.")
+
+    elif action_id == "view_record":
+        if not username:
+            vibo.toast("Set your Telegram username first.")
+            return None
+        vibo.open_url(f"https://raw.githubusercontent.com/{REPO}/main/players/{GAME_ID}/{username}.json")
+
     return None
 
 
@@ -138,4 +227,4 @@ def transform(args):
     if not collection:
         return "Phone Pull: open Settings… and pull your first phone."
     best_idx = _best_index(collection)
-    return f"Collection: {len(collection)} phones. Best: {_card_text(best_idx)}"
+    return f"Practice collection: {len(collection)} phones. Best: {_card_text(best_idx)}"

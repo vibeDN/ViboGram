@@ -1,0 +1,35 @@
+name: game-sync
+
+# MARK: ViboGram - processes card_pull.vibo / phone_pull.vibo requests.
+# A plugin can't hold write credentials safely (anything in a downloadable
+# plugin file is public), so it can't commit inventory changes itself --
+# opening a pre-filled Issue (via vibo.open_url) is the only thing it can
+# safely trigger that ends up processed here, where the real
+# repo-writing token lives only in this job, never in the plugin.
+# See build-system/game_sync.py for the actual validation/anti-cheat logic
+# (server rolls the card, not the client; a bearer secret claims a
+# username on first use to block drive-by impersonation).
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  sync:
+    if: contains(github.event.issue.title, '[pull:') || contains(github.event.issue.title, '[craft:') || contains(github.event.issue.title, '[battle:')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Process request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: python3 build-system/game_sync.py
