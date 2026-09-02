@@ -1,0 +1,147 @@
+# ViboGram built-in plugin: "Anime-ify" outgoing text.
+# Idea and mechanism ported from Margelet's own equivalent plugin
+# (deterministic per-message/per-word pseudo-random rolls gating a word-swap
+# dictionary, first-word stutter, trailing particle, kaomoji insertion, and
+# a heart tail; links/mentions/commands are skipped; a length safety cutoff
+# falls back to the untouched text). Word/kaomoji/particle lists below are
+# our own, not the source plugin's content.
+
+__name__ = "Anime-ify"
+
+WORD_SWAPS = {
+    "привет": "приветик",
+    "пока": "покеда",
+    "да": "агась",
+    "нет": "не-а",
+    "спасибо": "спасибки",
+    "круто": "класн\u00f3",
+    "хорошо": "чудненько",
+    "ладно": "лады",
+    "мило": "мимими",
+    "здравствуй": "драсьте",
+    "смешно": "лолич",
+    "красиво": "кавайно",
+    "супер": "сюпер",
+    "прости": "прастити",
+    "хочу": "хочухочу",
+    "люблю": "лаву",
+    "странно": "стрёмненько",
+    "устал": "у-тю-тюмс",
+}
+# MARK: ViboGram - "больше няшности" per explicit user request: bigger
+# kaomoji/particle/heart pools and (see _THRESHOLDS below) higher default
+# roll chances, so the built-in actually reads as more cutesy day to day,
+# not just occasionally.
+KAOMOJI = [
+    "(^_^)", "(-_-)", "(o_o)", "\\(^o^)/", "(^w^)",
+    "(=^-ω-^=)", "(◕‿◕)", "(´｡• ω •｡`)",
+    "(*≧ω≦*)", "UwU", "＼(≡ △ ≡)／",
+]
+PARTICLES = ["нья", "десу", "кун", "тян", "ня", "мяу", "чан", "нэ"]
+HEARTS = ["<3", "♡", "\U0001f495", "\U0001f49e", "✨", "☆", "~"]
+LENGTH_CEILING = 4096
+
+
+def _seed(text, salt):
+    h = 5381
+    for ch in text:
+        h = (h * 131 + ord(ch)) & 0xFFFFFFF
+    return (h + salt * 7919) & 0xFFFFFFF
+
+
+def _roll(text, word_index, axis):
+    return (_seed(text, word_index * 10 + axis) % 1000) / 1000.0
+
+
+_THRESHOLDS = {
+    "mild": {"swap": 0.22, "stutter": 0.12, "particle": 0.10, "kaomoji": 0.10, "hearts": 1},
+    "normal": {"swap": 0.42, "stutter": 0.25, "particle": 0.22, "kaomoji": 0.22, "hearts": 3},
+    "max": {"swap": 0.7, "stutter": 0.45, "particle": 0.4, "kaomoji": 0.4, "hearts": 4},
+}
+
+
+def _is_untouchable(word):
+    lower = word.lower()
+    if not lower:
+        return True
+    if lower[0] in "@#/":
+        return True
+    for marker in ("://", "t.me/", "www.", ".com", ".ru", ".org", ".\u0440\u0444"):
+        if marker in lower:
+            return True
+    return False
+
+
+def _split_punctuation(word):
+    start, end = 0, len(word)
+    while start < end and not word[start].isalnum():
+        start += 1
+    while end > start and not word[end - 1].isalnum():
+        end -= 1
+    return word[:start], word[start:end], word[end:]
+
+
+def _match_case(original, replacement):
+    if len(original) > 1 and original.isupper():
+        return replacement.upper()
+    if original[:1].isupper():
+        return replacement[:1].upper() + replacement[1:]
+    return replacement
+
+
+def _stutter(word):
+    if not word or not word[0].isalpha():
+        return word
+    return word[0] + "-" + word
+
+
+def animefy(text, intensity="normal", options=None):
+    if not text or not text.strip():
+        return text
+    if text.lstrip()[:1] == "/":
+        return text
+    options = options or {}
+    bar = _THRESHOLDS.get(intensity, _THRESHOLDS["normal"])
+
+    out = []
+    word_index = 0
+    is_first = True
+    for word in text.split(" "):
+        if not word:
+            out.append(word)
+            continue
+        word_index += 1
+        if _is_untouchable(word):
+            out.append(word)
+            is_first = False
+            continue
+        lead, core, trail = _split_punctuation(word)
+        if core:
+            lower = core.lower()
+            if options.get("word_swaps", True) and lower in WORD_SWAPS and _roll(text, word_index, 1) < bar["swap"]:
+                core = _match_case(core, WORD_SWAPS[lower])
+            if options.get("stutter", True) and is_first and _roll(text, word_index, 2) < bar["stutter"]:
+                core = _stutter(core)
+            if options.get("particles", True) and _roll(text, word_index, 3) < bar["particle"]:
+                pick = PARTICLES[int(_roll(text, word_index, 4) * len(PARTICLES)) % len(PARTICLES)]
+                core = core + "-" + pick
+        out.append(lead + core + trail)
+        is_first = False
+        if options.get("kaomoji", True) and _roll(text, word_index, 5) < bar["kaomoji"]:
+            pick = KAOMOJI[int(_roll(text, word_index, 6) * len(KAOMOJI)) % len(KAOMOJI)]
+            out.append(pick)
+
+    result = " ".join(out)
+    if options.get("hearts", True) and bar["hearts"] > 0:
+        tail = [HEARTS[int(_roll(text, 100 + i, 8) * len(HEARTS)) % len(HEARTS)] for i in range(bar["hearts"])]
+        if tail:
+            result = result + " " + "".join(tail)
+    if len(result) > LENGTH_CEILING:
+        return text
+    return result
+
+
+def transform(args):
+    """Entry point called by SGPythonRuntime.callFunction: args is a dict
+    with "text" (str) and optional "intensity"/"options" keys."""
+    return animefy(args.get("text", ""), args.get("intensity", "normal"), args.get("options"))
