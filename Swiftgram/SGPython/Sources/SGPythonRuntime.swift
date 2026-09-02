@@ -856,10 +856,28 @@ WORD_SWAPS = {
     "круто": "класн\\u00f3",
     "хорошо": "чудненько",
     "ладно": "лады",
+    "мило": "мимими",
+    "здравствуй": "драсьте",
+    "смешно": "лолич",
+    "красиво": "кавайно",
+    "супер": "сюпер",
+    "прости": "прастити",
+    "хочу": "хочухочу",
+    "люблю": "лаву",
+    "странно": "стрёмненько",
+    "устал": "у-тю-тюмс",
 }
-KAOMOJI = ["(^_^)", "(-_-)", "(o_o)", "\\\\(^o^)/", "(^w^)"]
-PARTICLES = ["нья", "десу", "кун", "тян"]
-HEARTS = ["<3", "*", "~"]
+# MARK: ViboGram - "больше няшности" per explicit user request: bigger
+# kaomoji/particle/heart pools and (see _THRESHOLDS below) higher default
+# roll chances, so the built-in actually reads as more cutesy day to day,
+# not just occasionally.
+KAOMOJI = [
+    "(^_^)", "(-_-)", "(o_o)", "\\\\(^o^)/", "(^w^)",
+    "(=^-ω-^=)", "(◕‿◕)", "(´｡• ω •｡`)",
+    "(*≧ω≦*)", "UwU", "＼(≡ △ ≡)／",
+]
+PARTICLES = ["нья", "десу", "кун", "тян", "ня", "мяу", "чан", "нэ"]
+HEARTS = ["<3", "♡", "\U0001f495", "\U0001f49e", "✨", "☆", "~"]
 LENGTH_CEILING = 4096
 
 
@@ -875,9 +893,9 @@ def _roll(text, word_index, axis):
 
 
 _THRESHOLDS = {
-    "mild": {"swap": 0.15, "stutter": 0.08, "particle": 0.06, "kaomoji": 0.06, "hearts": 1},
-    "normal": {"swap": 0.3, "stutter": 0.18, "particle": 0.15, "kaomoji": 0.15, "hearts": 2},
-    "max": {"swap": 0.55, "stutter": 0.35, "particle": 0.3, "kaomoji": 0.3, "hearts": 3},
+    "mild": {"swap": 0.22, "stutter": 0.12, "particle": 0.10, "kaomoji": 0.10, "hearts": 1},
+    "normal": {"swap": 0.42, "stutter": 0.25, "particle": 0.22, "kaomoji": 0.22, "hearts": 3},
+    "max": {"swap": 0.7, "stutter": 0.45, "particle": 0.4, "kaomoji": 0.4, "hearts": 4},
 }
 
 
