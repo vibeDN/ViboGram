@@ -214,11 +214,22 @@ def commit_and_push(path, message):
 def check_identity(player, github_author):
     """Returns None if OK, or a rejection reason string. github_author is
     github.event.issue.user.login -- GitHub-authenticated, not something a
-    client can forge by editing issue text."""
+    client can forge by editing issue text.
+
+    MARK: ViboGram - a player record with no github_login at all (either
+    brand new, or a legacy record from before this field existed -- the
+    old scheme used a client-submitted `secret` instead, since fixed)
+    is treated as unclaimed and passes through here; the caller is
+    responsible for actually setting player["github_login"] =
+    github_author afterward so it's claimed going forward. Only an
+    ALREADY-claimed record (github_login present and different) is
+    rejected as impersonation.
+    """
     if not github_author:
         return "couldn't determine the GitHub account that opened this issue."
-    if player is not None and player.get("github_login") != github_author:
-        return f"this username is already claimed by a different GitHub account. If that's a mistake, the real owner needs to say so -- nothing here can verify that automatically."
+    existing_login = player.get("github_login") if player is not None else None
+    if existing_login and existing_login != github_author:
+        return "this username is already claimed by a different GitHub account. If that's a mistake, the real owner needs to say so -- nothing here can verify that automatically."
     return None
 
 
@@ -233,6 +244,12 @@ def handle_pull(token, repo, issue_number, game, username, fields, github_author
 
     if player is None:
         player = {"username": username, "github_login": github_author, "inventory": {}, "last_pull_date": "", "wins": 0, "losses": 0, "draws": 0}
+    else:
+        # MARK: ViboGram - backfills github_login on a legacy record that
+        # predates this field (the old client-secret scheme) -- claims it
+        # for whoever's asking now, since check_identity already let a
+        # missing github_login through unconditionally.
+        player["github_login"] = github_author
 
     today = date.today().isoformat()
     if player["last_pull_date"] == today:
@@ -260,6 +277,7 @@ def handle_craft(token, repo, issue_number, game, username, fields, github_autho
     if player is None:
         reject(token, repo, issue_number, "no inventory on record yet -- pull at least one card first.")
         return
+    player["github_login"] = github_author  # backfill for legacy records, see handle_pull
 
     try:
         consume_idx = int(fields.get("card_index", ""))
@@ -308,6 +326,7 @@ def handle_battle(token, repo, issue_number, game, username, fields, github_auth
     if player is None:
         reject(token, repo, issue_number, "no inventory on record yet -- pull at least one card first.")
         return
+    player["github_login"] = github_author  # backfill for legacy records, see handle_pull
 
     try:
         my_idx = int(fields.get("card_index", ""))
