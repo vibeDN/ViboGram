@@ -37,14 +37,16 @@ import SGPython
 // animations, no continuously-updating rows, nothing that needs a
 // callback while the screen is just sitting there.
 //
-// Deliberately NOT ported: exteraGram's free-text Input/EditText widgets.
-// Those would need a new keyed text-input case in the shared
-// SGItemListUIEntry enum (its existing `.searchInput` is a single
-// un-keyed row, fine for a screen with exactly one search field, not for
-// an arbitrary number of independent plugin-declared text settings) --
-// that's a shared-framework change affecting every other screen built on
-// it (SGSettingsController, SGDebugUI), not something to risk without
-// being able to verify all three still render correctly on a real device.
+// `input` (exteraGram's Input/EditText) needed a new keyed text-input case
+// in the shared SGItemListUIEntry enum (its existing `.searchInput` is a
+// single un-keyed row, fine for exactly one search field, not for an
+// arbitrary number of independent plugin-declared text settings). Added
+// as SGItemListUIEntry.textInput + SGItemListArguments.setTextValue,
+// reusing the existing (until now unused by this screen) DisclosureLink
+// generic slot as the key type rather than adding a 6th type parameter --
+// every other consumer of that shared enum (SGSettingsController,
+// SGDebugUI, SGProUI) needed zero changes, since none of them
+// exhaustively switch over these cases themselves.
 
 private enum SGPluginSettingsSection: Int32, SGItemListSection {
     case main
@@ -56,6 +58,7 @@ private enum SGPluginSettingWidget {
     case toggle(key: String, text: String, defaultValue: Bool)
     case selector(key: String, text: String, items: [String], defaultIndex: Int)
     case action(actionId: String, text: String, destructive: Bool)
+    case input(key: String, text: String, defaultValue: String, placeholder: String)
 }
 
 private typealias SGPluginSettingsEntry = SGItemListUIEntry<SGPluginSettingsSection, String, AnyHashable, String, AnyHashable, String>
@@ -87,6 +90,9 @@ private func parseSettingWidgets(_ raw: Any?) -> [SGPluginSettingWidget] {
         case "action":
             guard let actionId = dict["id"] as? String, let text = dict["text"] as? String else { continue }
             widgets.append(.action(actionId: actionId, text: text, destructive: dict["destructive"] as? Bool ?? false))
+        case "input":
+            guard let key = dict["key"] as? String, let text = dict["text"] as? String else { continue }
+            widgets.append(.input(key: key, text: text, defaultValue: dict["default"] as? String ?? "", placeholder: dict["placeholder"] as? String ?? ""))
         default:
             continue
         }
@@ -118,6 +124,9 @@ private func sgPluginSettingsEntries(widgets: [SGPluginSettingWidget], state: [S
             entries.append(.oneFromManySelector(id: counter.count, section: .main, settingName: key, text: text, value: items[index], enabled: true))
         case let .action(actionId, text, destructive):
             entries.append(.action(id: counter.count, section: .main, actionType: actionId, text: text, kind: destructive ? .destructive : .generic))
+        case let .input(key, text, defaultValue, placeholder):
+            let value = (state[key] as? String) ?? defaultValue
+            entries.append(.textInput(id: counter.count, section: .main, settingName: key, label: text, value: value, placeholder: placeholder))
         }
     }
     if entries.isEmpty {
@@ -245,6 +254,19 @@ public func sgPluginSettingsController(context: AccountContext, pluginFilename: 
         action: { actionId in
             let presentationData = context.sharedContext.currentPresentationData.with { $0 }
             runPluginAction(actionId: actionId, presentationData: presentationData)
+        },
+        // MARK: ViboGram - deliberately does NOT call refreshScreen(), unlike
+        // every other setter here. textUpdated fires on every keystroke;
+        // re-running settings() and rebuilding the whole entries list per
+        // character would fight the text field for focus/cursor position
+        // while the user is still typing. Persist-only is correct -- the
+        // field already displays what's being typed on its own, and the
+        // persisted value is picked up the next time anything else
+        // triggers a real refresh (a toggle/selector/action elsewhere, or
+        // reopening the screen).
+        setTextValue: { rawKey, value in
+            guard let key = rawKey as? String else { return }
+            SGPythonRuntime.writeState(for: pluginFilename, merging: [key: value])
         }
     )
 

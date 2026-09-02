@@ -56,8 +56,15 @@ public final class SGItemListArguments<BoolSetting: Hashable, SliderSetting: Has
     let openDisclosureLink: (DisclosureLink) -> Void
     let action: (ActionType) -> Void
     let searchInput: (String) -> Void
+    // MARK: ViboGram - keyed free-text input (SGPluginSettingsController's
+    // "Input" widget). Reuses the DisclosureLink generic slot as the key
+    // type rather than adding a 6th generic parameter to this class --
+    // that would force every existing instantiation (SGSettingsController,
+    // SGDebugUI, SGProUI) to add a matching type argument for a feature
+    // they don't use. Defaulted, so none of them need to change at all.
+    let setTextValue: (DisclosureLink, String) -> Void
 
-    
+
     public init(
         context: AccountContext,
         //
@@ -66,7 +73,8 @@ public final class SGItemListArguments<BoolSetting: Hashable, SliderSetting: Has
         setOneFromManyValue: @escaping (OneFromManySetting) -> Void = { _ in },
         openDisclosureLink: @escaping (DisclosureLink) -> Void = { _ in},
         action: @escaping (ActionType) -> Void = { _ in },
-        searchInput: @escaping (String) -> Void = { _ in }
+        searchInput: @escaping (String) -> Void = { _ in },
+        setTextValue: @escaping (DisclosureLink, String) -> Void = { _,_ in }
     ) {
         self.context = context
         //
@@ -76,6 +84,7 @@ public final class SGItemListArguments<BoolSetting: Hashable, SliderSetting: Has
         self.openDisclosureLink = openDisclosureLink
         self.action = action
         self.searchInput = searchInput
+        self.setTextValue = setTextValue
     }
 }
 
@@ -89,6 +98,10 @@ public enum SGItemListUIEntry<Section: SGItemListSection, BoolSetting: Hashable,
     case peerColorDisclosurePreview(id: Int, section: Section, name: String, color: UIColor)
     case action(id: Int, section: Section, actionType: ActionType, text: String, kind: ItemListActionKind)
     case searchInput(id: Int, section: Section, title: NSAttributedString, text: String, placeholder: String)
+    // MARK: ViboGram - a keyed free-text row (unlike searchInput, which is
+    // a single un-keyed field): settingName identifies WHICH text setting
+    // this row edits, so a screen can host any number of independent ones.
+    case textInput(id: Int, section: Section, settingName: DisclosureLink, label: String, value: String, placeholder: String)
     
     public var section: ItemListSectionId {
         switch self {
@@ -115,6 +128,9 @@ public enum SGItemListUIEntry<Section: SGItemListSection, BoolSetting: Hashable,
             
         case let .searchInput(_, sectionId, _, _, _):
             return sectionId.rawValue
+
+        case let .textInput(_, sectionId, _, _, _, _):
+            return sectionId.rawValue
         }
     }
     
@@ -137,6 +153,8 @@ public enum SGItemListUIEntry<Section: SGItemListSection, BoolSetting: Hashable,
         case let .action(stableIdValue, _, _, _, _):
             return stableIdValue
         case let .searchInput(stableIdValue, _, _, _, _):
+            return stableIdValue
+        case let .textInput(stableIdValue, _, _, _, _, _):
             return stableIdValue
         }
     }
@@ -172,6 +190,9 @@ public enum SGItemListUIEntry<Section: SGItemListSection, BoolSetting: Hashable,
             
         case let (.searchInput(id1, lhsValue1, lhsValue2, lhsValue3, lhsValue4), .searchInput(id2, rhsValue1, rhsValue2, rhsValue3, rhsValue4)):
             return id1 == id2 && lhsValue1 == rhsValue1 && lhsValue2 == rhsValue2 && lhsValue3 == rhsValue3 && lhsValue4 == rhsValue4
+
+        case let (.textInput(id1, section1, settingName1, label1, value1, placeholder1), .textInput(id2, section2, settingName2, label2, value2, placeholder2)):
+            return id1 == id2 && section1 == section2 && settingName1 == settingName2 && label1 == label2 && value1 == value2 && placeholder1 == placeholder2
 
         default:
             return false
@@ -223,6 +244,8 @@ public enum SGItemListUIEntry<Section: SGItemListSection, BoolSetting: Hashable,
             })
         case let .searchInput(_, _, title, text, placeholder):
             return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: title, text: text, placeholder: placeholder, returnKeyType: .done, spacing: 3.0, clearType: .always, selectAllOnFocus: true, secondaryStyle: true, sectionId: self.section, textUpdated: { input in arguments.searchInput(input) }, action: {}, dismissKeyboardOnEnter: true)
+        case let .textInput(_, _, settingName, label, value, placeholder):
+            return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(string: label), text: value, placeholder: placeholder, returnKeyType: .done, sectionId: self.section, textUpdated: { input in arguments.setTextValue(settingName, input) }, action: {}, dismissKeyboardOnEnter: true)
         }
     }
 }
@@ -261,6 +284,8 @@ public func filterSGItemListUIEntrires<Section: SGItemListSection & Hashable, Bo
             return text.lowercased().contains(query)
         case .searchInput:
             return true // Never hiding search input
+        case .textInput(_, _, _, let label, _, _):
+            return label.lowercased().contains(query)
         }
     }
     

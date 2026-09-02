@@ -186,12 +186,14 @@ def transform(args):
 Widget types today: `header` (section title), `text` (a plain line, not
 clickable), `switch` (`key`, `text`, `default: bool`), `selector` (`key`,
 `text`, `default: int` index, `items: [str]`), `action` (`id`, `text`,
-`default` for `destructive: bool`). This is the same shape as
-exteraGram's `create_settings()` Header/Switch/Selector/Text/Action rows,
-ported to this app's own settings framework. Not ported: their free-text
-Input/EditText row -- our version doesn't have a keyed text-input widget
-yet, so a plugin needing arbitrary free text still has to get it some
-other way (e.g. Import from URL for a config file).
+`default` for `destructive: bool`), `input` (`key`, `text` as the row's
+label, `default: str`, `placeholder: str`) -- a real text field, e.g. for
+an API key or any other string a plugin needs from the user. This is the
+same shape as exteraGram's `create_settings()` Header/Switch/Selector/
+Text/Action/Input rows, ported to this app's own settings framework.
+`input` writes on every keystroke but doesn't trigger a screen refresh
+the way switch/selector/action do -- typing shouldn't fight the field for
+focus. Read it back with `vibo.get_setting` the same as any other value.
 
 ### Buttons that actually do something: `action` + `on_action`
 
