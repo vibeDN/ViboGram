@@ -1,0 +1,117 @@
+# ViboGram plugin: "Pirate-ify" outgoing text. Same mechanism as the
+# built-in Anime-ify (deterministic per-message/per-word pseudo-random
+# rolls gating a word-swap dictionary + a trailing particle/emoji),
+# just themed as pirate speak instead. Fires automatically on send once
+# installed -- toggle sub-features from Settings... on the Plugins screen.
+# vibo-hook: on_send
+
+__name__ = "Pirate-ify"
+
+WORD_SWAPS = {
+    "привет": "здарова, кэп",
+    "пока": "отваливаем",
+    "да": "есть, капитан",
+    "нет": "не бывать",
+    "друг": "братишка",
+    "деньги": "золото",
+    "хорошо": "по-пиратски",
+    "плохо": "гнилая доска",
+    "быстро": "полным ходом",
+    "смотри": "гляди на горизонт",
+    "выпить": "пропустить по кружке рома",
+    "корабль": "посудина",
+    "работа": "вахта",
+    "устал": "измотан штормом",
+}
+PARTICLES = ["арр", "йо-хо-хо", "клянусь ромом", "тысяча чертей", "разрази меня гром"]
+EMOJI = ["🏴‍☠️", "☠️", "⚓", "🦜", "🍺", "🗺️"]
+LENGTH_CEILING = 4096
+
+
+def _seed(text, salt):
+    h = 5381
+    for ch in text:
+        h = (h * 131 + ord(ch)) & 0xFFFFFFF
+    return (h + salt * 7919) & 0xFFFFFFF
+
+
+def _roll(text, word_index, axis):
+    return (_seed(text, word_index * 10 + axis) % 1000) / 1000.0
+
+
+def _is_untouchable(word):
+    lower = word.lower()
+    if not lower:
+        return True
+    if lower[0] in "@#/":
+        return True
+    for marker in ("://", "t.me/", "www.", ".com", ".ru", ".org"):
+        if marker in lower:
+            return True
+    return False
+
+
+def _split_punctuation(word):
+    start, end = 0, len(word)
+    while start < end and not word[start].isalnum():
+        start += 1
+    while end > start and not word[end - 1].isalnum():
+        end -= 1
+    return word[:start], word[start:end], word[end:]
+
+
+def _match_case(original, replacement):
+    if len(original) > 1 and original.isupper():
+        return replacement.upper()
+    if original[:1].isupper():
+        return replacement[:1].upper() + replacement[1:]
+    return replacement
+
+
+def settings(args):
+    return [
+        {"type": "header", "text": "Pirate-ify"},
+        {"type": "switch", "key": "word_swaps", "text": "Word swaps", "default": True},
+        {"type": "switch", "key": "particles", "text": "Pirate particles", "default": True},
+        {"type": "switch", "key": "emoji", "text": "Pirate emoji", "default": True},
+        {"type": "text", "text": "Runs automatically on send once installed. Links, mentions and commands are left untouched."},
+    ]
+
+
+def transform(args):
+    text = args.get("text", "")
+    if not text or not text.strip():
+        return text
+    if text.lstrip()[:1] == "/":
+        return text
+
+    word_swaps_on = vibo.get_setting("word_swaps", True)
+    particles_on = vibo.get_setting("particles", True)
+    emoji_on = vibo.get_setting("emoji", True)
+
+    out = []
+    word_index = 0
+    for word in text.split(" "):
+        if not word:
+            out.append(word)
+            continue
+        word_index += 1
+        if _is_untouchable(word):
+            out.append(word)
+            continue
+        lead, core, trail = _split_punctuation(word)
+        if core and word_swaps_on:
+            lower = core.lower()
+            if lower in WORD_SWAPS and _roll(text, word_index, 1) < 0.4:
+                core = _match_case(core, WORD_SWAPS[lower])
+        out.append(lead + core + trail)
+
+    result = " ".join(out)
+    if particles_on and _roll(text, 100, 2) < 0.35:
+        result += ", " + PARTICLES[int(_roll(text, 100, 3) * len(PARTICLES)) % len(PARTICLES)]
+    if emoji_on and _roll(text, 100, 4) < 0.5:
+        result += " " + EMOJI[int(_roll(text, 100, 5) * len(EMOJI)) % len(EMOJI)]
+
+    if len(result) > LENGTH_CEILING:
+        return text
+    return result
