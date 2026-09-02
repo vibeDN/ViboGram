@@ -1,0 +1,144 @@
+# ViboGram plugin: daily gacha card pull + a simple auto-battle, in the
+# spirit of Pokemon/Yu-Gi-Oh TCG mechanics -- one pull per real calendar
+# day (a stored last-pull date, checked against today, not a
+# message-seeded roll like the built-in Anime-ify), building a
+# persistent collection via vibo.get_setting/set_setting, then your
+# best card auto-battles a fresh random opponent pulled from the same
+# pool. Card names/stats below are original, not any existing
+# franchise's actual cards -- same "port the mechanic, not the
+# content" rule this session's other plugins already follow.
+
+import random
+import datetime
+
+__name__ = "Card Pull"
+
+# name, element, rarity, atk, def
+CARD_POOL = [
+    ("Emberling", "Fire", "Common", 400, 300),
+    ("Aqua Pup", "Water", "Common", 350, 400),
+    ("Sparkmouse", "Electric", "Common", 450, 250),
+    ("Pebble Golem", "Earth", "Common", 300, 500),
+    ("Leaf Sprite", "Nature", "Common", 380, 350),
+    ("Windwisp", "Air", "Common", 420, 300),
+    ("Shadow Cat", "Dark", "Common", 400, 350),
+    ("Glowmoth", "Light", "Common", 350, 400),
+    ("Sandcrawler", "Earth", "Common", 380, 380),
+    ("Frostkit", "Ice", "Common", 400, 350),
+    ("Flareclaw", "Fire", "Rare", 700, 500),
+    ("Tidalfin", "Water", "Rare", 650, 600),
+    ("Voltjaw", "Electric", "Rare", 750, 450),
+    ("Stoneguard", "Earth", "Rare", 600, 750),
+    ("Thornwolf", "Nature", "Rare", 700, 550),
+    ("Gale Hawk", "Air", "Rare", 720, 500),
+    ("Infernorex", "Fire", "Epic", 1100, 800),
+    ("Leviathorn", "Water", "Epic", 1000, 950),
+    ("Thunderking", "Electric", "Epic", 1200, 700),
+    ("Terra Titan", "Earth", "Epic", 900, 1200),
+    ("Duskfang", "Dark", "Epic", 1150, 850),
+    ("Solaris Wyrm", "Fire/Light", "Legendary", 1800, 1400),
+    ("Abyssal Sovereign", "Water/Dark", "Legendary", 1700, 1600),
+    ("Chronodrake", "Time", "Legendary", 2000, 1500),
+]
+
+RARITY_WEIGHTS = {"Common": 60, "Rare": 25, "Epic": 12, "Legendary": 3}
+RARITY_EMOJI = {"Common": "⚪", "Rare": "🔵", "Epic": "🟣", "Legendary": "🟡"}
+
+_INDICES_BY_RARITY = {}
+for _i, _c in enumerate(CARD_POOL):
+    _INDICES_BY_RARITY.setdefault(_c[2], []).append(_i)
+
+
+def _pull_index():
+    rarity = random.choices(list(RARITY_WEIGHTS.keys()), weights=list(RARITY_WEIGHTS.values()))[0]
+    return random.choice(_INDICES_BY_RARITY[rarity])
+
+
+def _card_text(idx):
+    name, element, rarity, atk, deff = CARD_POOL[idx]
+    return f"{RARITY_EMOJI.get(rarity, '')} {name} ({element}, {rarity}) ATK {atk}/DEF {deff}"
+
+
+def _today():
+    return datetime.date.today().isoformat()
+
+
+def _best_index(collection):
+    if not collection:
+        return None
+    return max(collection, key=lambda idx: CARD_POOL[idx][3] + CARD_POOL[idx][4])
+
+
+def settings(args):
+    collection = vibo.get_setting("collection", [])
+    last_pull = vibo.get_setting("last_pull_date", "")
+    wins = vibo.get_setting("wins", 0)
+    losses = vibo.get_setting("losses", 0)
+    draws = vibo.get_setting("draws", 0)
+    can_pull = last_pull != _today()
+
+    widgets = [
+        {"type": "header", "text": "Card Pull"},
+        {"type": "text", "text": "One pull per day. Come back tomorrow for another."},
+        {"type": "action", "id": "pull", "text": "Pull a Card" if can_pull else "Already pulled today"},
+        {"type": "header", "text": f"Collection ({len(collection)})"},
+    ]
+
+    if not collection:
+        widgets.append({"type": "text", "text": "No cards yet -- pull one!"})
+    else:
+        best_idx = _best_index(collection)
+        widgets.append({"type": "text", "text": "Best card: " + _card_text(best_idx)})
+        for idx in reversed(collection[-5:]):
+            widgets.append({"type": "text", "text": _card_text(idx)})
+        widgets.append({"type": "action", "id": "battle", "text": "Battle with your best card!"})
+
+    widgets.append({"type": "text", "text": f"Battles: {wins}W - {losses}L - {draws}D"})
+    return widgets
+
+
+def on_action(args):
+    action_id = args.get("id")
+    collection = vibo.get_setting("collection", [])
+    last_pull = vibo.get_setting("last_pull_date", "")
+
+    if action_id == "pull":
+        if last_pull == _today():
+            vibo.toast("Already pulled today -- come back tomorrow.")
+            return None
+        idx = _pull_index()
+        collection.append(idx)
+        vibo.set_setting("collection", collection)
+        vibo.set_setting("last_pull_date", _today())
+        rarity = CARD_POOL[idx][2]
+        style = "success" if rarity in ("Epic", "Legendary") else "info"
+        vibo.toast(f"You pulled: {_card_text(idx)}", style=style)
+        vibo.play_sound("success" if rarity in ("Epic", "Legendary") else "default")
+    elif action_id == "battle":
+        if not collection:
+            vibo.toast("Pull a card first.")
+            return None
+        my_idx = _best_index(collection)
+        opp_idx = _pull_index()
+        my_power = CARD_POOL[my_idx][3] + CARD_POOL[my_idx][4]
+        opp_power = CARD_POOL[opp_idx][3] + CARD_POOL[opp_idx][4]
+        my_name = CARD_POOL[my_idx][0]
+        opp_name = CARD_POOL[opp_idx][0]
+        if my_power > opp_power:
+            vibo.set_setting("wins", vibo.get_setting("wins", 0) + 1)
+            vibo.toast(f"{my_name} beats {opp_name}! You win.", style="success")
+        elif my_power < opp_power:
+            vibo.set_setting("losses", vibo.get_setting("losses", 0) + 1)
+            vibo.toast(f"{opp_name} beats {my_name}. You lose.")
+        else:
+            vibo.set_setting("draws", vibo.get_setting("draws", 0) + 1)
+            vibo.toast(f"{my_name} ties {opp_name}. Draw.")
+    return None
+
+
+def transform(args):
+    collection = vibo.get_setting("collection", [])
+    if not collection:
+        return "Card Pull: open Settings… and pull your first card."
+    best_idx = _best_index(collection)
+    return f"Collection: {len(collection)} cards. Best: {_card_text(best_idx)}"
