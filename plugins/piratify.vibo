@@ -1,9 +1,11 @@
+# vibo-hook: on_send
 # ViboGram plugin: "Pirate-ify" outgoing text. Same mechanism as the
 # built-in Anime-ify (deterministic per-message/per-word pseudo-random
 # rolls gating a word-swap dictionary + a trailing particle/emoji),
 # just themed as pirate speak instead. Fires automatically on send once
 # installed -- toggle sub-features from Settings... on the Plugins screen.
-# vibo-hook: on_send
+# The marker above MUST be the file's literal first line (a real bug
+# this session: it wasn't).
 
 __name__ = "Pirate-ify"
 

@@ -1,3 +1,4 @@
+# vibo-hook: on_send
 # ViboGram plugin: same daily-gacha-pull + auto-battle mechanic as
 # card_pull.vibo, reskinned as phones instead of fantasy monsters --
 # "power" is a single AnTuTu-style benchmark score, battles are just
@@ -19,6 +20,11 @@
 #
 # Scores below are flavor/relative-tier numbers, not real benchmark
 # results.
+#
+# Dot-commands (on_send hook): ".pull"/".battle"/".collection" for
+# practice, ".opull"/".ocraft N"/".obattle N" for official (server-
+# verified) requests -- same vibo.open_url(...) Settings... already
+# uses. Everything else passes through untouched.
 
 import random
 import datetime
@@ -229,9 +235,104 @@ def on_action(args):
     return None
 
 
-def transform(args):
+def _cmd_pull():
+    collection = vibo.get_setting("collection", [])
+    last_pull = vibo.get_setting("last_pull_date", "")
+    if last_pull == _today():
+        return "📱 Already practice-pulled today -- come back tomorrow."
+    idx = _pull_index()
+    collection.append(idx)
+    vibo.set_setting("collection", collection)
+    vibo.set_setting("last_pull_date", _today())
+    return f"📱 You pulled: {_card_text(idx)}"
+
+
+def _cmd_battle():
     collection = vibo.get_setting("collection", [])
     if not collection:
-        return "Phone Pull: open Settings… and pull your first phone."
+        return "📱 Pull a phone first (.pull)."
+    my_idx = _best_index(collection)
+    opp_idx = _pull_index()
+    my_score, opp_score = CARD_POOL[my_idx][2], CARD_POOL[opp_idx][2]
+    my_name, opp_name = CARD_POOL[my_idx][0], CARD_POOL[opp_idx][0]
+    if my_score > opp_score:
+        vibo.set_setting("wins", vibo.get_setting("wins", 0) + 1)
+        return f"⚔️ {my_name} outbenches {opp_name}! You win."
+    elif my_score < opp_score:
+        vibo.set_setting("losses", vibo.get_setting("losses", 0) + 1)
+        return f"⚔️ {opp_name} outbenches {my_name}. You lose."
+    vibo.set_setting("draws", vibo.get_setting("draws", 0) + 1)
+    return f"⚔️ {my_name} ties {opp_name}. Draw."
+
+
+def _cmd_collection():
+    collection = vibo.get_setting("collection", [])
+    if not collection:
+        return "📱 No phones yet -- type .pull to get your first one."
     best_idx = _best_index(collection)
-    return f"Practice collection: {len(collection)} phones. Best: {_card_text(best_idx)}"
+    wins = vibo.get_setting("wins", 0)
+    losses = vibo.get_setting("losses", 0)
+    draws = vibo.get_setting("draws", 0)
+    return f"📱 {len(collection)} phones. Best: {_card_text(best_idx)} | {wins}W-{losses}L-{draws}D"
+
+
+def _cmd_official_pull():
+    username = vibo.get_setting("username", "")
+    if not username:
+        return "📱 Set your Telegram username in Settings… first."
+    url = _issue_url(f"[pull:{GAME_ID}] {username}", f"secret={_secret()}")
+    vibo.open_url(url)
+    return "📱 Official pull request opened in Safari -- check the GitHub issue's comments in a bit for your real phone."
+
+
+def _cmd_official_craft(stripped):
+    username = vibo.get_setting("username", "")
+    if not username:
+        return "📱 Set your Telegram username in Settings… first."
+    parts = stripped.split(maxsplit=1)
+    if len(parts) < 2 or not parts[1].strip().isdigit():
+        return "📱 Usage: .ocraft <card number>"
+    card_index = parts[1].strip()
+    url = _issue_url(f"[craft:{GAME_ID}] {username}", f"secret={_secret()}\ncard_index={card_index}")
+    vibo.open_url(url)
+    return f"📱 Official craft request for card #{card_index} opened in Safari -- check the issue's comments for the result."
+
+
+def _cmd_official_battle(stripped):
+    username = vibo.get_setting("username", "")
+    if not username:
+        return "📱 Set your Telegram username in Settings… first."
+    parts = stripped.split(maxsplit=1)
+    if len(parts) < 2 or not parts[1].strip().isdigit():
+        return "📱 Usage: .obattle <card number>"
+    card_index = parts[1].strip()
+    url = _issue_url(f"[battle:{GAME_ID}] {username}", f"secret={_secret()}\ncard_index={card_index}")
+    vibo.open_url(url)
+    return f"📱 Official battle request with card #{card_index} opened in Safari -- check the issue's comments for the result. Max 3/day."
+
+
+def transform(args):
+    text = args.get("text", "")
+    stripped = text.strip()
+
+    if stripped == ".pull":
+        return _cmd_pull()
+    if stripped == ".battle":
+        return _cmd_battle()
+    if stripped in (".collection", ".cards"):
+        return _cmd_collection()
+    if stripped == ".opull":
+        return _cmd_official_pull()
+    if stripped.startswith(".ocraft"):
+        return _cmd_official_craft(stripped)
+    if stripped.startswith(".obattle"):
+        return _cmd_official_battle(stripped)
+
+    if not text:
+        collection = vibo.get_setting("collection", [])
+        if not collection:
+            return "Phone Pull: open Settings… and pull your first phone, or type .pull in a chat."
+        best_idx = _best_index(collection)
+        return f"Practice collection: {len(collection)} phones. Best: {_card_text(best_idx)}"
+
+    return text

@@ -1,10 +1,11 @@
+# vibo-hook: on_send
 # ViboGram plugin: "Gop-Style" outgoing text -- classic Russian
 # gopnik/подъездный meme speech. Same mechanism as this repo's
 # Anime-ify and Pirate-ify (deterministic per-message/per-word rolls,
 # word-swap dict, trailing particle/emoji), just themed differently.
 # Fires automatically on send once installed -- toggle sub-features
-# from Settings... on the Plugins screen.
-# vibo-hook: on_send
+# from Settings... on the Plugins screen. The marker above MUST be the
+# file's literal first line (a real bug this session: it wasn't).
 
 __name__ = "Gop-Style"
 

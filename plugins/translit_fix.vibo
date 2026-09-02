@@ -1,0 +1,71 @@
+# vibo-hook: on_send
+# ViboGram plugin: fixes Russian typed in the wrong (English) keyboard
+# layout before sending -- "ghbdtn" -> "привет". The QWERTY<->ЙЦУКЕН key
+# position mapping is a standard, public keyboard-layout correspondence,
+# not creative content. Detection is heuristic (checks the remapped text
+# against a list of common Russian words), so it can occasionally
+# misfire on genuine English -- there's no live preview of what an
+# on_send hook changes before it actually sends, so when in doubt, don't
+# install this alongside something you're relying on for exact English
+# text. The marker above MUST be the file's literal first line (a real
+# bug this session: it wasn't).
+
+__name__ = "Translit Fix"
+
+_LAYOUT_MAP = {
+    'q': 'й', 'w': 'ц', 'e': 'у', 'r': 'к', 't': 'е',
+    'y': 'н', 'u': 'г', 'i': 'ш', 'o': 'щ', 'p': 'з',
+    '[': 'х', ']': 'ъ', 'a': 'ф', 's': 'ы', 'd': 'в',
+    'f': 'а', 'g': 'п', 'h': 'р', 'j': 'о', 'k': 'л',
+    'l': 'д', ';': 'ж', "'": 'э', 'z': 'я', 'x': 'ч',
+    'c': 'с', 'v': 'м', 'b': 'и', 'n': 'т', 'm': 'ь',
+    ',': 'б', '.': 'ю',
+}
+_FULL_MAP = {}
+for _k, _v in _LAYOUT_MAP.items():
+    _FULL_MAP[_k] = _v
+    _FULL_MAP[_k.upper()] = _v.upper()
+
+# Top-frequency Russian function words -- standard, publicly documented
+# frequency-list data, not creative content. Used only to score whether
+# a remapped candidate plausibly reads as Russian.
+_COMMON_RU_WORDS = {
+    "и", "в", "не", "что", "он", "на", "я", "с", "со", "как", "а", "то",
+    "все", "она", "так", "его", "но", "да", "ты", "к", "у", "же", "вы",
+    "за", "бы", "по", "только", "ее", "мне", "было", "вот", "от", "меня",
+    "еще", "нет", "о", "из", "ему", "теперь", "когда", "даже", "ну",
+    "вдруг", "ли", "если", "уже", "или", "ни", "быть", "был", "него",
+    "до", "вас", "опять", "уж", "вам", "ведь", "там", "потом", "себя",
+    "ничего", "ей", "может", "они", "тут", "где", "есть", "надо", "для",
+    "мы", "тебя", "их", "чем", "была", "сам", "без", "чего", "раз",
+    "тоже", "себе", "под", "будет", "тогда", "кто", "этот", "того",
+    "потому", "этого", "какой", "совсем", "здесь", "этом", "один",
+    "почти", "мой", "тем", "чтобы", "сейчас", "были", "куда", "зачем",
+    "всех", "можно", "при", "два", "об", "другой", "хоть", "после",
+    "над", "больше", "тот", "через", "эти", "нас", "про", "всего",
+    "них", "какая", "много", "три", "эту", "моя", "хорошо", "свою",
+    "этой", "перед", "лучше", "чуть", "том", "нельзя", "такой", "им",
+    "более", "всегда", "конечно", "привет", "пока", "спасибо", "давай",
+    "как дела", "что делаешь", "хочу", "надо", "буду", "было", "будем",
+}
+
+
+def fix(text):
+    return "".join(_FULL_MAP.get(ch, ch) for ch in text)
+
+
+def transform(args):
+    text = args.get("text", "")
+    if not text.strip() or any(ord(ch) > 127 for ch in text):
+        return text  # already non-ASCII (e.g. real Cyrillic) -- leave alone
+    words = text.split()
+    if not words:
+        return text
+    remapped = fix(text)
+    remapped_words = remapped.split()
+    score = sum(1 for w in remapped_words if w.strip(".,!?;:").lower() in _COMMON_RU_WORDS)
+    if score == 0:
+        return text
+    if len(remapped_words) > 2 and score / len(remapped_words) < 0.34:
+        return text
+    return remapped

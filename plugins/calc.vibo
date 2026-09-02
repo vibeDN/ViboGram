@@ -1,0 +1,68 @@
+# vibo-hook: on_send
+# ViboGram plugin: type a math expression and send it -- it's replaced
+# with "expression = result" before it actually goes out. Honest caveat:
+# our on_send hooks can only MODIFY the text about to be sent, never
+# cancel sending in favor of just showing a result -- so this can't
+# intercept-and-not-send the way a native calculator overlay would.
+# Uses ast, not eval(), so it can only ever evaluate arithmetic -- no
+# function calls, no attribute access, no arbitrary code.
+# MARK: ViboGram - the marker above must be the file's literal FIRST
+# LINE -- SGPythonRuntime.applyOnSendHooks checks it via a cheap
+# firstLine(ofFileAt:) read (text.split(separator: "\n", maxSplits: 1).
+# first), not a "contains this line anywhere" scan. A real bug this
+# session: every on_send plugin here originally had the marker a few
+# comment-lines down instead of on line 1, so none of them ever
+# actually fired -- caught and fixed across the board.
+
+import ast
+import operator
+
+__name__ = "Calculator"
+
+_OPS = {
+    ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+    ast.Div: operator.truediv, ast.Pow: operator.pow, ast.Mod: operator.mod,
+    ast.FloorDiv: operator.floordiv, ast.USub: operator.neg, ast.UAdd: operator.pos,
+}
+
+
+def _eval_node(node):
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, (int, float)) and not isinstance(node.value, bool):
+            return node.value
+        raise ValueError("not a number")
+    if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
+        return _OPS[type(node.op)](_eval_node(node.left), _eval_node(node.right))
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
+        return _OPS[type(node.op)](_eval_node(node.operand))
+    raise ValueError("unsupported expression")
+
+
+def safe_eval(expr):
+    tree = ast.parse(expr, mode="eval")
+    return _eval_node(tree.body)
+
+
+def _looks_like_math(text):
+    stripped = text.strip()
+    if not stripped:
+        return False
+    allowed = set("0123456789+-*/(). %")
+    return (
+        all(ch in allowed for ch in stripped)
+        and any(ch.isdigit() for ch in stripped)
+        and any(ch in "+-*/%" for ch in stripped)
+    )
+
+
+def transform(args):
+    text = args.get("text", "")
+    if not _looks_like_math(text):
+        return text
+    try:
+        result = safe_eval(text)
+    except (ValueError, ZeroDivisionError, SyntaxError, OverflowError):
+        return text
+    if isinstance(result, float) and result.is_integer():
+        result = int(result)
+    return f"{text} = {result}"
