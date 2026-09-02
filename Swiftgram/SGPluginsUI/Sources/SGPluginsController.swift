@@ -30,6 +30,18 @@ private enum SGPluginsAction: Hashable {
 
 private typealias SGPluginsEntry = SGItemListUIEntry<SGPluginsControllerSection, AnyHashable, AnyHashable, AnyHashable, AnyHashable, SGPluginsAction>
 
+// MARK: ViboGram - same cheap-static-check pattern as sgPluginDeclaresSettings
+// and the `# vibo-hook: on_send` marker: a plugin opts into the
+// "Run on Photo..." button by having this line anywhere in its file, no
+// Python execution needed to check for it.
+private func sgPluginNeedsImage(filename: String) -> Bool {
+    guard let data = FileManager.default.contents(atPath: SGPluginsStore.path(for: filename)),
+          let source = String(data: data, encoding: .utf8) else {
+        return false
+    }
+    return source.contains("# vibo-needs: image")
+}
+
 // MARK: ViboGram - friendly names in the plugin list instead of raw
 // filenames, without executing the plugin: a plain top-level
 // `__name__ = "..."` string constant (exteraGram's own convention --
@@ -220,14 +232,13 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
                 presentRunWithText(pluginFilename: filename, presentationData: presentationData)
             }),
         ]
-        // MARK: ViboGram - the ascii-art plugin needs an image, not just "run
-        // it and see if it crashes" -- special-cased here rather than a
-        // general per-plugin input-type declaration, which doesn't exist
-        // yet (see docs/plugin-authoring.md).
-        if filename == SGPythonRuntime.builtinAsciiArtPluginFilename {
+        // MARK: ViboGram - any plugin declaring `# vibo-needs: image`
+        // (see sgPluginNeedsImage) gets this, not just the ascii-art
+        // built-in it was originally special-cased for.
+        if sgPluginNeedsImage(filename: filename) {
             runButtons.append(ActionSheetButtonItem(title: "Run on Photo…", color: .accent, action: {
                 dismissActionSheet?()
-                presentAsciiArtPhotoPicker(pluginFilename: filename, presentationData: presentationData)
+                presentImagePlugin(pluginFilename: filename, presentationData: presentationData)
             }))
         }
         // MARK: ViboGram - only offered when the file plausibly defines a
@@ -261,7 +272,17 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
         presentControllerImpl?(actionSheet, ViewControllerPresentationArguments(presentationAnimation: .modalSheet))
     }
 
-    func presentAsciiArtPhotoPicker(pluginFilename: String, presentationData: PresentationData) {
+    // MARK: ViboGram - generalized from an ascii_art-only special case: any
+    // plugin whose file contains the first-line-or-anywhere marker
+    // `# vibo-needs: image` gets this button, not just the one built-in.
+    // The contract stays exactly what ascii_art already established --
+    // Swift decodes the photo and computes a luminance grid (our bundled
+    // Python has no image codec, so this half can never move into the
+    // plugin), the plugin's transform({"grid":, "invert": false}) only
+    // ever sees numbers -- not every possible image idea fits that shape,
+    // but a real class of them do (any effect that reduces to "brightness
+    // pattern per cell").
+    func presentImagePlugin(pluginFilename: String, presentationData: PresentationData) {
         let picker = legacyICloudFilePicker(theme: presentationData.theme, mode: .import, documentTypes: ["public.image"], completion: { urls in
             guard let sourceURL = urls.first else { return }
             let didStartAccessing = sourceURL.startAccessingSecurityScopedResource()
@@ -279,11 +300,14 @@ public func sgPluginsController(context: AccountContext) -> ViewController {
                 return
             }
             let pluginPath = SGPluginsStore.path(for: pluginFilename)
-            let result = SGPythonRuntime.callFunction(scriptPath: pluginPath, functionName: "transform", argumentsJSON: [
+            guard let result = SGPythonRuntime.callFunctionRich(scriptPath: pluginPath, functionName: "transform", argumentsJSON: [
                 "grid": grid.values,
                 "invert": false,
-            ])
-            showResult(result ?? "Plugin call failed -- check device console log.", presentationData: presentationData)
+            ]) else {
+                showResult("Plugin failed to run -- check device console log for the traceback.", presentationData: presentationData)
+                return
+            }
+            presentCallResult(result, presentationData: presentationData)
         })
         presentControllerImpl?(picker, nil)
     }

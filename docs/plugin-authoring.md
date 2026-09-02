@@ -62,6 +62,14 @@ already-computed grid of numbers and turns it into text art. If your idea
 needs a capability like this, the pattern is: do the platform-specific part
 in the app, hand the plugin only the primitive data it needs to do its part.
 
+Any plugin can opt into this by putting `# vibo-needs: image` anywhere in
+its file -- that alone gets it a **Run on Photo…** button (not just
+`ascii_art.vibo`, that's just the plugin this was built for). Picking a
+photo calls your `transform` with `{"grid": [[0-255, ...], ...], "invert":
+False}` -- rows of per-cell brightness, nothing else. Any effect that
+reduces to "a pattern of brightness values" fits this; anything needing
+actual color or pixel detail doesn't have a way in yet.
+
 ## What can't run here, full stop
 
 If a plugin (yours, or one you're porting from somewhere else) imports any

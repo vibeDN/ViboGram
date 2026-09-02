@@ -913,6 +913,7 @@ private let builtinAsciiArtPluginSource = """
 # on the Swift side (SGAsciiArtBridge) -- our bundled stdlib has no image
 # codec -- so this plugin only turns an already-computed brightness grid
 # into the rendered art. The character ladder below is our own choice.
+# vibo-needs: image
 
 __name__ = "ASCII Art"
 
