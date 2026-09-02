@@ -17,7 +17,7 @@ import SGPython
 // Text convention (plugins.exteragram.app/docs/plugin-settings), rewritten
 // against what our one-shot JSON contract can actually support. Switch/
 // Selector values round-trip through the exact same per-plugin state file
-// vibo.get_setting/set_setting use (via SGPythonRuntime.readState/
+// vibo.get_setting/set_setting use (via SGPluginsStore.readState/
 // writeState), so a plugin's own `transform` sees whatever the user
 // configures here.
 //
@@ -162,7 +162,7 @@ public func sgPluginSettingsController(context: AccountContext, pluginFilename: 
         let result = SGPythonRuntime.callFunctionRich(scriptPath: scriptPath, functionName: "settings", argumentsJSON: [:])
         return SGPluginScreenState(
             widgets: parseSettingWidgets(result?.rawResult),
-            state: SGPythonRuntime.readState(for: pluginFilename),
+            state: SGPluginsStore.readState(for: pluginFilename),
             errorText: result?.errorText
         )
     }
@@ -209,7 +209,7 @@ public func sgPluginSettingsController(context: AccountContext, pluginFilename: 
         for (index, item) in items.enumerated() {
             buttons.append(ActionSheetButtonItem(title: item, color: .accent, action: { [weak actionSheet] in
                 actionSheet?.dismissAnimated()
-                SGPythonRuntime.writeState(for: pluginFilename, merging: [key: index])
+                SGPluginsStore.writeState(for: pluginFilename, merging: [key: index])
                 refreshScreen()
             }))
         }
@@ -240,7 +240,7 @@ public func sgPluginSettingsController(context: AccountContext, pluginFilename: 
     let arguments = SGItemListArguments<String, AnyHashable, String, AnyHashable, String>(
         context: context,
         setBoolValue: { key, value in
-            SGPythonRuntime.writeState(for: pluginFilename, merging: [key: value])
+            SGPluginsStore.writeState(for: pluginFilename, merging: [key: value])
             refreshScreen()
         },
         setOneFromManyValue: { key in
@@ -266,7 +266,7 @@ public func sgPluginSettingsController(context: AccountContext, pluginFilename: 
         // reopening the screen).
         setTextValue: { rawKey, value in
             guard let key = rawKey as? String else { return }
-            SGPythonRuntime.writeState(for: pluginFilename, merging: [key: value])
+            SGPluginsStore.writeState(for: pluginFilename, merging: [key: value])
         }
     )
 
