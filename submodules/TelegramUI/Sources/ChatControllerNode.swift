@@ -5087,6 +5087,18 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                     }
                     return runCount > 1
                 }()
+                // MARK: ViboGram - per-chat opt-out (Settings > Anime-ify >
+                // Exceptions) -- "вот бы туда список исключений чтоб бате
+                // случайно так не написал". Checked against the current
+                // chat's @username, case-insensitive; a chat with no
+                // username (no addressName) can't match an exception by
+                // definition and is never excluded this way.
+                let isAnimefyExcludedChat: Bool = {
+                    guard let addressName = self.chatPresentationInterfaceState.renderedPeer?.peer?.addressName else {
+                        return false
+                    }
+                    return SGSimpleSettings.shared.animefyExcludedUsernames.contains(addressName.lowercased())
+                }()
                 // MARK: ViboGram - "Anime-ify" outgoing text -- runs as an
                 // actual installed plugin (Swiftgram/SGPython's
                 // animefy.plugin) through SGPythonRuntime.callFunction, not
@@ -5099,7 +5111,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                 // when the whole message already shares one uniform style.
                 // A missing/failed plugin call silently no-ops (sends the
                 // untouched text) rather than blocking sending.
-                if SGSimpleSettings.shared.animefyEnabled && !inputTextHasMixedFormatting {
+                if SGSimpleSettings.shared.animefyEnabled && !inputTextHasMixedFormatting && !isAnimefyExcludedChat {
                     let pluginPath = SGPluginsStore.path(for: SGPythonRuntime.installBuiltinAnimefyPlugin())
                     let options: [String: Any] = [
                         "word_swaps": SGSimpleSettings.shared.animefyWordSwaps,

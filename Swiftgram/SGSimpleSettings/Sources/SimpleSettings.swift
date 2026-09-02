@@ -198,6 +198,7 @@ public class SGSimpleSettings {
         case animefyParticles
         case animefyKaomoji
         case animefyHearts
+        case animefyExcludedUsernames
     }
     
     public enum DownloadSpeedBoostValues: String, CaseIterable {
@@ -412,6 +413,7 @@ public class SGSimpleSettings {
         Keys.animefyParticles.rawValue: true,
         Keys.animefyKaomoji.rawValue: true,
         Keys.animefyHearts.rawValue: true,
+        Keys.animefyExcludedUsernames.rawValue: [String](),
         Keys.keepBannedChatsVisible.rawValue: false,
         Keys.restoreDeletedGifts.rawValue: false,
         Keys.localPremiumUnlockEnabled.rawValue: false
@@ -728,6 +730,12 @@ public class SGSimpleSettings {
 
     @UserDefault(key: Keys.animefyHearts.rawValue)
     public var animefyHearts: Bool
+
+    // MARK: ViboGram - per-chat opt-out, checked against the current chat's
+    // username in ChatControllerNode.swift before either animefy or the
+    // generic on_send hooks run. Stored lowercased, no leading @.
+    @UserDefault(key: Keys.animefyExcludedUsernames.rawValue)
+    public var animefyExcludedUsernames: [String]
 
     // MARK: ViboGram - anti-delete (Tier 3). Cloud-chat messages deleted by the
     // other side are kept locally (tagged, not removed) instead of vanishing.

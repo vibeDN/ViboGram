@@ -162,6 +162,7 @@ private enum SGDisclosureLink: String {
     case appBadges
     case customEditedLabel
     case plugins
+    case animefyExceptions
 }
 
 private struct PeerNameColorScreenState: Equatable {
@@ -268,6 +269,13 @@ private func SGControllerEntries(presentationData: PresentationData, callListSet
         entries.append(.toggle(id: id.count, section: .privacy, settingName: .animefyKaomoji, value: SGSimpleSettings.shared.animefyKaomoji, text: "Kaomoji", enabled: true))
         entries.append(.toggle(id: id.count, section: .privacy, settingName: .animefyHearts, value: SGSimpleSettings.shared.animefyHearts, text: "Heart tail", enabled: true))
         entries.append(.notice(id: id.count, section: .privacy, text: "Commands, links and mentions are left untouched. If the result would be too long, the original text is sent instead."))
+        // MARK: ViboGram - "вот бы туда список исключений чтоб бате случайно
+        // так не написал" -- per-chat opt-out by @username (checked against
+        // the current chat's peer in ChatControllerNode.swift, case/@
+        // -insensitive) so the toggle above can stay on globally without
+        // risking it firing in a chat where it'd never be welcome.
+        let exceptionsCount = SGSimpleSettings.shared.animefyExcludedUsernames.count
+        entries.append(.disclosure(id: id.count, section: .privacy, link: .animefyExceptions, text: exceptionsCount > 0 ? "Exceptions (\(exceptionsCount))" : "Exceptions"))
     }
 
     entries.append(.header(id: id.count, section: .stories, text: strings.AutoDownloadSettings_Stories.uppercased(), badge: nil))
@@ -898,6 +906,31 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
                 alert.addAction(UIAlertAction(title: i18n("Settings.Save", lang), style: .default, handler: { [weak alert] _ in
                     let newValue = alert?.textFields?.first?.text ?? ""
                     SGSimpleSettings.shared.customEditedLabel = newValue
+                }))
+                context.sharedContext.mainWindow?.presentNative(alert)
+            case .animefyExceptions:
+                // MARK: ViboGram - one comma-separated field, not a per-item
+                // add/remove picker -- matches customEditedLabel's own
+                // plain-text-prompt precedent above and needs no peer-search
+                // UI. @ is optional on each entry (stripped either way);
+                // matching against the current chat happens in
+                // ChatControllerNode.swift via SGSimpleSettings.shared
+                // .animefyExcludedUsernames, case/@-insensitive there too.
+                let alert = UIAlertController(title: "Anime-ify Exceptions", message: "Usernames to never Anime-ify, comma-separated (e.g. dad_username, boss_username).", preferredStyle: .alert)
+                alert.addTextField { textField in
+                    textField.text = SGSimpleSettings.shared.animefyExcludedUsernames.joined(separator: ", ")
+                    textField.placeholder = "username1, username2"
+                    textField.autocapitalizationType = .none
+                    textField.autocorrectionType = .no
+                }
+                alert.addAction(UIAlertAction(title: presentationData.strings.Common_Cancel, style: .cancel, handler: nil))
+                alert.addAction(UIAlertAction(title: "Save", style: .default, handler: { [weak alert] _ in
+                    let raw = alert?.textFields?.first?.text ?? ""
+                    SGSimpleSettings.shared.animefyExcludedUsernames = raw
+                        .split(separator: ",")
+                        .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+                        .map { $0.hasPrefix("@") ? String($0.dropFirst()) : $0 }
+                        .filter { !$0.isEmpty }
                 }))
                 context.sharedContext.mainWindow?.presentNative(alert)
         }
