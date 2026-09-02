@@ -743,6 +743,8 @@ private let builtinAnimefyPluginSource = """
 # falls back to the untouched text). Word/kaomoji/particle lists below are
 # our own, not the source plugin's content.
 
+__name__ = "Anime-ify"
+
 WORD_SWAPS = {
     "привет": "приветик",
     "пока": "покеда",
@@ -872,6 +874,8 @@ private let builtinAsciiArtPluginSource = """
 # on the Swift side (SGAsciiArtBridge) -- our bundled stdlib has no image
 # codec -- so this plugin only turns an already-computed brightness grid
 # into the rendered art. The character ladder below is our own choice.
+
+__name__ = "ASCII Art"
 
 LADDER = "#%*+=-:. "
 

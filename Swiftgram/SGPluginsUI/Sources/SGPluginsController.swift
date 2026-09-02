@@ -30,6 +30,35 @@ private enum SGPluginsAction: Hashable {
 
 private typealias SGPluginsEntry = SGItemListUIEntry<SGPluginsControllerSection, AnyHashable, AnyHashable, AnyHashable, AnyHashable, SGPluginsAction>
 
+// MARK: ViboGram - friendly names in the plugin list instead of raw
+// filenames, without executing the plugin: a plain top-level
+// `__name__ = "..."` string constant (exteraGram's own convention --
+// confirmed against a real installed .plugin file this session found
+// declares exactly this) is read via a cheap line scan, no Python
+// involved. Falls back to the filename itself when absent or malformed
+// -- this is cosmetic only, never a reason to hide a plugin.
+private func sgPluginDisplayName(filename: String) -> String {
+    guard let data = FileManager.default.contents(atPath: SGPluginsStore.path(for: filename)),
+          let source = String(data: data, encoding: .utf8) else {
+        return filename
+    }
+    for line in source.split(separator: "\n", omittingEmptySubsequences: false) {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("__name__") else { continue }
+        guard let equalsIndex = trimmed.firstIndex(of: "=") else { continue }
+        var value = String(trimmed[trimmed.index(after: equalsIndex)...]).trimmingCharacters(in: .whitespaces)
+        if value.count >= 2, let first = value.first, let last = value.last,
+           (first == "\"" && last == "\"") || (first == "'" && last == "'") {
+            value.removeFirst()
+            value.removeLast()
+        }
+        if !value.isEmpty {
+            return value
+        }
+    }
+    return filename
+}
+
 private func sgPluginsEntries(installedPlugins: [String]) -> [SGPluginsEntry] {
     var entries: [SGPluginsEntry] = []
     let id = SGItemListCounter()
@@ -42,7 +71,9 @@ private func sgPluginsEntries(installedPlugins: [String]) -> [SGPluginsEntry] {
         entries.append(.notice(id: id.count, section: .installed, text: "No plugins installed yet."))
     } else {
         for filename in installedPlugins {
-            entries.append(.action(id: id.count, section: .installed, actionType: .plugin(filename: filename), text: filename, kind: .generic))
+            let displayName = sgPluginDisplayName(filename: filename)
+            let text = displayName == filename ? filename : "\(displayName) (\(filename))"
+            entries.append(.action(id: id.count, section: .installed, actionType: .plugin(filename: filename), text: text, kind: .generic))
         }
     }
 

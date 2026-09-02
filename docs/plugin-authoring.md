@@ -40,6 +40,10 @@ below), use **Run with Text…** instead — it prompts for a string and calls
 - **Where it lives**: `Settings → Plugins` manages your installed plugins
   (stored in the app's own Documents folder, so they survive updates). The
   same screen is reachable directly via the `tg://sg/plugins` link.
+- **Display name** (optional): a top-level `__name__ = "Your Plugin"`
+  string constant -- same convention exteraGram plugins use. Shown in the
+  Plugins list instead of the raw filename; purely cosmetic, doesn't
+  change how your plugin is called.
 
 ## Two real examples
 
