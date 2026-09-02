@@ -66,6 +66,27 @@ RARITY_ORDER = ["Common", "Rare", "Epic", "Legendary"]
 # alone is a real grind, not a shortcut around the daily pull.
 CRAFT_COST = {"Common": 3, "Rare": 5, "Epic": 7}
 
+# MARK: ViboGram - real, mechanical passives, tied to RARITY TIER rather
+# than to each individual card (48 unique hand-balanced passives across
+# both games is its own project; a shared 4-entry table is tractable to
+# actually balance and test). Escalates with rarity, same spirit as
+# CRAFT_COST -- a Legendary should feel meaningfully stronger than a
+# Common, but nothing here ever guarantees a win or a free craft, only
+# softens bad luck, once a day.
+#   Common  "Budget Grind"    -- craft cost for this tier is 1 cheaper
+#                                (a real economy nudge: commons are ~60%
+#                                of pulls, so make them worth using)
+#   Rare    (none)            -- deliberately the plain middle tier
+#   Epic    "Second Wind"     -- the first battle LOSS with an Epic card
+#                                each day doesn't count against your
+#                                losses tally (still costs the attempt)
+#   Legendary "Always Charged" -- the first battle LOSS with a Legendary
+#                                card each day doesn't count against your
+#                                losses tally AND is refunded (doesn't
+#                                consume one of the 3 daily attempts)
+PASSIVE_CRAFT_DISCOUNT = {"Common": 1}
+PASSIVE_LOSS_MITIGATION = {"Epic": "count_only", "Legendary": "refund"}
+
 # MARK: ViboGram - a single "power" number per card index, indexed to
 # match CARD_POOL's order in the corresponding .vibo file exactly
 # (card_pull: ATK+DEF: phone_pull: the benchmark score itself). Needed
@@ -242,7 +263,10 @@ def handle_craft(token, repo, issue_number, game, username, fields):
         return
 
     have = player["inventory"].get(str(consume_idx), 0)
-    cost = CRAFT_COST[rarity]
+    # MARK: ViboGram - "Budget Grind" passive (see PASSIVE_CRAFT_DISCOUNT
+    # above): Common-tier crafting costs 1 fewer copy, floored at 1 so a
+    # future lower CRAFT_COST entry can never hit 0.
+    cost = max(1, CRAFT_COST[rarity] - PASSIVE_CRAFT_DISCOUNT.get(rarity, 0))
     if have < cost:
         reject(token, repo, issue_number, f"you have {have}x card #{consume_idx}, crafting needs {cost}x.")
         return
@@ -287,6 +311,11 @@ def handle_battle(token, repo, issue_number, game, username, fields):
     if player.get("last_battle_date") != today:
         player["battles_today"] = 0
         player["last_battle_date"] = today
+        # MARK: ViboGram - loss-mitigation passives (Second Wind / Always
+        # Charged) reset on the same daily boundary as the battle-attempt
+        # counter -- one softened loss per real day, not per card, not
+        # per battle.
+        player["mitigation_used_date"] = None
     if player["battles_today"] >= BATTLE_DAILY_LIMIT:
         reject(token, repo, issue_number, f"already used all {BATTLE_DAILY_LIMIT} official battles today -- come back tomorrow.")
         return
@@ -309,10 +338,27 @@ def handle_battle(token, repo, issue_number, game, username, fields):
         commit_and_push(player_path, f"game-sync: {game}/{username} battle win, prize #{prize_idx}")
         accept(token, repo, issue_number, f"Your #{my_idx} (power {my_power}) beat #{opp_idx} (power {opp_power})! Prize: card #{prize_idx} ({my_rarity}). Your `{game}` inventory: `{player_path}`")
     elif my_power < opp_power:
-        player["losses"] = player.get("losses", 0) + 1
-        save_player(player_path, player)
-        commit_and_push(player_path, f"game-sync: {game}/{username} battle loss")
-        accept(token, repo, issue_number, f"Your #{my_idx} (power {my_power}) lost to #{opp_idx} (power {opp_power}). No prize this time.")
+        mitigation = PASSIVE_LOSS_MITIGATION.get(my_rarity)
+        mitigated = mitigation is not None and player.get("mitigation_used_date") != today
+        if mitigated:
+            player["mitigation_used_date"] = today
+            if mitigation == "refund":
+                # MARK: ViboGram - "Always Charged": the loss doesn't
+                # count AND the attempt itself is refunded.
+                player["battles_today"] -= 1
+                note = f"Your #{my_idx}'s Legendary passive (Always Charged) voided this loss AND refunded the attempt -- battles left today unaffected."
+            else:
+                # "Second Wind": the loss doesn't count, but the attempt
+                # is still spent.
+                note = f"Your #{my_idx}'s Epic passive (Second Wind) voided this loss (attempt still spent)."
+            save_player(player_path, player)
+            commit_and_push(player_path, f"game-sync: {game}/{username} battle loss mitigated ({mitigation})")
+            accept(token, repo, issue_number, f"Your #{my_idx} (power {my_power}) lost to #{opp_idx} (power {opp_power}). {note}")
+        else:
+            player["losses"] = player.get("losses", 0) + 1
+            save_player(player_path, player)
+            commit_and_push(player_path, f"game-sync: {game}/{username} battle loss")
+            accept(token, repo, issue_number, f"Your #{my_idx} (power {my_power}) lost to #{opp_idx} (power {opp_power}). No prize this time.")
     else:
         player["draws"] = player.get("draws", 0) + 1
         save_player(player_path, player)

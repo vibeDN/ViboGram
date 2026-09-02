@@ -132,6 +132,7 @@ def settings(args):
         widgets.append({"type": "text", "text": "Set your Telegram username above first."})
     else:
         widgets.append({"type": "text", "text": "Opens a pre-filled GitHub Issue -- a bot processes it and comments the real result within a minute or so."})
+        widgets.append({"type": "text", "text": "Rarity passives (real, server-enforced): Common -- craft costs 1 less. Epic -- first battle loss/day doesn't count. Legendary -- first loss/day doesn't count AND refunds the attempt."})
         widgets.append({"type": "action", "id": "official_pull", "text": "Official Pull (opens GitHub)"})
         widgets.append({"type": "input", "key": "craft_index", "text": "Card # to craft (from your last pull result / record file)", "default": vibo.get_setting("craft_index", ""), "placeholder": "e.g. 5"})
         widgets.append({"type": "action", "id": "official_craft", "text": "Official Craft (opens GitHub)"})
