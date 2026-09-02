@@ -19,12 +19,19 @@ pull.
 
 Identity: GitHub issues have no cryptographic link to a Telegram username --
 anyone with a GitHub account could open `[pull:card_pull] someone_elses_name`
-otherwise. Each request must include a `secret` field the plugin generates
-once and keeps locally. The FIRST request CI ever sees for a given username
-claims it (stores that secret); every later request for that username must
-supply the same secret or is rejected as impersonation. This is a casual
-bearer-token scheme, not real auth -- good enough to stop drive-by
-impersonation in a small hobby-project community, not a bank.
+otherwise. An earlier version of this had the client submit a `secret` field
+in the issue BODY to prove ownership -- wrong, because the issue body is
+public the instant it's submitted, so the very first use publishes the
+"secret" to anyone reading the repo's issues, defeating it before it's ever
+checked a second time. Fixed: identity is now the GitHub account that
+actually opened the issue (github.event.issue.user.login, passed in as
+ISSUE_AUTHOR -- GitHub authenticates this itself, it can't be forged the way
+issue text can). The FIRST request CI ever sees for a given username claims
+it for that GitHub account; every later request for that username must come
+from the SAME account or is rejected as impersonation. Still not
+bank-grade (a compromised GitHub account is a compromised claim), but the
+class of bug this replaces -- "the proof of identity is itself public
+plaintext" -- is gone.
 
 Trades are intentionally NOT implemented here yet -- a safe trade needs
 mutual consent from both players (a propose/accept handshake), which this
@@ -142,7 +149,7 @@ def parse_body(body):
     fields = {}
     for line in (body or "").splitlines():
         line = line.strip()
-        m = re.match(r"^(secret|card_index)=(.*)$", line)
+        m = re.match(r"^(card_index)=(.*)$", line)
         if m:
             fields[m.group(1)] = m.group(2).strip()
     return fields
@@ -204,27 +211,28 @@ def commit_and_push(path, message):
         subprocess.run(["git", "push", "origin", "HEAD:main"], check=True)
 
 
-def check_identity(player, secret):
-    """Returns None if OK, or a rejection reason string."""
-    if not secret:
-        return "missing secret field -- this plugin build is out of date, or the request was tampered with."
-    if player is not None and player.get("secret") != secret:
-        return "secret doesn't match -- this username is already claimed by a different install. If this is really you, your local secret got reset; nothing can recover the old one (that's the point)."
+def check_identity(player, github_author):
+    """Returns None if OK, or a rejection reason string. github_author is
+    github.event.issue.user.login -- GitHub-authenticated, not something a
+    client can forge by editing issue text."""
+    if not github_author:
+        return "couldn't determine the GitHub account that opened this issue."
+    if player is not None and player.get("github_login") != github_author:
+        return f"this username is already claimed by a different GitHub account. If that's a mistake, the real owner needs to say so -- nothing here can verify that automatically."
     return None
 
 
-def handle_pull(token, repo, issue_number, game, username, fields):
+def handle_pull(token, repo, issue_number, game, username, fields, github_author):
     player_path = f"players/{game}/{username}.json"
     player = load_player(player_path)
-    secret = fields.get("secret", "")
 
-    identity_error = check_identity(player, secret)
+    identity_error = check_identity(player, github_author)
     if identity_error:
         reject(token, repo, issue_number, identity_error)
         return
 
     if player is None:
-        player = {"username": username, "secret": secret, "inventory": {}, "last_pull_date": "", "wins": 0, "losses": 0, "draws": 0}
+        player = {"username": username, "github_login": github_author, "inventory": {}, "last_pull_date": "", "wins": 0, "losses": 0, "draws": 0}
 
     today = date.today().isoformat()
     if player["last_pull_date"] == today:
@@ -241,12 +249,11 @@ def handle_pull(token, repo, issue_number, game, username, fields):
     accept(token, repo, issue_number, f"You pulled card #{idx} ({rarity}). Your `{game}` inventory: `{player_path}`")
 
 
-def handle_craft(token, repo, issue_number, game, username, fields):
+def handle_craft(token, repo, issue_number, game, username, fields, github_author):
     player_path = f"players/{game}/{username}.json"
     player = load_player(player_path)
-    secret = fields.get("secret", "")
 
-    identity_error = check_identity(player, secret)
+    identity_error = check_identity(player, github_author)
     if identity_error:
         reject(token, repo, issue_number, identity_error)
         return
@@ -290,12 +297,11 @@ def handle_craft(token, repo, issue_number, game, username, fields):
     accept(token, repo, issue_number, f"Crafted {cost}x card #{consume_idx} ({rarity}) into 1x card #{produced_idx} ({next_rarity}). Your `{game}` inventory: `{player_path}`")
 
 
-def handle_battle(token, repo, issue_number, game, username, fields):
+def handle_battle(token, repo, issue_number, game, username, fields, github_author):
     player_path = f"players/{game}/{username}.json"
     player = load_player(player_path)
-    secret = fields.get("secret", "")
 
-    identity_error = check_identity(player, secret)
+    identity_error = check_identity(player, github_author)
     if identity_error:
         reject(token, repo, issue_number, identity_error)
         return
@@ -378,6 +384,7 @@ def main():
     issue_number = os.environ["ISSUE_NUMBER"]
     title = os.environ.get("ISSUE_TITLE", "")
     body = os.environ.get("ISSUE_BODY", "")
+    github_author = os.environ.get("ISSUE_AUTHOR", "")
 
     match = TITLE_RE.match(title.strip())
     if not match:
@@ -393,11 +400,11 @@ def main():
     fields = parse_body(body)
 
     if action == "pull":
-        handle_pull(token, repo, issue_number, game, username, fields)
+        handle_pull(token, repo, issue_number, game, username, fields, github_author)
     elif action == "craft":
-        handle_craft(token, repo, issue_number, game, username, fields)
+        handle_craft(token, repo, issue_number, game, username, fields, github_author)
     elif action == "battle":
-        handle_battle(token, repo, issue_number, game, username, fields)
+        handle_battle(token, repo, issue_number, game, username, fields, github_author)
 
 
 if __name__ == "__main__":

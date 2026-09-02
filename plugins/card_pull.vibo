@@ -32,7 +32,6 @@
 
 import random
 import datetime
-import secrets as _pysecrets
 import urllib.parse
 
 __name__ = "Card Pull"
@@ -94,14 +93,6 @@ def _best_index(collection):
     if not collection:
         return None
     return max(collection, key=lambda idx: CARD_POOL[idx][3] + CARD_POOL[idx][4])
-
-
-def _secret():
-    value = vibo.get_setting("secret", "")
-    if not value:
-        value = _pysecrets.token_hex(8)
-        vibo.set_setting("secret", value)
-    return value
 
 
 def _issue_url(title, body):
@@ -196,7 +187,7 @@ def on_action(args):
         if not username:
             vibo.toast("Set your Telegram username first.")
             return None
-        url = _issue_url(f"[pull:{GAME_ID}] {username}", f"secret={_secret()}")
+        url = _issue_url(f"[pull:{GAME_ID}] {username}", "")
         vibo.open_url(url)
         vibo.toast("Opened GitHub -- submit the issue, then check its comments in a bit for your card.")
 
@@ -208,7 +199,7 @@ def on_action(args):
         if not str(card_index).strip():
             vibo.toast("Enter a card number to craft first.")
             return None
-        url = _issue_url(f"[craft:{GAME_ID}] {username}", f"secret={_secret()}\ncard_index={card_index}")
+        url = _issue_url(f"[craft:{GAME_ID}] {username}", f"card_index={card_index}")
         vibo.open_url(url)
         vibo.toast("Opened GitHub -- submit the issue, then check its comments for the result.")
 
@@ -220,7 +211,7 @@ def on_action(args):
         if not str(card_index).strip():
             vibo.toast("Enter a card number to battle with first.")
             return None
-        url = _issue_url(f"[battle:{GAME_ID}] {username}", f"secret={_secret()}\ncard_index={card_index}")
+        url = _issue_url(f"[battle:{GAME_ID}] {username}", f"card_index={card_index}")
         vibo.open_url(url)
         vibo.toast("Opened GitHub -- submit the issue, then check its comments for the result. Max 3 official battles/day.")
 
@@ -279,7 +270,7 @@ def _cmd_official_pull():
     username = vibo.get_setting("username", "")
     if not username:
         return "🎴 Set your Telegram username in Settings… first."
-    url = _issue_url(f"[pull:{GAME_ID}] {username}", f"secret={_secret()}")
+    url = _issue_url(f"[pull:{GAME_ID}] {username}", "")
     vibo.open_url(url)
     return "🎴 Official pull request opened in Safari -- check the GitHub issue's comments in a bit for your real card."
 
@@ -292,7 +283,7 @@ def _cmd_official_craft(stripped):
     if len(parts) < 2 or not parts[1].strip().isdigit():
         return "🎴 Usage: .ocraft <card number>"
     card_index = parts[1].strip()
-    url = _issue_url(f"[craft:{GAME_ID}] {username}", f"secret={_secret()}\ncard_index={card_index}")
+    url = _issue_url(f"[craft:{GAME_ID}] {username}", f"card_index={card_index}")
     vibo.open_url(url)
     return f"🎴 Official craft request for card #{card_index} opened in Safari -- check the issue's comments for the result."
 
@@ -305,7 +296,7 @@ def _cmd_official_battle(stripped):
     if len(parts) < 2 or not parts[1].strip().isdigit():
         return "🎴 Usage: .obattle <card number>"
     card_index = parts[1].strip()
-    url = _issue_url(f"[battle:{GAME_ID}] {username}", f"secret={_secret()}\ncard_index={card_index}")
+    url = _issue_url(f"[battle:{GAME_ID}] {username}", f"card_index={card_index}")
     vibo.open_url(url)
     return f"🎴 Official battle request with card #{card_index} opened in Safari -- check the issue's comments for the result. Max 3/day."
 

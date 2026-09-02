@@ -7,8 +7,12 @@ name: game-sync
 # safely trigger that ends up processed here, where the real
 # repo-writing token lives only in this job, never in the plugin.
 # See build-system/game_sync.py for the actual validation/anti-cheat logic
-# (server rolls the card, not the client; a bearer secret claims a
-# username on first use to block drive-by impersonation).
+# (server rolls the card, not the client; identity is the GitHub account
+# that opened the issue -- github.event.issue.user.login, authenticated
+# by GitHub itself, not a client-submitted secret. An earlier version
+# used a client-submitted secret in the issue body -- wrong, since the
+# body is public the instant the issue is filed, so the "secret" leaks
+# on its very first use).
 on:
   issues:
     types: [opened]
@@ -32,4 +36,5 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
         run: python3 build-system/game_sync.py
