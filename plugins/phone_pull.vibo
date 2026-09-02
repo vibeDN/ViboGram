@@ -1,0 +1,141 @@
+# ViboGram plugin: same daily-gacha-pull + auto-battle mechanic as
+# card_pull.vibo, reskinned as phones instead of fantasy monsters --
+# "power" is a single AnTuTu-style benchmark score, battles are just
+# score vs score. One pull per real calendar day (stored last-pull
+# date), persistent collection via vibo.get_setting/set_setting. Scores
+# below are flavor/relative-tier numbers, not real benchmark results.
+
+import random
+import datetime
+
+__name__ = "Phone Pull"
+
+# name, rarity, score
+CARD_POOL = [
+    ("Redmi Note 13", "Common", 280),
+    ("Moto G Power", "Common", 220),
+    ("Galaxy A15", "Common", 240),
+    ("Poco C65", "Common", 200),
+    ("Nokia G22", "Common", 150),
+    ("iPhone SE (2022)", "Common", 300),
+    ("Galaxy A05", "Common", 190),
+    ("Realme C55", "Common", 230),
+    ("Moto Edge Lite", "Common", 260),
+    ("Redmi 12", "Common", 210),
+    ("Pixel 8a", "Rare", 650),
+    ("OnePlus Nord 4", "Rare", 680),
+    ("Galaxy S24 FE", "Rare", 700),
+    ("Poco F6", "Rare", 720),
+    ("iPhone 13", "Rare", 750),
+    ("Galaxy A55", "Rare", 600),
+    ("iPhone 15 Pro", "Epic", 1600),
+    ("Galaxy S24 Ultra", "Epic", 1550),
+    ("Pixel 9 Pro", "Epic", 1400),
+    ("OnePlus 12", "Epic", 1580),
+    ("ASUS ROG Phone 8", "Epic", 1650),
+    ("iPhone 16 Pro Max", "Legendary", 2000),
+    ("Nokia 3310", "Legendary", 1),  # indestructible, computationally a potato
+    ("Dual Xeon 2670v2 Homelab Rig", "Legendary", 9999),  # not a phone, cheats the pool
+]
+
+RARITY_WEIGHTS = {"Common": 60, "Rare": 25, "Epic": 12, "Legendary": 3}
+RARITY_EMOJI = {"Common": "⚪", "Rare": "🔵", "Epic": "🟣", "Legendary": "🟡"}
+
+_INDICES_BY_RARITY = {}
+for _i, _c in enumerate(CARD_POOL):
+    _INDICES_BY_RARITY.setdefault(_c[1], []).append(_i)
+
+
+def _pull_index():
+    rarity = random.choices(list(RARITY_WEIGHTS.keys()), weights=list(RARITY_WEIGHTS.values()))[0]
+    return random.choice(_INDICES_BY_RARITY[rarity])
+
+
+def _card_text(idx):
+    name, rarity, score = CARD_POOL[idx]
+    return f"{RARITY_EMOJI.get(rarity, '')} {name} ({rarity}) Score {score}"
+
+
+def _today():
+    return datetime.date.today().isoformat()
+
+
+def _best_index(collection):
+    if not collection:
+        return None
+    return max(collection, key=lambda idx: CARD_POOL[idx][2])
+
+
+def settings(args):
+    collection = vibo.get_setting("collection", [])
+    last_pull = vibo.get_setting("last_pull_date", "")
+    wins = vibo.get_setting("wins", 0)
+    losses = vibo.get_setting("losses", 0)
+    draws = vibo.get_setting("draws", 0)
+    can_pull = last_pull != _today()
+
+    widgets = [
+        {"type": "header", "text": "Phone Pull"},
+        {"type": "text", "text": "One pull per day. Power = benchmark score."},
+        {"type": "action", "id": "pull", "text": "Pull a Phone" if can_pull else "Already pulled today"},
+        {"type": "header", "text": f"Collection ({len(collection)})"},
+    ]
+
+    if not collection:
+        widgets.append({"type": "text", "text": "No phones yet -- pull one!"})
+    else:
+        best_idx = _best_index(collection)
+        widgets.append({"type": "text", "text": "Best phone: " + _card_text(best_idx)})
+        for idx in reversed(collection[-5:]):
+            widgets.append({"type": "text", "text": _card_text(idx)})
+        widgets.append({"type": "action", "id": "battle", "text": "Benchmark battle!"})
+
+    widgets.append({"type": "text", "text": f"Battles: {wins}W - {losses}L - {draws}D"})
+    return widgets
+
+
+def on_action(args):
+    action_id = args.get("id")
+    collection = vibo.get_setting("collection", [])
+    last_pull = vibo.get_setting("last_pull_date", "")
+
+    if action_id == "pull":
+        if last_pull == _today():
+            vibo.toast("Already pulled today -- come back tomorrow.")
+            return None
+        idx = _pull_index()
+        collection.append(idx)
+        vibo.set_setting("collection", collection)
+        vibo.set_setting("last_pull_date", _today())
+        rarity = CARD_POOL[idx][1]
+        style = "success" if rarity in ("Epic", "Legendary") else "info"
+        vibo.toast(f"You pulled: {_card_text(idx)}", style=style)
+        vibo.play_sound("success" if rarity in ("Epic", "Legendary") else "default")
+    elif action_id == "battle":
+        if not collection:
+            vibo.toast("Pull a phone first.")
+            return None
+        my_idx = _best_index(collection)
+        opp_idx = _pull_index()
+        my_score = CARD_POOL[my_idx][2]
+        opp_score = CARD_POOL[opp_idx][2]
+        my_name = CARD_POOL[my_idx][0]
+        opp_name = CARD_POOL[opp_idx][0]
+        if my_score > opp_score:
+            vibo.set_setting("wins", vibo.get_setting("wins", 0) + 1)
+            vibo.toast(f"{my_name} outbenches {opp_name}! You win.", style="success")
+        elif my_score < opp_score:
+            vibo.set_setting("losses", vibo.get_setting("losses", 0) + 1)
+            vibo.toast(f"{opp_name} outbenches {my_name}. You lose.")
+        else:
+            vibo.set_setting("draws", vibo.get_setting("draws", 0) + 1)
+            vibo.toast(f"{my_name} ties {opp_name}. Draw.")
+    return None
+
+
+def transform(args):
+    collection = vibo.get_setting("collection", [])
+    if not collection:
+        return "Phone Pull: open Settings… and pull your first phone."
+    best_idx = _best_index(collection)
+    return f"Collection: {len(collection)} phones. Best: {_card_text(best_idx)}"
