@@ -447,18 +447,17 @@ jobs:
           # flips to 1 for good. B = number of completed roadmap tiers (bump by
           # hand as tiers finish). C = release counter *within* the current A.B
           # (resets when B -- or the A flip -- changes, not a global counter).
-          # Tier 3 is in progress, not finished -- TIERS_DONE here doubles as
-          # "how many Tier 3 items have shipped a release" per C, not "tiers
-          # fully complete" like it did for Tiers 1/2. Bump the roadmap wording
-          # below once Tier 3 (all 6 items + badges) is actually done.
-          TIERS_DONE: "3"
+          # MARK: ViboGram - was manually reset 4 -> 3 at some point (a real
+          # regression: releases visibly went 0.4.0 -> 0.3.x), then bumped to
+          # 5 -- and A flipped to 1 for good -- once the plugin system's real
+          # hooks (on_send + on_receive, not just a settings-screen skeleton)
+          # actually shipped. Bump TIERS_DONE by hand as future tiers land;
+          # A now stays 1 regardless (see the 1.5.0 release notes for what
+          # actually shipped).
+          TIERS_DONE: "5"
         run: |
           set -euo pipefail
-          if [ "$TIERS_DONE" = "4" ]; then
-            MAJOR=1
-          else
-            MAJOR=0
-          fi
+          MAJOR=1
           PREFIX="${MAJOR}.${TIERS_DONE}."
           # max(existing C), not count() -- manual test releases can leave gaps
           # or take a specific number, and count() would then collide with an
@@ -466,11 +465,8 @@ jobs:
           EXISTING_MAX=$(gh api "repos/${{ github.repository }}/releases" --jq \
             "[.[] | select(.tag_name | startswith(\"$PREFIX\")) | (.tag_name | split(\".\")[2] | tonumber? // -1)] | if length == 0 then -1 else max end")
           NEXT_C=$((EXISTING_MAX + 1))
-          if [ "$MAJOR" = "0" ] && [ "$NEXT_C" = "0" ]; then
-            NEXT_C=1
-          fi
           VERSION="${MAJOR}.${TIERS_DONE}.${NEXT_C}"
-          NOTES="Signed device IPA, auto-published from trial-build.yml ($(git rev-parse --short HEAD)). Signed with a free-tier Apple ID cert/profile — install directly via LiveContainer/AltStore/SideStore (no resigning needed), but the cert expires after 7 days and the profile is locked to registered device UDIDs. No push notifications (free Apple ID can't get that entitlement). Tiers 1-2 of the roadmap complete, Tier 3 in progress."
+          NOTES="Signed device IPA, auto-published from trial-build.yml ($(git rev-parse --short HEAD)). Signed with a free-tier Apple ID cert/profile — install directly via LiveContainer/AltStore/SideStore (no resigning needed), but the cert expires after 7 days and the profile is locked to registered device UDIDs. No push notifications (free Apple ID can't get that entitlement)."
           gh release create "$VERSION" "${{ steps.ipa.outputs.path }}" \
             --title "$VERSION" \
             --notes "$NOTES" \
