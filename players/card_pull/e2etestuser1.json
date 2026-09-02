@@ -1,0 +1,11 @@
+{
+  "draws": 0,
+  "inventory": {
+    "10": 1
+  },
+  "last_pull_date": "2026-09-02",
+  "losses": 0,
+  "secret": "e2etestsecret123",
+  "username": "e2etestuser1",
+  "wins": 0
+}
