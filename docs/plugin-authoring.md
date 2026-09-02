@@ -171,10 +171,29 @@ silently; nothing ever blocks sending. There's no per-plugin on/off
 switch yet -- having the plugin installed *is* the switch, so remove or
 rename the file to stop it running.
 
-`on_send` is the only hook name the app actually acts on today. The
-`# vibo-hook: <name>` line is meant to carry future hook names (like
-`on_receive`) the same way once something in the app looks for them --
-using an unrecognized name today is just inert, not an error.
+### `on_receive` -- reacting to incoming messages
+
+Same marker convention, different name and a real capability boundary:
+
+```python
+# vibo-hook: on_receive
+```
+
+calls your `on_receive(args)` (`args = {"text": ..., "peer_title": ...}`)
+for every real incoming message (not muted, not while the device is
+locked -- same filtering this app's own notification sound already
+uses). Unlike `on_send`, **the return value is completely ignored** --
+there's no safe way for a plugin to rewrite what a message says it said,
+so it can't. Only side effects reach the user, and only some of them:
+`vibo.play_sound`/`set_clipboard`/`open_url` fire immediately (no UI
+needed), but `vibo.toast`/`alert`/`log`/`share` go nowhere from
+`on_receive` -- there's no notification-banner-safe place to show them
+yet. Lean on `play_sound` for the "something happened" reaction.
+
+`on_send` and `on_receive` are the only hook names the app acts on
+today. The `# vibo-hook: <name>` line is meant to carry future hook
+names the same way once something in the app looks for them -- using an
+unrecognized name today is just inert, not an error.
 
 ## Your own settings screen
 

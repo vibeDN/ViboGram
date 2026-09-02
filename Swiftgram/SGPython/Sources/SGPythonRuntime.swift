@@ -603,6 +603,42 @@ public enum SGPythonRuntime {
         return current
     }
 
+    // MARK: ViboGram - the incoming-message counterpart to
+    // applyOnSendHooks, deliberately much narrower: on_send can REPLACE
+    // the text about to be sent (the app was already about to show
+    // exactly that text, as what the user typed); on_receive cannot --
+    // there's no safe way for a plugin to rewrite what a message says it
+    // said, and doing so would be actively deceptive. So this only ever
+    // calls each hook plugin's on_receive and discards the WHOLE
+    // SGPluginCallResult, not just resultText -- including .events. Only
+    // the callFunctionRich-internal auto-applies (set_clipboard/haptic/
+    // open_url/play_sound -- the ones needing no presenting UI) actually
+    // happen; vibo.toast/alert/log/share go nowhere from here, since
+    // there is deliberately no presentControllerImpl-style UI surface
+    // wired to this call site (a toast popping up over whatever screen
+    // the user happens to be on, triggered by a message notification
+    // pipeline for a possibly-different chat, needs real design, not a
+    // blind reuse of the Plugins-screen pattern). Documented as a real
+    // capability boundary, not a bug -- an on_receive plugin should lean
+    // on play_sound/set_clipboard for its reaction.
+    // Called from ApplicationContext.swift (TelegramUI layer, already on
+    // the main queue, already past this app's own mute/lock/restriction
+    // filtering for the exact same message) -- never from TelegramCore,
+    // which this module's UIKit/AudioToolbox imports make off-limits
+    // there (see CLAUDE.md's "TelegramCore never imports UIKit/Display").
+    // A slow or hanging plugin here delays that one message's
+    // notification, same trust boundary as any other installed plugin --
+    // no new isolation was added to bound it.
+    public static func applyOnReceiveHooks(text: String, peerTitle: String) {
+        for filename in SGPluginsStore.installedPlugins() {
+            let path = SGPluginsStore.path(for: filename)
+            guard let firstLine = firstLine(ofFileAt: path), firstLine.trimmingCharacters(in: .whitespaces) == "# vibo-hook: on_receive" else {
+                continue
+            }
+            _ = callFunctionRich(scriptPath: path, functionName: "on_receive", argumentsJSON: ["text": text, "peer_title": peerTitle])
+        }
+    }
+
     private static func firstLine(ofFileAt path: String) -> String? {
         guard let data = FileManager.default.contents(atPath: path), let text = String(data: data, encoding: .utf8) else {
             return nil

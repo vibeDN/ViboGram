@@ -1,5 +1,6 @@
 // MARK: Swiftgram
 import SGSimpleSettings
+import SGPython
 import Foundation
 import UIKit
 import Intents
@@ -394,6 +395,15 @@ final class AuthorizedApplicationContext {
                                     if inAppNotificationSettings.vibrate {
                                         serviceSoundManager.playVibrationSound()
                                     }
+                                    // MARK: ViboGram - on_receive plugin hooks, gated
+                                    // on the exact same "real incoming message, not
+                                    // muted, not locked" condition this app's own
+                                    // sound/vibrate notification already uses. See
+                                    // SGPythonRuntime.applyOnReceiveHooks -- observational
+                                    // only, a plugin's return value is discarded, it can
+                                    // never alter what this message says or how it's shown.
+                                    let peerTitle = firstMessage.peers[firstMessage.id.peerId]?.debugDisplayTitle ?? ""
+                                    SGPythonRuntime.applyOnReceiveHooks(text: firstMessage.text, peerTitle: peerTitle)
                                 }
                             }
                             if let forwardInfo = firstMessage.forwardInfo, forwardInfo.flags.contains(.isImported) {
