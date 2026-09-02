@@ -34,7 +34,9 @@ below), use **Run with Text…** instead — it prompts for a string and calls
 - **Argument**: one Python `dict`, built from JSON on the Swift side. Only
   JSON-safe values in and out — strings, numbers, booleans, `None`, lists,
   and nested dicts. No images, no host objects, no callbacks.
-- **Return value**: a single string.
+- **Return value**: any JSON-safe value -- a string is the common case,
+  but a number/list/dict/`None` all work too (see "The `vibo` host
+  object" below for the details of how each is shown).
 - **Where it lives**: `Settings → Plugins` manages your installed plugins
   (stored in the app's own Documents folder, so they survive updates). The
   same screen is reachable directly via the `tg://sg/plugins` link.
