@@ -1,0 +1,162 @@
+# ViboGram plugin: single-player Blackjack (Очко) against a dealer bot,
+# played through the settings()/on_action() screen -- deck/hands/tally
+# persist via vibo.get_setting/set_setting between taps (the same
+# discrete-step re-render pattern tally_counter.vibo demonstrates),
+# since a plugin has no live channel to hold a real game loop open.
+# Standard rules (dealer hits under 17, ace counts 11 or 1), not a port
+# of anything.
+
+import random
+
+__name__ = "Blackjack"
+
+RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
+SUITS = ["♠", "♥", "♦", "♣"]
+
+
+def _new_deck():
+    deck = [rank + suit for suit in SUITS for rank in RANKS]
+    random.shuffle(deck)
+    return deck
+
+
+def _card_value(card):
+    rank = card[:-1]
+    if rank == "A":
+        return 11
+    if rank in ("J", "Q", "K"):
+        return 10
+    return int(rank)
+
+
+def _hand_value(hand):
+    total = sum(_card_value(c) for c in hand)
+    aces = sum(1 for c in hand if c.startswith("A"))
+    while total > 21 and aces:
+        total -= 10
+        aces -= 1
+    return total
+
+
+def _hand_text(hand):
+    return " ".join(hand)
+
+
+def _finish_round(state):
+    player_total = _hand_value(state["player"])
+    dealer = state["dealer"]
+    deck = state["deck"]
+    if player_total <= 21:
+        while _hand_value(dealer) < 17:
+            dealer.append(deck.pop())
+    dealer_total = _hand_value(dealer)
+    if player_total > 21:
+        state["status"] = "player_bust"
+        state["losses"] += 1
+    elif dealer_total > 21:
+        state["status"] = "dealer_bust"
+        state["wins"] += 1
+    elif player_total > dealer_total:
+        state["status"] = "player_win"
+        state["wins"] += 1
+    elif player_total < dealer_total:
+        state["status"] = "dealer_win"
+        state["losses"] += 1
+    else:
+        state["status"] = "push"
+        state["pushes"] += 1
+
+
+def _load_state():
+    return {
+        "deck": vibo.get_setting("deck", []),
+        "player": vibo.get_setting("player", []),
+        "dealer": vibo.get_setting("dealer", []),
+        "status": vibo.get_setting("status", "none"),
+        "wins": vibo.get_setting("wins", 0),
+        "losses": vibo.get_setting("losses", 0),
+        "pushes": vibo.get_setting("pushes", 0),
+    }
+
+
+def _save_state(state):
+    vibo.set_setting("deck", state["deck"])
+    vibo.set_setting("player", state["player"])
+    vibo.set_setting("dealer", state["dealer"])
+    vibo.set_setting("status", state["status"])
+    vibo.set_setting("wins", state["wins"])
+    vibo.set_setting("losses", state["losses"])
+    vibo.set_setting("pushes", state["pushes"])
+
+
+_RESULT_MESSAGES = {
+    "player_bust": "Bust -- you lose.",
+    "dealer_bust": "Dealer busts -- you win!",
+    "player_win": "You win!",
+    "dealer_win": "Dealer wins.",
+    "push": "Push -- a tie.",
+}
+
+
+def settings(args):
+    state = _load_state()
+    playing = state["status"] == "playing"
+
+    widgets = [{"type": "header", "text": "Blackjack (Очко)"}]
+
+    if state["status"] == "none":
+        widgets.append({"type": "text", "text": "Tap Deal to start."})
+    else:
+        player_total = _hand_value(state["player"])
+        widgets.append({"type": "text", "text": f"You: {_hand_text(state['player'])}  ({player_total})"})
+        if playing:
+            widgets.append({"type": "text", "text": f"Dealer: {state['dealer'][0]} ??"})
+        else:
+            dealer_total = _hand_value(state["dealer"])
+            widgets.append({"type": "text", "text": f"Dealer: {_hand_text(state['dealer'])}  ({dealer_total})"})
+            widgets.append({"type": "text", "text": _RESULT_MESSAGES.get(state["status"], "")})
+
+    widgets.append({"type": "text", "text": f"Wins: {state['wins']}   Losses: {state['losses']}   Pushes: {state['pushes']}"})
+
+    if playing:
+        widgets.append({"type": "action", "id": "hit", "text": "Hit"})
+        widgets.append({"type": "action", "id": "stand", "text": "Stand"})
+    else:
+        widgets.append({"type": "action", "id": "deal", "text": "Deal" if state["status"] == "none" else "New Round"})
+
+    return widgets
+
+
+def on_action(args):
+    action_id = args.get("id")
+    state = _load_state()
+
+    if action_id == "deal":
+        deck = _new_deck()
+        player = [deck.pop(), deck.pop()]
+        dealer = [deck.pop(), deck.pop()]
+        state["deck"] = deck
+        state["player"] = player
+        state["dealer"] = dealer
+        state["status"] = "playing"
+        if _hand_value(player) == 21:
+            _finish_round(state)
+            vibo.toast("Blackjack!", style="success")
+    elif action_id == "hit" and state["status"] == "playing":
+        state["player"].append(state["deck"].pop())
+        if _hand_value(state["player"]) > 21:
+            _finish_round(state)
+            vibo.toast("Bust!")
+    elif action_id == "stand" and state["status"] == "playing":
+        _finish_round(state)
+        vibo.toast(_RESULT_MESSAGES.get(state["status"], ""))
+
+    _save_state(state)
+    return None
+
+
+def transform(args):
+    state = _load_state()
+    if state["status"] == "none":
+        return "Blackjack: open Settings… to play."
+    return f"You: {_hand_text(state['player'])} ({_hand_value(state['player'])})  |  W{state['wins']}-L{state['losses']}-P{state['pushes']}"
