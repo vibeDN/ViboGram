@@ -1,6 +1,7 @@
 import Foundation
 import Python
 import UIKit
+import AudioToolbox
 
 // MARK: ViboGram - Tier 4 plugin system, Swift-side interpreter lifecycle
 // wrapper around CPython's embedding C API (docs.python.org/3/c-api/init_config.html).
@@ -37,6 +38,16 @@ import UIKit
 // that path is never needed here.
 public enum SGPythonRuntime {
     private static var didStart = false
+
+    // MARK: ViboGram - `vibo.play_sound(style)` preset name -> System
+    // Sound Services id. See the "play_sound" event case in
+    // callFunctionRich for what happens with a name not in this table.
+    private static let presetSystemSoundIds: [String: SystemSoundID] = [
+        "default": 1104, // "Tock" -- generic short UI click
+        "tap": 1104,
+        "success": 1025, // "Sent" -- ascending two-tone
+        "alert": 1005, // "New Mail" -- distinct attention tone
+    ]
     // MARK: ViboGram - captures the CPython-provided PyStatus.err_msg on failure
     // (confirmed via the Linux compile test to carry a real, specific message,
     // e.g. "Failed to import encodings module" -- far more useful than just
@@ -391,6 +402,9 @@ public enum SGPythonRuntime {
             def open_url(self, url):
                 self.events.append({"type": "open_url", "text": str(url)})
 
+            def play_sound(self, style_or_path="default"):
+                self.events.append({"type": "play_sound", "text": str(style_or_path)})
+
             def device_info(self):
                 return self._host_info.get("device_info", {})
 
@@ -505,6 +519,31 @@ public enum SGPythonRuntime {
                 // casually, only hand the user off to a normal web link.
                 if let url = URL(string: event.text), let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
                     UIApplication.shared.open(url)
+                }
+            case "play_sound":
+                // MARK: ViboGram - a handful of named presets (System
+                // Sound Services IDs -- undocumented-but-stable, widely
+                // relied on across the iOS dev community for years; a
+                // wrong/unregistered id is a documented no-op, never a
+                // crash, so getting one wrong is a "no sound" bug at
+                // worst) covers the common case with zero setup. Anything
+                // else is tried as a local file path -- naturally reaches
+                // for vibo.data_dir() since that's the one place a plugin
+                // can be sure it already has a file it dropped there
+                // itself (e.g. a small bundled clip, base64-decoded once
+                // on first run). No path restriction to data_dir
+                // specifically: a plugin already has unrestricted
+                // Python-level file I/O, so gating *playback* alone adds
+                // no real containment.
+                if let systemSoundId = SGPythonRuntime.presetSystemSoundIds[event.text] {
+                    AudioServicesPlaySystemSound(systemSoundId)
+                } else if FileManager.default.fileExists(atPath: event.text) {
+                    var soundId: SystemSoundID = 0
+                    if AudioServicesCreateSystemSoundID(URL(fileURLWithPath: event.text) as CFURL, &soundId) == kAudioServicesNoError {
+                        AudioServicesPlaySystemSoundWithCompletion(soundId) {
+                            AudioServicesDisposeSystemSoundID(soundId)
+                        }
+                    }
                 }
             default:
                 break

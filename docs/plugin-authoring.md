@@ -100,6 +100,13 @@ Every plugin run through **Run** in the Plugins screen, or through an
   only; anything else is silently ignored (no custom URL schemes, this
   app's own `tg://` included). Takes effect immediately, like the
   clipboard/haptic calls below -- no dialog involved.
+- `vibo.play_sound(style_or_path="default")` -- a short system sound.
+  `style_or_path` is one of `"default"`/`"tap"`, `"success"`, `"alert"`,
+  or a local file path (any short clip -- `.caf`/`.wav`/`.aiff` work
+  best, same format iOS's own UI sounds use) if you want your own,
+  e.g. something you decoded once into `vibo.data_dir()`. An
+  unrecognized style or a path that doesn't exist just stays silent,
+  never an error. Immediate effect, same as clipboard/haptic/open_url.
 - `vibo.get_setting(key, default=None)` / `vibo.set_setting(key, value)` --
   your plugin's own small persistent JSON store, keyed by your plugin's
   filename. Survives between runs; nothing else can read it.
@@ -129,9 +136,10 @@ as many times as you like; order among themselves is preserved.
 `get_clipboard`/`device_info`/`list_plugins`/`data_dir` are the opposite:
 computed once right before your script starts, so they read as of when
 your plugin was *called*, not as of when you happen to read them inside
-your own code. `set_clipboard`/`haptic` take effect immediately after your
-script finishes, same as the queued ones, but need no UI to do it, so
-they fire from every call site (Plugins screen or `on_send` hook alike).
+your own code. `set_clipboard`/`haptic`/`open_url`/`play_sound` take effect immediately
+after your script finishes, same as the queued ones, but need no UI to
+do it, so they fire from every call site (Plugins screen or `on_send`
+hook alike).
 
 `transform` itself can now return anything JSON-safe, not just a string --
 a number, a list, a dict, `None`. A plain string is shown as-is; anything
