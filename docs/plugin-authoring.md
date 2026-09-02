@@ -190,6 +190,15 @@ needed), but `vibo.toast`/`alert`/`log`/`share` go nowhere from
 `on_receive` -- there's no notification-banner-safe place to show them
 yet. Lean on `play_sound` for the "something happened" reaction.
 
+One more, `on_receive`-only: `vibo.delete_this_message()` hides the
+message currently being processed -- from your own view **only**
+(`InteractiveMessagesDeletionType.forLocalPeer`). The other side's copy
+is untouched, and you can still message them freely -- this is not
+blocking, and they have no way to tell. See `silent_ignore.vibo` for a
+full example (hide messages from a configured list of names). Calling
+it from any hook other than `on_receive` does nothing -- there's no
+"current message" to delete outside that context.
+
 `on_send` and `on_receive` are the only hook names the app acts on
 today. The `# vibo-hook: <name>` line is meant to carry future hook
 names the same way once something in the app looks for them -- using an

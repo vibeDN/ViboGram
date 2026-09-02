@@ -402,6 +402,15 @@ public enum SGPythonRuntime {
             def open_url(self, url):
                 self.events.append({"type": "open_url", "text": str(url)})
 
+            def delete_this_message(self):
+                # MARK: ViboGram - on_receive only. Deletes *locally*
+                # (InteractiveMessagesDeletionType.forLocalPeer) -- the
+                # other side's copy is untouched, no admin rights needed,
+                # nothing sent over the wire. Silently ignored by any
+                # caller that isn't on_receive (there's no "current
+                # message" outside that context).
+                self.events.append({"type": "delete_local_message", "text": "1"})
+
             def play_sound(self, style_or_path="default"):
                 self.events.append({"type": "play_sound", "text": str(style_or_path)})
 
@@ -629,14 +638,32 @@ public enum SGPythonRuntime {
     // A slow or hanging plugin here delays that one message's
     // notification, same trust boundary as any other installed plugin --
     // no new isolation was added to bound it.
-    public static func applyOnReceiveHooks(text: String, peerTitle: String) {
+    // MARK: ViboGram - return value is deliberately narrow: not the
+    // SGPluginCallResult (see the type's own doc comment for why events
+    // besides play_sound/set_clipboard/open_url/delete_local_message go
+    // nowhere from here), just whether ANY hook plugin asked for THIS
+    // message to be deleted locally via vibo.delete_this_message(). The
+    // caller (ApplicationContext.swift) owns the actual
+    // deleteMessagesInteractively(type: .forLocalPeer) call -- this
+    // module has no AccountContext/TelegramEngine access at all, by
+    // design (see SGPythonRuntime's own top-of-file doc comment: this is
+    // an interpreter-lifecycle wrapper, not an account-aware layer).
+    @discardableResult
+    public static func applyOnReceiveHooks(text: String, peerTitle: String) -> Bool {
+        var shouldDeleteLocally = false
         for filename in SGPluginsStore.installedPlugins() {
             let path = SGPluginsStore.path(for: filename)
             guard let firstLine = firstLine(ofFileAt: path), firstLine.trimmingCharacters(in: .whitespaces) == "# vibo-hook: on_receive" else {
                 continue
             }
-            _ = callFunctionRich(scriptPath: path, functionName: "on_receive", argumentsJSON: ["text": text, "peer_title": peerTitle])
+            guard let result = callFunctionRich(scriptPath: path, functionName: "on_receive", argumentsJSON: ["text": text, "peer_title": peerTitle]) else {
+                continue
+            }
+            if result.events.contains(where: { $0.type == "delete_local_message" }) {
+                shouldDeleteLocally = true
+            }
         }
+        return shouldDeleteLocally
     }
 
     private static func firstLine(ofFileAt path: String) -> String? {

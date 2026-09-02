@@ -398,12 +398,21 @@ final class AuthorizedApplicationContext {
                                     // MARK: ViboGram - on_receive plugin hooks, gated
                                     // on the exact same "real incoming message, not
                                     // muted, not locked" condition this app's own
-                                    // sound/vibrate notification already uses. See
-                                    // SGPythonRuntime.applyOnReceiveHooks -- observational
-                                    // only, a plugin's return value is discarded, it can
-                                    // never alter what this message says or how it's shown.
+                                    // sound/vibrate notification already uses. A
+                                    // plugin's return value can't alter what this
+                                    // message says or how it's shown -- the one
+                                    // exception is vibo.delete_this_message(),
+                                    // handled right here (this module owns the real
+                                    // AccountContext/TelegramEngine access
+                                    // SGPythonRuntime deliberately doesn't have):
+                                    // .forLocalPeer only ever hides it from this
+                                    // account's own view, the other side's copy and
+                                    // the ability to still message them are both
+                                    // untouched -- not the same thing as blocking.
                                     let peerTitle = firstMessage.peers[firstMessage.id.peerId]?.debugDisplayTitle ?? ""
-                                    SGPythonRuntime.applyOnReceiveHooks(text: firstMessage.text, peerTitle: peerTitle)
+                                    if SGPythonRuntime.applyOnReceiveHooks(text: firstMessage.text, peerTitle: peerTitle) {
+                                        let _ = context.engine.messages.deleteMessagesInteractively(messageIds: [firstMessage.id], type: .forLocalPeer).startStandalone()
+                                    }
                                 }
                             }
                             if let forwardInfo = firstMessage.forwardInfo, forwardInfo.flags.contains(.isImported) {
