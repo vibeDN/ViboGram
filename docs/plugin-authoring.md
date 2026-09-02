@@ -179,12 +179,41 @@ def transform(args):
 
 Widget types today: `header` (section title), `text` (a plain line, not
 clickable), `switch` (`key`, `text`, `default: bool`), `selector` (`key`,
-`text`, `default: int` index, `items: [str]`). This is the same shape as
-exteraGram's `create_settings()` Header/Switch/Selector/Text rows, ported
-to this app's own settings framework. Not ported: their free-text
+`text`, `default: int` index, `items: [str]`), `action` (`id`, `text`,
+`default` for `destructive: bool`). This is the same shape as
+exteraGram's `create_settings()` Header/Switch/Selector/Text/Action rows,
+ported to this app's own settings framework. Not ported: their free-text
 Input/EditText row -- our version doesn't have a keyed text-input widget
 yet, so a plugin needing arbitrary free text still has to get it some
 other way (e.g. Import from URL for a config file).
+
+### Buttons that actually do something: `action` + `on_action`
+
+```python
+{"type": "action", "id": "start", "text": "Start"}
+```
+
+Tapping this calls `on_action(args)` in your file, with
+`args = {"id": "start"}` -- it gets the full `vibo` object like any other
+call, and the **whole screen refreshes** after it returns (your
+`settings()` runs again, so it can show something different based on
+what just happened):
+
+```python
+def on_action(args):
+    if args["id"] == "start":
+        vibo.set_setting("running", True)
+        vibo.toast("Started", style="success")
+    return None
+```
+
+There's no live connection while the screen sits there -- this is
+request/response, not a running callback. A plugin can't animate
+anything or update a row on its own timer; it can only react to a tap by
+computing what the screen should look like *next* and handing that back.
+Good enough for multi-step config, a Start/Stop pair that swaps itself
+out, "generate X and show the result" -- not for anything that needs to
+move or update while nobody's touching it.
 
 ## What still can't happen: custom UI beyond a settings screen
 
