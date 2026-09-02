@@ -5064,6 +5064,29 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                 messages.append(.message(text: "", attributes: [], inlineStickers: [:], mediaReference: AnyMediaReference.standalone(media: TelegramMediaDice(emoji: trimmedInputText)), threadId: self.chatLocation.threadId, replyToMessageId: self.chatPresentationInterfaceState.interfaceState.replyMessageSubject?.subjectModel, replyToStoryId: nil, localGroupingKey: nil, correlationId: nil, bubbleUpEmojiOrStickersets: []))
             } else {
                 var inputText = convertMarkdownToAttributes(effectiveInputText)
+                // MARK: ViboGram - both the animefy transform and the
+                // generic on_send hooks below rebuild inputText from a
+                // plain Swift String, so they can only apply ONE uniform
+                // attribute run to the whole result (there's no way for a
+                // plugin's plain-string return value to say which part of
+                // the new text corresponds to which part of the old
+                // formatting). That's a silent no-op when the message
+                // already has just one uniform style (bold the whole
+                // message, or no formatting at all -- baseAttributes
+                // already covers everything), but it would silently erase
+                // formatting for a message with MIXED runs (e.g. only one
+                // word bolded, or a link partway through) by flattening
+                // the whole thing to whatever attributes sit at position
+                // 0. Skip both transforms entirely in that case rather
+                // than corrupt the user's actual formatting.
+                let inputTextHasMixedFormatting: Bool = {
+                    guard inputText.length > 0 else { return false }
+                    var runCount = 0
+                    inputText.enumerateAttributes(in: NSRange(location: 0, length: inputText.length), options: []) { _, _, _ in
+                        runCount += 1
+                    }
+                    return runCount > 1
+                }()
                 // MARK: ViboGram - "Anime-ify" outgoing text -- runs as an
                 // actual installed plugin (Swiftgram/SGPython's
                 // animefy.plugin) through SGPythonRuntime.callFunction, not
@@ -5071,15 +5094,12 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                 // the real plugin-execution path. Only reached for
                 // genuinely plain-text sends (this branch, not the
                 // rich-message/dice ones above); applied to the raw string
-                // and rebuilt as a fresh attributed string, so any rich
-                // per-run formatting on the original text is intentionally
-                // not preserved once this transform actually changes
-                // something -- keeping the two working correctly together
-                // needs re-threading attribute ranges through word-length
-                // changes, not attempted here. A missing/failed plugin call
-                // silently no-ops (sends the untouched text) rather than
-                // blocking sending.
-                if SGSimpleSettings.shared.animefyEnabled {
+                // and rebuilt as a fresh attributed string -- guarded above
+                // by inputTextHasMixedFormatting so this only ever fires
+                // when the whole message already shares one uniform style.
+                // A missing/failed plugin call silently no-ops (sends the
+                // untouched text) rather than blocking sending.
+                if SGSimpleSettings.shared.animefyEnabled && !inputTextHasMixedFormatting {
                     let pluginPath = SGPluginsStore.path(for: SGPythonRuntime.installBuiltinAnimefyPlugin())
                     let options: [String: Any] = [
                         "word_swaps": SGSimpleSettings.shared.animefyWordSwaps,
