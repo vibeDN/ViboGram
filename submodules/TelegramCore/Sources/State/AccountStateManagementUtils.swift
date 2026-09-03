@@ -4598,15 +4598,57 @@ func replayFinalState(
                     // MARK: ViboGram - edit history (Tier 3). Archive the pre-edit text
                     // permanently (same local store as anti-delete, separate file) before
                     // it's overwritten below, so a "История" view can show prior versions.
-                    if SGSimpleSettings.shared.antiDeleteEnabled && previousMessage.text != message.text && !previousMessage.text.isEmpty {
-                        let editTimestamp = (message.attributes.first(where: { $0 is EditedMessageAttribute }) as? EditedMessageAttribute)?.date ?? Int32(Date().timeIntervalSince1970)
-                        SGMessageArchive.recordEditVersion(
-                            peerId: id.peerId.toInt64(),
-                            messageId: id.id,
-                            namespace: id.namespace,
-                            previousText: previousMessage.text,
-                            editTimestamp: editTimestamp
-                        )
+                    // Media (a replaced photo/video/file) is archived the same way, not
+                    // just text -- a caption can stay blank on both sides while the photo
+                    // underneath it changes entirely, which the old text-only check missed.
+                    if SGSimpleSettings.shared.antiDeleteEnabled {
+                        func sgMediaListsEqual(_ a: [Media], _ b: [Media]) -> Bool {
+                            if a.count != b.count {
+                                return false
+                            }
+                            for i in 0 ..< a.count {
+                                if !a[i].isEqual(to: b[i]) {
+                                    return false
+                                }
+                            }
+                            return true
+                        }
+                        let mediaChanged = !sgMediaListsEqual(previousMessage.media, message.media)
+                        let textChanged = previousMessage.text != message.text
+                        if mediaChanged || (textChanged && !previousMessage.text.isEmpty) {
+                            let editTimestamp = (message.attributes.first(where: { $0 is EditedMessageAttribute }) as? EditedMessageAttribute)?.date ?? Int32(Date().timeIntervalSince1970)
+                            var previousMediaKind: String?
+                            var previousMediaSummary: String?
+                            var previousMediaEncoded: Data?
+                            if mediaChanged {
+                                for media in previousMessage.media {
+                                    if let image = media as? TelegramMediaImage {
+                                        previousMediaKind = "image"
+                                        let encoder = PostboxEncoder()
+                                        encoder.encodeRootObject(image)
+                                        previousMediaEncoded = encoder.makeData()
+                                        break
+                                    } else if let file = media as? TelegramMediaFile {
+                                        previousMediaKind = file.isVideo ? "video" : "file"
+                                        previousMediaSummary = file.fileName ?? (file.isVideo ? "Video" : "File")
+                                        let encoder = PostboxEncoder()
+                                        encoder.encodeRootObject(file)
+                                        previousMediaEncoded = encoder.makeData()
+                                        break
+                                    }
+                                }
+                            }
+                            SGMessageArchive.recordEditVersion(
+                                peerId: id.peerId.toInt64(),
+                                messageId: id.id,
+                                namespace: id.namespace,
+                                previousText: previousMessage.text,
+                                editTimestamp: editTimestamp,
+                                previousMediaKind: previousMediaKind,
+                                previousMediaSummary: previousMediaSummary,
+                                previousMediaEncoded: previousMediaEncoded
+                            )
+                        }
                     }
 
                     if previousMessage.text == message.text {

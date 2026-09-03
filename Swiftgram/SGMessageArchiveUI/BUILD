@@ -15,10 +15,11 @@ swift_library(
         "//submodules/AccountContext:AccountContext",
         "//submodules/Display:Display",
         "//submodules/ItemListUI:ItemListUI",
+        "//submodules/Postbox:Postbox",
         "//submodules/PresentationDataUtils:PresentationDataUtils",
         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
+        "//submodules/TelegramCore:TelegramCore",
         "//submodules/TelegramPresentationData:TelegramPresentationData",
-        "//submodules/TelegramStringFormatting:TelegramStringFormatting",
     ],
     visibility = [
         "//visibility:public",

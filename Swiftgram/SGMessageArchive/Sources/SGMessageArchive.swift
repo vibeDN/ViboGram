@@ -33,10 +33,27 @@ public struct SGArchivedMessage: Codable {
 public struct SGMessageEditVersion: Codable {
     public let text: String
     public let editTimestamp: Int32
+    // MARK: ViboGram - media can be replaced on edit too (a photo/video/file
+    // swapped for another), not just text. `previousMediaEncoded` is an
+    // opaque PostboxEncoder blob of whichever concrete Media type it was --
+    // this module deliberately doesn't depend on Postbox/TelegramCore (it's
+    // also used from the Notification Service Extension's separate process),
+    // so it stores and returns the blob without knowing what's inside it;
+    // the caller (which does have those types in scope) is responsible for
+    // both encoding it on write and decoding it on read. `previousMediaKind`
+    // ("image"/"video"/"file") lets a reader dispatch without decoding first,
+    // and `previousMediaSummary` is a plain-text fallback description (e.g.
+    // a filename) for kinds a reader may not bother fully previewing.
+    public let previousMediaKind: String?
+    public let previousMediaSummary: String?
+    public let previousMediaEncoded: Data?
 
-    public init(text: String, editTimestamp: Int32) {
+    public init(text: String, editTimestamp: Int32, previousMediaKind: String? = nil, previousMediaSummary: String? = nil, previousMediaEncoded: Data? = nil) {
         self.text = text
         self.editTimestamp = editTimestamp
+        self.previousMediaKind = previousMediaKind
+        self.previousMediaSummary = previousMediaSummary
+        self.previousMediaEncoded = previousMediaEncoded
     }
 }
 
@@ -162,12 +179,12 @@ public enum SGMessageArchive {
     // MARK: ViboGram - synchronous for the same reason as recordDeleted above
     // -- avoids a similar lost-write-on-process-death window, and consistent
     // with it rather than having one archive path be async and the other not.
-    public static func recordEditVersion(peerId: Int64, messageId: Int32, namespace: Int32, previousText: String, editTimestamp: Int32) {
+    public static func recordEditVersion(peerId: Int64, messageId: Int32, namespace: Int32, previousText: String, editTimestamp: Int32, previousMediaKind: String? = nil, previousMediaSummary: String? = nil, previousMediaEncoded: Data? = nil) {
         queue.sync {
             let entryKey = key(peerId: peerId, messageId: messageId, namespace: namespace)
             withCoordinatedReadWrite(editHistoryFileURL) { (dict: inout [String: [SGMessageEditVersion]]) in
                 var versions = dict[entryKey] ?? []
-                versions.append(SGMessageEditVersion(text: previousText, editTimestamp: editTimestamp))
+                versions.append(SGMessageEditVersion(text: previousText, editTimestamp: editTimestamp, previousMediaKind: previousMediaKind, previousMediaSummary: previousMediaSummary, previousMediaEncoded: previousMediaEncoded))
                 dict[entryKey] = versions
             }
         }
