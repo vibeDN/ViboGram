@@ -141,12 +141,13 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     let titleExpandedStatusIconView: ComponentHostView<Empty>
     var titleExpandedStatusIconSize: CGSize?
 
-    // MARK: ViboGram - user badges (Tier 3). Plain colored marker (not a
-    // Component, unlike the icons above) since it's just a static color swatch
-    // for now -- no remote-image/3D detail view yet, deliberately deferred.
-    let titleBadgeIconView: UIView
+    // MARK: ViboGram - user badges (Tier 3). UIImageView (not a Component,
+    // unlike the icons above) so it can show the badge's real image
+    // (img_url) when set, falling back to backgroundColor as a plain
+    // colored swatch when it isn't -- see the img_url handling below.
+    let titleBadgeIconView: UIImageView
     var badgeIconSize: CGSize?
-    let titleExpandedBadgeIconView: UIView
+    let titleExpandedBadgeIconView: UIImageView
     var titleExpandedBadgeIconSize: CGSize?
     
     var subtitleRating: ComponentView<Empty>?
@@ -263,14 +264,16 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         self.titleExpandedStatusIconView = ComponentHostView<Empty>()
         self.titleNode.stateNode(forKey: TitleNodeStateExpanded)?.view.addSubview(self.titleExpandedStatusIconView)
 
-        self.titleBadgeIconView = UIView()
+        self.titleBadgeIconView = UIImageView()
         self.titleBadgeIconView.isUserInteractionEnabled = true
         self.titleBadgeIconView.clipsToBounds = true
+        self.titleBadgeIconView.contentMode = .scaleAspectFill
         self.titleNode.stateNode(forKey: TitleNodeStateRegular)?.view.addSubview(self.titleBadgeIconView)
 
-        self.titleExpandedBadgeIconView = UIView()
+        self.titleExpandedBadgeIconView = UIImageView()
         self.titleExpandedBadgeIconView.isUserInteractionEnabled = true
         self.titleExpandedBadgeIconView.clipsToBounds = true
+        self.titleExpandedBadgeIconView.contentMode = .scaleAspectFill
         self.titleNode.stateNode(forKey: TitleNodeStateExpanded)?.view.addSubview(self.titleExpandedBadgeIconView)
 
         self.subtitleNodeContainer = ASDisplayNode()
@@ -448,7 +451,40 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         }
         self.openBadge?(view, currentBadge)
     }
-    
+
+    // MARK: ViboGram - loads the badge's real image (img_url) into both
+    // header views when set; leaves them plain colored squares (via
+    // backgroundColor, already set by the caller) when it isn't or the
+    // fetch fails. `loadedBadgeImageURLString` avoids refetching on every
+    // call -- this runs on every header layout pass, not just when the
+    // badge actually changes.
+    private func updateBadgeImage(urlString: String?) {
+        guard urlString != loadedBadgeImageURLString else {
+            return
+        }
+        loadedBadgeImageURLString = urlString
+        badgeImageLoadTask?.cancel()
+        titleBadgeIconView.image = nil
+        titleExpandedBadgeIconView.image = nil
+        guard let urlString, let url = URL(string: urlString) else {
+            return
+        }
+        let task = URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+            guard let self, let data, error == nil, let image = UIImage(data: data) else {
+                return
+            }
+            DispatchQueue.main.async {
+                guard self.loadedBadgeImageURLString == urlString else {
+                    return
+                }
+                self.titleBadgeIconView.image = image
+                self.titleExpandedBadgeIconView.image = image
+            }
+        }
+        badgeImageLoadTask = task
+        task.resume()
+    }
+
     func invokeDisplayPremiumIntro() {
         self.displayPremiumIntro?(self.isAvatarExpanded ? self.titleExpandedCredibilityIconView : self.titleCredibilityIconView, nil, .never(), self.isAvatarExpanded)
     }
@@ -530,6 +566,11 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     private var currentVerifiedIcon: CredibilityIcon?
     private var currentStatusIcon: CredibilityIcon?
     private var currentBadge: SGBadge?
+    // MARK: ViboGram - tracks which img_url is currently loaded/loading, so
+    // this doesn't refire the fetch on every layout pass for an unchanged
+    // badge -- only when the badge (or its image) actually changes.
+    private var loadedBadgeImageURLString: String?
+    private var badgeImageLoadTask: URLSessionDataTask?
     
     private var currentPanelStatusData: PeerInfoStatusData?
     func update(width: CGFloat, containerHeight: CGFloat, containerInset: CGFloat, statusBarHeight: CGFloat, navigationHeight: CGFloat, isModalOverlay: Bool, isMediaOnly: Bool, contentOffset: CGFloat, paneContainerY: CGFloat, presentationData: PresentationData, peer: EnginePeer?, cachedData: EngineCachedPeerData?, threadData: MessageHistoryThreadData?, peerNotificationSettings: TelegramPeerNotificationSettings?, threadNotificationSettings: TelegramPeerNotificationSettings?, globalNotificationSettings: EngineGlobalNotificationSettings?, statusData: PeerInfoStatusData?, panelStatusData: (PeerInfoStatusData?, PeerInfoStatusData?, CGFloat?), isSecretChat: Bool, isContact: Bool, isSettings: Bool, state: PeerInfoState, profileGiftsContext: ProfileGiftsContext?, screenData: PeerInfoScreenData?, isSearching: Bool, metrics: LayoutMetrics, deviceMetrics: DeviceMetrics, transition: ContainedViewLayoutTransition, additive: Bool, animateHeader: Bool) -> CGFloat {
@@ -1207,9 +1248,11 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 self.titleExpandedBadgeIconView.layer.cornerRadius = 4.0
                 self.badgeIconSize = CGSize(width: 14.0, height: 14.0)
                 self.titleExpandedBadgeIconSize = CGSize(width: 16.0, height: 16.0)
+                self.updateBadgeImage(urlString: badge.imgUrl)
             } else {
                 self.badgeIconSize = CGSize(width: 0.0, height: 0.0)
                 self.titleExpandedBadgeIconSize = CGSize(width: 0.0, height: 0.0)
+                self.updateBadgeImage(urlString: nil)
             }
         }
 

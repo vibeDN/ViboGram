@@ -2,6 +2,7 @@
 import SGDebugUI
 import SGSimpleSettings
 import SGBadges
+import SGBadgesUI
 import SGSettingsUI
 import SGStrings
 import CountrySelectionUI
@@ -2342,45 +2343,30 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
                 controller.present(tooltipController, in: .current)
             }
             
-            // MARK: ViboGram - user badges (Tier 3). Mirrors displayUniqueGiftInfo
-            // just above -- a plain title/about TooltipScreen popup. No badge
-            // image / 3D detail view yet, deliberately deferred (see README).
+            // MARK: ViboGram - user badges (Tier 3). Used to be a plain
+            // title/about TooltipScreen popup only -- now opens the full
+            // Badges screen instead (real image if img_url is set, 3D
+            // pan-to-spin preview, switching between multiple badges, and
+            // an Equip flow on the own profile). See SGBadgesScreen and
+            // badge_sync.py for why equipping has to be a real server-side
+            // request rather than a local setting.
             self.headerNode.openBadge = { [weak self] sourceView, badge in
                 guard let self, let controller = self.controller else {
                     return
                 }
-                let sourceRect = sourceView.convert(sourceView.bounds, to: controller.view)
-                guard sourceRect.minY > 44.0 else {
-                    return
-                }
-
-                let backgroundColor: UIColor
-                if !self.headerNode.isAvatarExpanded, let contentButtonBackgroundColor = self.headerNode.contentButtonBackgroundColor {
-                    backgroundColor = contentButtonBackgroundColor
-                } else {
-                    backgroundColor = UIColor(rgb: 0x000000, alpha: 0.65)
-                }
-
-                var text = badge.title
-                if let about = badge.about, !about.isEmpty {
-                    text += "\n" + about
-                }
-
-                let tooltipController = TooltipScreen(
-                    context: self.context,
-                    account: self.context.account,
-                    sharedContext: self.context.sharedContext,
-                    text: .attributedString(text: NSAttributedString(string: text, font: Font.semibold(11.0), textColor: .white)),
-                    style: .customBlur(backgroundColor, -4.0),
-                    arrowStyle: .small,
-                    location: .point(sourceRect, .bottom),
-                    isShimmering: true,
-                    cornerRadius: 10.0,
-                    shouldDismissOnTouch: { _, _ in
-                        return .dismiss(consume: false)
-                    }
-                )
-                controller.present(tooltipController, in: .current)
+                // MARK: ViboGram - `badge.peer` (not re-derived from
+                // self.peerId) since it's already the exact key
+                // PeerInfoHeaderNode looked `badge` up with -- correctly
+                // negated for a group/channel via SGBadges.chatPeer(chatId:),
+                // which re-deriving here would need to duplicate.
+                let isOwnProfile = self.isSettings || self.isMyProfile
+                let badgesScreen = SGBadgesScreen(peerId: badge.peer, isOwnProfile: isOwnProfile)
+                // MARK: ViboGram - plain UIKit .present(_:animated:), not
+                // Display's own .present(_:in:with:) -- SGBadgesScreen is a
+                // plain UIViewController (see its own doc comment for why),
+                // not one of Telegram's ViewController subclasses that the
+                // other overload expects.
+                controller.present(badgesScreen, animated: true)
             }
 
             self.headerNode.displayStatusPremiumIntro = { [weak self] in

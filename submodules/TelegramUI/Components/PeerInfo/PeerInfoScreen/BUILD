@@ -9,6 +9,7 @@ sgdeps = [
     "//Swiftgram/SGRegDateScheme:SGRegDateScheme",
     "//Swiftgram/SGDebugUI:SGDebugUI",
     "//Swiftgram/SGBadges:SGBadges",
+    "//Swiftgram/SGBadgesUI:SGBadgesUI",
 ]
 
 
