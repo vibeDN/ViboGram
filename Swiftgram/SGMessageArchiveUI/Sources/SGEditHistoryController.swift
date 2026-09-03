@@ -94,7 +94,7 @@ private func sgPresentPreviousImage(context: AccountContext, from presentingCont
           let largest = largestImageRepresentation(image.representations) else {
         return
     }
-    let disposable = (context.engine.resources.data(resource: EngineMediaResource(largest.resource), incremental: true)
+    let _ = (context.engine.resources.data(resource: EngineMediaResource(largest.resource), incremental: true)
     |> take(1)
     |> deliverOnMainQueue).startStandalone(next: { data in
         guard data.isComplete, let fileData = try? Data(contentsOf: URL(fileURLWithPath: data.path)), let uiImage = UIImage(data: fileData) else {
@@ -102,7 +102,6 @@ private func sgPresentPreviousImage(context: AccountContext, from presentingCont
         }
         presentingController.present(SGEditHistoryImageViewController(image: uiImage), animated: true)
     })
-    let _ = disposable
 }
 
 public func sgEditHistoryController(context: AccountContext, peerId: Int64, messageId: Int32, namespace: Int32) -> ViewController {
