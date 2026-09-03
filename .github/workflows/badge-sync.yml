@@ -1,0 +1,36 @@
+name: badge-sync
+
+# MARK: ViboGram - processes badge "equip" requests (which badge a peer
+# with more than one wants shown as their primary one, visible to every
+# viewer, not just their own device). Same shape as game-sync.yml: the app
+# only ever opens a pre-filled Issue, and this job is where the real
+# repo-writing token lives. See build-system/badge_sync.py for the actual
+# validation (identity here is simpler than the game's per-username
+# claiming -- badges.json is entirely owner-curated, so only the repo
+# owner's own GitHub account can equip-switch anything).
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  sync:
+    if: contains(github.event.issue.title, '[badge-equip]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Process request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: python3 build-system/badge_sync.py
