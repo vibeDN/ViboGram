@@ -5190,13 +5190,39 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
                     }
                 }
             ] as [UIAction])
-            
+
+            // MARK: ViboGram - bugfix: this is a SEPARATE menu builder from
+            // TextInputMenu.swift's UIMenuItem array (that one only backs the
+            // legacy pre-iOS-16 UIMenuController path) -- this one backs the
+            // modern UIEditMenuInteraction-based menu, which is what actually
+            // renders on current iOS. Dim/Rainbow/Size were only ever added to
+            // the legacy array, so on a real device running this newer menu
+            // they never appeared at all, despite the encode/decode logic and
+            // the legacy path's own target-for-action fix all being correct.
+            children.append(contentsOf: [
+                UIAction(title: "Dim", image: nil) { [weak self] (action) in
+                    if let strongSelf = self {
+                        strongSelf.formatAttributesDim(strongSelf)
+                    }
+                },
+                UIAction(title: "Rainbow", image: nil) { [weak self] (action) in
+                    if let strongSelf = self {
+                        strongSelf.formatAttributesRainbow(strongSelf)
+                    }
+                },
+                UIAction(title: "Size", image: nil) { [weak self] (action) in
+                    if let strongSelf = self {
+                        strongSelf.formatAttributesSizeBig(strongSelf)
+                    }
+                }
+            ] as [UIAction])
+
             children.append(UIAction(title: self.strings?.TextFormat_Code ?? "Code", image: nil) { [weak self] (action) in
                 if let strongSelf = self {
                     strongSelf.formatAttributesCodeBlock(strongSelf)
                 }
             })
-            
+
             let formatMenu = UIMenu(title: self.strings?.TextFormat_Format ?? "Format", image: nil, children: children)
             actions.insert(formatMenu, at: 1)
         }
@@ -5257,6 +5283,34 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             },
             UIAction(title: self.strings?.TextFormat_Underline ?? "Underline", image: nil) { [weak richTextInputNode] _ in
                 richTextInputNode?.performFormatAction(.underline)
+            }
+        ])
+        // MARK: ViboGram - bugfix: same gap as chatInputTextNodeMenu above, on
+        // this native-editor variant of the same menu. Dim/Rainbow/Size don't
+        // have a FormatAction case in this engine (they're not live-rendered
+        // attributes, by design -- see chatTextInputWrapWithEffect's own
+        // comment: no live preview while composing, the effect only renders
+        // after send), so these route through `interfaceInteraction` directly
+        // instead of `richTextInputNode.performFormatAction`, the same way
+        // `Link` just above already does for the same reason (see this
+        // function's own doc comment: "Link reuses the host link UI via
+        // openLinkEditing" -- an already-established, working precedent for
+        // mixing an interfaceInteraction-routed action into this menu).
+        children.append(contentsOf: [
+            UIAction(title: "Dim", image: nil) { [weak self] _ in
+                if let strongSelf = self {
+                    strongSelf.formatAttributesDim(strongSelf)
+                }
+            },
+            UIAction(title: "Rainbow", image: nil) { [weak self] _ in
+                if let strongSelf = self {
+                    strongSelf.formatAttributesRainbow(strongSelf)
+                }
+            },
+            UIAction(title: "Size", image: nil) { [weak self] _ in
+                if let strongSelf = self {
+                    strongSelf.formatAttributesSizeBig(strongSelf)
+                }
             }
         ])
         children.append(UIAction(title: self.strings?.TextFormat_Code ?? "Code", image: nil) { [weak richTextInputNode] _ in

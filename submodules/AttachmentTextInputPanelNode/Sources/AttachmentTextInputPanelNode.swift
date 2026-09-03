@@ -2114,6 +2114,29 @@ public class AttachmentTextInputPanelNode: ASDisplayNode, TGCaptionPanelView, AS
                     if let strongSelf = self {
                         strongSelf.formatAttributesUnderline(strongSelf)
                     }
+                },
+                // MARK: ViboGram - bugfix: this is a SEPARATE menu builder from
+                // TextInputMenu.swift's UIMenuItem array (that one only backs the
+                // legacy pre-iOS-16 UIMenuController path) -- this one backs the
+                // modern UIEditMenuInteraction-based menu, which is what actually
+                // renders on current iOS. Dim/Rainbow/Size were only ever added to
+                // the legacy array, so on a real device running this newer menu
+                // they never appeared at all, despite the encode/decode logic and
+                // the legacy path's own target-for-action fix all being correct.
+                UIAction(title: "Dim", image: nil) { [weak self] (action) in
+                    if let strongSelf = self {
+                        strongSelf.formatAttributesDim(strongSelf)
+                    }
+                },
+                UIAction(title: "Rainbow", image: nil) { [weak self] (action) in
+                    if let strongSelf = self {
+                        strongSelf.formatAttributesRainbow(strongSelf)
+                    }
+                },
+                UIAction(title: "Size", image: nil) { [weak self] (action) in
+                    if let strongSelf = self {
+                        strongSelf.formatAttributesSizeBig(strongSelf)
+                    }
                 }
             ]
 
