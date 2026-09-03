@@ -995,6 +995,15 @@ private let builtinAsciiArtPluginSource = """
 # codec -- so this plugin only turns an already-computed brightness grid
 # into the rendered art. The character ladder below is our own choice.
 # vibo-needs: image
+#
+# Two ways in: replying ".ascii" to a photo (ChatControllerNode.swift's
+# sendCurrentMessage intercepts it, fetches+downsamples the replied-to
+# image, calls this file's transform() directly -- not through the generic
+# on_send hook loop, since this needs a grid the generic loop never
+# provides), or the Plugins screen's "Run" action (presentImagePlugin,
+# picks an image from Files instead of a reply). Recognizing the command
+# and rendering the art both stay here in Python either way -- Swift only
+# ever does the image decode/downsample step neither entry point can avoid.
 
 __name__ = "ASCII Art"
 
@@ -1017,13 +1026,20 @@ def render(grid, invert):
 def transform(args):
     \"\"\"Entry point called by SGPythonRuntime.callFunction: args is a dict
     with "grid" (list of rows, each a list of 0-255 int luminance values)
-    and optional "invert" (bool). Swift has already picked columns/rows and
-    computed per-cell luminance -- this only maps brightness to characters.
+    and optional "invert" (bool) and "text" (whatever was actually typed --
+    only present on the ".ascii" reply path, not the Plugins-screen Run
+    path). Swift has already picked columns/rows and computed per-cell
+    luminance -- this only maps brightness to characters.
     \"\"\"
     grid = args.get("grid") or []
     invert = bool(args.get("invert", False))
     if not grid:
-        return ""
+        # No image data reached here -- e.g. ".ascii" typed without a photo
+        # reply, or the reply's image failed to decode. Pass the original
+        # text through untouched rather than erasing it, same convention as
+        # every other dot-command plugin here (never eat a message it
+        # didn't actually handle).
+        return args.get("text", "")
     art = render(grid, invert)
     return "```\\n" + art + "\\n```"
 """

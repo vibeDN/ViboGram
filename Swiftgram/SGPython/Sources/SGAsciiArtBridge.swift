@@ -17,13 +17,24 @@ public enum SGAsciiArtBridge {
     private static let maxCharacterBudget = 3600
     private static let minColumns = 16
     private static let maxColumns = 120
+    // MARK: ViboGram - bugfix: `fitColumns` below only ever *shrinks*
+    // columns to fit the budget, and stops once columns hits `minColumns`
+    // regardless of whether the budget is actually met -- for an extreme
+    // aspect ratio (a very tall/narrow image), `rows` at minColumns can
+    // still be far larger than the budget allows, since nothing was ever
+    // capping rows on its own. That's a source array potentially large
+    // enough to be a real problem downstream (JSON-encoding it, a >4096
+    // char Telegram message once rendered, a huge alert). Same idea as
+    // minColumns/maxColumns, just for the other axis.
+    private static let maxRows = 200
 
     private static func boundedColumns(_ columns: Int) -> Int {
         return max(minColumns, min(maxColumns, columns))
     }
 
     private static func rows(forColumns columns: Int, aspectRatio: Double) -> Int {
-        return max(1, Int((Double(columns) * aspectRatio * cellAspect).rounded()))
+        let raw = max(1, Int((Double(columns) * aspectRatio * cellAspect).rounded()))
+        return min(maxRows, raw)
     }
 
     // Shrinks columns until (columns+1) * rows fits the message-length

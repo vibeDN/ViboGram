@@ -1966,9 +1966,14 @@ extension TextFieldComponent.View {
                     return TextFieldComponent.InputState(inputText: wrapped.inputText, selectionRange: wrapped.selectionRange)
                 }
             case "sizeBig":
+                // MARK: ViboGram - this toolbar button is a single tap, not a
+                // picker (unlike the long-press format menus, which offer the
+                // full Margelet step range) -- step 7 (~135%) is the closest
+                // match to the old fixed 1.3x multiplier this used to apply,
+                // for behavioral continuity here specifically.
                 self.sgSelectLastWordIfIdle()
                 self.updateInputState { current in
-                    let wrapped = chatTextInputWrapWithEffect(ChatTextInputState(inputText: current.inputText, selectionRange: current.selectionRange), kind: .sizeBig)
+                    let wrapped = chatTextInputWrapWithEffect(ChatTextInputState(inputText: current.inputText, selectionRange: current.selectionRange), kind: .size(7))
                     return TextFieldComponent.InputState(inputText: wrapped.inputText, selectionRange: wrapped.selectionRange)
                 }
             case "newline":

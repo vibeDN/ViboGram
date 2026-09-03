@@ -4870,7 +4870,55 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         if let textInputPanelNode = self.textInputPanelNode {
             effectivePresentationInterfaceState = effectivePresentationInterfaceState.updatedInterfaceState { $0.withUpdatedEffectiveInputState(textInputPanelNode.inputTextState) }
         }
-        
+
+        // MARK: ViboGram - ".ascii" replying to a photo converts it to ASCII
+        // art via the built-in ascii_art.vibo plugin. Recognizing the ".ascii"
+        // command and rendering the art both stay in the plugin's own Python
+        // code (transform() checks args["text"], same convention as
+        // .pull/.battle etc) -- this only does the one thing Python can't:
+        // decode and downsample the actual image (no image codec in the
+        // bundled stdlib). Replaces the compose text with the result instead
+        // of sending immediately, both because that's a normal, reviewable
+        // outcome for a command like this, and because the plugin call needs
+        // an async image fetch that the rest of this function has no path
+        // for (it proceeds synchronously to enqueue-and-send from here).
+        if effectivePresentationInterfaceState.interfaceState.editMessage == nil,
+           effectivePresentationInterfaceState.interfaceState.effectiveInputState.inputText.string.trimmingCharacters(in: .whitespacesAndNewlines) == ".ascii",
+           let replyMessage = effectivePresentationInterfaceState.replyMessage {
+            var imageMedia: TelegramMediaImage?
+            for media in replyMessage.media {
+                if let image = media as? TelegramMediaImage {
+                    imageMedia = image
+                    break
+                }
+            }
+            if let imageMedia, let largest = largestImageRepresentation(imageMedia.representations) {
+                let _ = (self.context.engine.resources.data(resource: EngineMediaResource(largest.resource), incremental: true)
+                |> take(1)
+                |> deliverOnMainQueue).startStandalone(next: { [weak self] data in
+                    guard let self else {
+                        return
+                    }
+                    guard data.isComplete, let fileData = try? Data(contentsOf: URL(fileURLWithPath: data.path)), let uiImage = UIImage(data: fileData), let grid = SGAsciiArtBridge.brightnessGrid(from: uiImage, requestedColumns: 40) else {
+                        return
+                    }
+                    let pluginPath = SGPluginsStore.path(for: SGPythonRuntime.installBuiltinAsciiArtPlugin())
+                    guard let art = SGPythonRuntime.callFunction(scriptPath: pluginPath, functionName: "transform", argumentsJSON: [
+                        "text": ".ascii",
+                        "grid": grid.values,
+                        "invert": false,
+                    ]), art != ".ascii" else {
+                        return
+                    }
+                    self.interfaceInteraction?.updateTextInputStateAndMode { _, inputMode in
+                        let text = NSAttributedString(string: art)
+                        return (ChatTextInputState(inputText: text, selectionRange: text.length ..< text.length), inputMode)
+                    }
+                })
+            }
+            return
+        }
+
         if let _ = effectivePresentationInterfaceState.interfaceState.editMessage, effectivePresentationInterfaceState.interfaceState.postSuggestionState == nil {
             self.interfaceInteraction?.editMessage()
         } else {

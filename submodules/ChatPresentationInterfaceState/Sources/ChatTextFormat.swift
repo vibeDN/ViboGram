@@ -12,6 +12,14 @@ import SGTextEffects
 // wherever stringWithAppliedEntities renders a message. No live-preview
 // styling while composing (that would need a second decode pass hooked into
 // the composer's own text rendering); the effect becomes visible after send.
+//
+// MARK: ViboGram - combining effects (e.g. Rainbow then Size, wanting big
+// rainbow text) works by nesting a fresh wrap around whatever's already
+// selected, same as Margelet's own compose behavior -- SGTextEffects'
+// decoder is nesting-aware (a real stack-based parser, matching Margelet's
+// own), so this doesn't need any "detect an existing wrap and merge into it"
+// logic; plain nesting is both simpler and what actually stays compatible
+// with Margelet's own client decoding the same text.
 public func chatTextInputWrapWithEffect(_ state: ChatTextInputState, kind: SGTextEffectKind) -> ChatTextInputState {
     if state.selectionRange.isEmpty {
         return state
@@ -25,11 +33,11 @@ public func chatTextInputWrapWithEffect(_ state: ChatTextInputState, kind: SGTex
     result.insert(NSAttributedString(string: String(SGTextEffects.closeMarker)), at: nsRange.upperBound)
     result.insert(NSAttributedString(string: openSequence), at: nsRange.lowerBound)
     // MARK: ViboGram - bugfix: this used to hardcode `+ 3`, assuming every
-    // open sequence is openMarker + exactly one kind character. `.size`'s
-    // open sequence is 4 characters (openMarker + kind marker + 2 digit
-    // characters), so a fixed +3 landed the cursor inside the marker run
-    // instead of just after the closing marker. Derived from the actual
-    // sequence length instead so it stays correct for any kind.
+    // open sequence is openMarker + exactly one kind character. The real
+    // (Margelet-compatible) open sequence is always openMarker + 2 kind
+    // trits + 3 value trits = 6 characters regardless of kind, but deriving
+    // it from the actual sequence length rather than a second hardcoded
+    // constant keeps this correct even if that format changes again.
     let selectionIndex = nsRange.upperBound + openSequence.count + 1
     return ChatTextInputState(inputText: result, selectionRange: selectionIndex ..< selectionIndex)
 }

@@ -5461,11 +5461,19 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             return
         }
         let presentationData = context.sharedContext.currentPresentationData.with { $0 }
-        let sizes = [13, 17, 22, 28, 36, 46, 58, 70]
-        var actions: [TextAlertAction] = sizes.map { size in
-            TextAlertAction(type: .genericAction, title: "\(size)", action: { [weak self] in
+        // MARK: ViboGram - these are Margelet's own step indices (0...13
+        // into their 0.6x-2.0x ratio scale), not absolute point sizes -- an
+        // earlier draft used absolute points, which doesn't mean anything
+        // on the wire (see SGTextEffects.swift's own notes on why this had
+        // to match Margelet's real protocol). Labeled by the resulting
+        // percentage of whatever size is already in effect, since that's
+        // what the value actually means.
+        let sizeSteps = [0, 2, 4, 6, 8, 10, 13]
+        var actions: [TextAlertAction] = sizeSteps.map { step in
+            let percent = Int((SGTextEffects.sizeRatio(forStep: step) * 100).rounded())
+            return TextAlertAction(type: .genericAction, title: "\(percent)%", action: { [weak self] in
                 self?.interfaceInteraction?.updateTextInputStateAndMode { current, inputMode in
-                    return (chatTextInputWrapWithEffect(current, kind: .size(size)), inputMode)
+                    return (chatTextInputWrapWithEffect(current, kind: .size(step)), inputMode)
                 }
             })
         }
