@@ -5399,10 +5399,14 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
     // outcome.
     @objc public func formatAttributesSizeBig(_ sender: Any) {
         self.inputMenu.back()
-        guard let interfaceInteraction = self.interfaceInteraction else {
+        // MARK: ViboGram - bugfix: this class overrides `context` as
+        // `AccountContext?` (unlike AttachmentTextInputPanelNode's
+        // non-optional counterpart, which the first draft of this was
+        // copied from) -- needs an explicit unwrap here.
+        guard let interfaceInteraction = self.interfaceInteraction, let context = self.context else {
             return
         }
-        let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
+        let presentationData = context.sharedContext.currentPresentationData.with { $0 }
         let sizes = [13, 17, 22, 28, 36, 46, 58, 70]
         var actions: [TextAlertAction] = sizes.map { size in
             TextAlertAction(type: .genericAction, title: "\(size)", action: { [weak self] in
@@ -5412,7 +5416,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             })
         }
         actions.append(TextAlertAction(type: .genericAction, title: presentationData.strings.Common_Cancel, action: {}))
-        interfaceInteraction.presentController(textAlertController(context: self.context, title: "Text size", text: "", actions: actions, actionLayout: .vertical), nil)
+        interfaceInteraction.presentController(textAlertController(context: context, title: "Text size", text: "", actions: actions, actionLayout: .vertical), nil)
     }
 
     @objc public func formatAttributesQuote(_ sender: Any) {
