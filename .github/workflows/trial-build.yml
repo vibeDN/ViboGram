@@ -732,7 +732,32 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add source.json
           git commit -m "Update source.json for $VERSION [skip ci]"
-          git push origin HEAD:main
+          # MARK: ViboGram - real, repeated failure mode: this step runs
+          # right after a multi-hour build, so by push time it's common
+          # for main to have moved (another run's game-sync bot commit,
+          # or a manual push during development) -- a bare push then gets
+          # rejected (non-fast-forward) and, because of continue-on-error
+          # above, fails SILENTLY: the job still reports success even
+          # though source.json was never actually updated (confirmed
+          # twice this session, both times needing a manual fix
+          # afterward). Retry with a rebase onto whatever's newly on
+          # main instead of giving up on the first rejection -- the only
+          # change in this commit is source.json's own generated
+          # content, so replaying it on top of unrelated upstream
+          # commits is safe.
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD:main; then
+              break
+            fi
+            if [ "$attempt" = "5" ]; then
+              echo "::warning::source.json push still rejected after 5 attempts, giving up (will need a manual fix)"
+              exit 1
+            fi
+            echo "Push rejected (attempt $attempt/5), fetching + rebasing onto the new main and retrying..."
+            git fetch origin main
+            git rebase origin/main
+            sleep 3
+          done
 
       - name: Announce release in Telegram
         # MARK: ViboGram - temporarily disabled (`&& false`) overnight per

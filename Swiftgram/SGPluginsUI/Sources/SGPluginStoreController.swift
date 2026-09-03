@@ -64,11 +64,25 @@ private func fetchPluginStoreListing(completion: @escaping (SGPluginStoreLoadSta
         completion(.failed("Bad store URL"))
         return
     }
-    var request = URLRequest(url: url)
+    var request = URLRequest(url: url, timeoutInterval: 15)
     request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-    let task = URLSession.shared.dataTask(with: request) { data, _, error in
+    // MARK: ViboGram - GitHub's REST API rejects requests with no
+    // User-Agent header outright (a real, well-documented requirement,
+    // not optional) -- without this the call was silently failing to
+    // ever resolve into a usable response, confirmed by an actual
+    // on-device screenshot showing the store stuck on "Loading..."
+    // indefinitely. 15s timeout above so a genuine failure (rate limit,
+    // no network) surfaces as an error state within seconds instead of
+    // sitting on the default 60s URLSession timeout.
+    request.setValue("ViboGram-iOS", forHTTPHeaderField: "User-Agent")
+    let task = URLSession.shared.dataTask(with: request) { data, response, error in
         guard let data else {
             completion(.failed(error?.localizedDescription ?? "Network error"))
+            return
+        }
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+            let bodyPreview = String(data: data.prefix(200), encoding: .utf8) ?? ""
+            completion(.failed("GitHub returned HTTP \(httpResponse.statusCode). \(bodyPreview)"))
             return
         }
         guard let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
