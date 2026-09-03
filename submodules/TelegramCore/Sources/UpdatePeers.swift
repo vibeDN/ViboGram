@@ -37,8 +37,6 @@ func shouldExcludePeerFromChatList(transaction: Transaction, peerId: PeerId, pee
             // this layer) -- the tradeoff is a chat you genuinely choose to
             // leave now also stays visible when this toggle is on.
             return !SGSimpleSettings.shared.keepBannedChatsVisible
-        default:
-            return true
         }
     } else if let channel = peer as? TelegramChannel {
         switch channel.participationStatus {
@@ -48,8 +46,6 @@ func shouldExcludePeerFromChatList(transaction: Transaction, peerId: PeerId, pee
             // MARK: ViboGram - see the TelegramGroup case above -- same
             // widening, same reasoning.
             return !SGSimpleSettings.shared.keepBannedChatsVisible
-        default:
-            return true
         }
     } else if let community = peer as? TelegramCommunity {
         return community.participationStatus != .member || community.collapsedInDialogs != true
