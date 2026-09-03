@@ -1,5 +1,7 @@
 import SGStrings
 import SGSimpleSettings
+import SGMessageArchive
+import SGMessageArchiveUI
 import PeerInfoUI
 import Foundation
 import UIKit
@@ -1527,6 +1529,27 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                 let _ = context.engine.messages.deleteMessagesInteractively(messageIds: [message.id], type: .forEveryone).startStandalone()
                 f(.dismissWithoutContent)
             })))
+        }
+
+        // MARK: ViboGram - edit history viewer ("История"): the recording
+        // side (SGMessageArchive.recordEditVersion, called from
+        // AccountStateManagementUtils.swift's .EditMessage handling) has been
+        // archiving prior text on every edit for a while, but until now
+        // nothing ever read it back -- there was no way to actually see it,
+        // exactly as flagged in the README. Gated on there being at least
+        // one archived version so it doesn't show on messages that have
+        // never been edited (or were edited before the setting was turned
+        // on / before this feature existed).
+        if SGSimpleSettings.shared.antiDeleteEnabled {
+            let editVersions = SGMessageArchive.editHistory(peerId: message.id.peerId.toInt64(), messageId: message.id.id, namespace: message.id.namespace)
+            if !editVersions.isEmpty {
+                actions.append(.action(ContextMenuActionItem(text: "История", icon: { theme in
+                    return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Time"), color: theme.actionSheet.primaryTextColor)
+                }, action: { _, f in
+                    controllerInteraction.navigationController()?.pushViewController(sgEditHistoryController(context: context, peerId: message.id.peerId.toInt64(), messageId: message.id.id, namespace: message.id.namespace))
+                    f(.dismissWithoutContent)
+                })))
+            }
         }
 
         // MARK: ViboGram - allow saving secret/TTL media when opted in

@@ -12,6 +12,8 @@ sgdeps = [
     "//Swiftgram/SGAppGroupIdentifier:SGAppGroupIdentifier",
     "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
     "//Swiftgram/SGBadges:SGBadges",
+    "//Swiftgram/SGMessageArchive:SGMessageArchive",
+    "//Swiftgram/SGMessageArchiveUI:SGMessageArchiveUI",
     "//Swiftgram/SFSafariViewControllerPlus:SFSafariViewControllerPlus",
     "//Swiftgram/SGLogging:SGLogging",
     "//Swiftgram/SGStrings:SGStrings",
