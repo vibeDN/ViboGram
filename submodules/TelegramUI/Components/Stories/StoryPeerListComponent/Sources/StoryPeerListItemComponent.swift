@@ -15,6 +15,7 @@ import StoryContainerScreen
 import MultilineTextComponent
 import HierarchyTrackingLayer
 import EmojiStatusComponent
+import SGBadges
 
 private func calculateCircleIntersection(center: CGPoint, otherCenter: CGPoint, radius: CGFloat) -> (point1Angle: CGFloat, point2Angle: CGFloat)? {
     let distanceVector = CGPoint(x: otherCenter.x - center.x, y: otherCenter.y - center.y)
@@ -500,6 +501,17 @@ public final class StoryPeerListItemComponent: Component {
         private let avatarBackgroundView: UIImageView
         private var avatarNode: AvatarNode?
         private var avatarAddBadgeView: UIImageView?
+        // MARK: ViboGram - small corner marker on the Stories tray avatar,
+        // same idea as PeerInfoHeaderNode's titleBadgeIconView but as an
+        // avatar-corner overlay (there's no title label here to sit next to).
+        // Reuses avatarAddBadgeView's own generateImage-into-a-cached-UIImageView
+        // + bottom-trailing-corner-frame pattern directly below.
+        private var avatarUserBadgeView: UIImageView?
+        // MARK: ViboGram - this view gets recycled across different peers as
+        // the tray scrolls, so image caching needs to key off the badge's own
+        // color, not just `themeUpdated` (which avatarAddBadgeView's simpler
+        // cache check gets away with since that badge is theme-colored only).
+        private var avatarUserBadgeColorHex: String?
         private var avatarLiveBadgeView: UIImageView?
         private var avatarLiveBadgeMaskSeenLayer: SimpleLayer?
         private var avatarLiveBadgeMaskUnseenLayer: SimpleLayer?
@@ -791,7 +803,55 @@ public final class StoryPeerListItemComponent: Component {
                     avatarAddBadgeView.removeFromSuperview()
                 }
             }
-            
+
+            // MARK: ViboGram - own/Margelet badge marker on the tray avatar
+            // itself, per user request: the profile-screen badge square next
+            // to the title wasn't legible here since there's no title shown
+            // in this tray at all. Same rawId-unpacking + chatPeer(chatId:)
+            // negation convention as PeerInfoHeaderNode.swift's badge lookup.
+            let rawId = component.peer.id.id._internalGetInt64Value()
+            let badge: SGBadge?
+            switch component.peer {
+            case .user, .secretChat:
+                badge = SGBadges.primaryBadge(for: rawId)
+            case .legacyGroup, .channel, .community:
+                badge = SGBadges.primaryBadge(for: SGBadges.chatPeer(chatId: rawId))
+            }
+            if let badge, let badgeColor = UIColor(hexString: badge.color) {
+                let avatarUserBadgeView: UIImageView
+                var avatarUserBadgeTransition = transition
+                if let current = self.avatarUserBadgeView {
+                    avatarUserBadgeView = current
+                } else {
+                    avatarUserBadgeTransition = .immediate
+                    avatarUserBadgeView = UIImageView()
+                    self.avatarUserBadgeView = avatarUserBadgeView
+                    self.avatarContainer.addSubview(avatarUserBadgeView)
+                }
+                let badgeSize = CGSize(width: 14.0, height: 14.0)
+                if avatarUserBadgeView.image == nil || themeUpdated || self.avatarUserBadgeColorHex != badge.color {
+                    self.avatarUserBadgeColorHex = badge.color
+                    avatarUserBadgeView.image = generateImage(badgeSize, rotatedContext: { size, context in
+                        context.clear(CGRect(origin: CGPoint(), size: size))
+                        context.setFillColor(component.theme.list.itemCheckColors.foregroundColor.cgColor)
+                        context.addPath(UIBezierPath(roundedRect: CGRect(origin: CGPoint(), size: size), cornerRadius: 4.0).cgPath)
+                        context.fillPath()
+                        context.setFillColor(badgeColor.cgColor)
+                        context.addPath(UIBezierPath(roundedRect: CGRect(origin: CGPoint(), size: size).insetBy(dx: 1.5, dy: 1.5), cornerRadius: 3.0).cgPath)
+                        context.fillPath()
+                    })
+                }
+                // MARK: ViboGram - bottom-leading corner: bottom-trailing is
+                // already used by avatarAddBadgeView (self-story "add" plus
+                // icon) and avatarLiveBadgeView sits bottom-center, so this is
+                // the one unobstructed corner left on the circular avatar.
+                avatarUserBadgeTransition.setFrame(view: avatarUserBadgeView, frame: CGRect(origin: CGPoint(x: 1.0, y: avatarFrame.height - 2.0 - badgeSize.height), size: badgeSize))
+            } else if let avatarUserBadgeView = self.avatarUserBadgeView {
+                self.avatarUserBadgeView = nil
+                self.avatarUserBadgeColorHex = nil
+                avatarUserBadgeView.removeFromSuperview()
+            }
+
             if component.hasLiveItems {
                 let avatarLiveBadgeView: UIImageView
                 var avatarLiveBadgeTransition = transition
