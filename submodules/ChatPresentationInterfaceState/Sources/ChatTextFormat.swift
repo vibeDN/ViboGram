@@ -21,9 +21,16 @@ public func chatTextInputWrapWithEffect(_ state: ChatTextInputState, kind: SGTex
     // Insert the closing marker first (higher index) so the lowerBound insertion
     // right after doesn't invalidate it -- NSMutableAttributedString.insert
     // already shifts any existing attribute ranges correctly on its own.
+    let openSequence = SGTextEffects.openSequence(for: kind)
     result.insert(NSAttributedString(string: String(SGTextEffects.closeMarker)), at: nsRange.upperBound)
-    result.insert(NSAttributedString(string: SGTextEffects.openSequence(for: kind)), at: nsRange.lowerBound)
-    let selectionIndex = nsRange.upperBound + 3
+    result.insert(NSAttributedString(string: openSequence), at: nsRange.lowerBound)
+    // MARK: ViboGram - bugfix: this used to hardcode `+ 3`, assuming every
+    // open sequence is openMarker + exactly one kind character. `.size`'s
+    // open sequence is 4 characters (openMarker + kind marker + 2 digit
+    // characters), so a fixed +3 landed the cursor inside the marker run
+    // instead of just after the closing marker. Derived from the actual
+    // sequence length instead so it stays correct for any kind.
+    let selectionIndex = nsRange.upperBound + openSequence.count + 1
     return ChatTextInputState(inputText: result, selectionRange: selectionIndex ..< selectionIndex)
 }
 

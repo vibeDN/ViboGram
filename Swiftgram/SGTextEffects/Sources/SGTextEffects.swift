@@ -12,46 +12,74 @@ import UIKit
 // looks better with @margeletter") that they append to outgoing text when
 // this kind of formatting is used -- that's their app's own marketing, not
 // part of the actual formatting feature.
-public enum SGTextEffectKind: CaseIterable {
+public enum SGTextEffectKind: Equatable {
     case dim
     case rainbow
+    // MARK: ViboGram - fixed 1.3x multiplier, the original version of this
+    // feature. Kept exactly as-is (still decodes the same way) so messages
+    // already sent with it keep rendering correctly -- new composes use
+    // `.size` instead, which carries an actual point size.
     case sizeBig
+    // MARK: ViboGram - follow-up request: an actual size range (13...70)
+    // rather than one fixed "big" toggle. See sizeCustomMarker/sizeUnitMarker
+    // below for how the point size itself is encoded.
+    case size(Int)
 }
 
 public enum SGTextEffects {
     public static let openMarker: Character = "\u{2060}"   // WORD JOINER
     public static let closeMarker: Character = "\u{2061}"  // FUNCTION APPLICATION
 
-    private static let kindMarkers: [Character: SGTextEffectKind] = [
-        "\u{2062}": .dim,      // INVISIBLE TIMES
-        "\u{2063}": .rainbow,  // INVISIBLE SEPARATOR
-        "\u{2064}": .sizeBig,  // INVISIBLE PLUS
-    ]
+    private static let dimMarker: Character = "\u{2062}"      // INVISIBLE TIMES
+    private static let rainbowMarker: Character = "\u{2063}"  // INVISIBLE SEPARATOR
+    private static let sizeBigMarker: Character = "\u{2064}"  // INVISIBLE PLUS
+    // MARK: ViboGram - bugfix (caught in review, never shipped): the first
+    // version of this encoded the size as two Unicode "Tag" digit characters
+    // (the block used for regional-flag emoji sequences, e.g. the England
+    // flag). Those are correctly Default_Ignorable, but they live outside
+    // the Basic Multilingual Plane -- each one is a UTF-16 *surrogate pair*,
+    // not a single unit. Every index in this file (kindIndex, contentStart,
+    // the NSRange(location:length: 1) reads) is an NSString/UTF-16 index
+    // that assumes 1 marker = 1 unit, same as openMarker/closeMarker/dim/
+    // rainbow/sizeBig all being ordinary BMP characters. Reading a Tag digit
+    // with length:1 would slice a lone surrogate half out of the string,
+    // which isn't valid UTF-16 on its own. Using two more BMP invisible
+    // characters instead (still General Punctuation, still
+    // Default_Ignorable, right after the ones already in use) keeps every
+    // index a plain single-unit step, consistent with the rest of this file.
+    // The size is encoded as a *count*, not digits: sizeCustomMarker starts
+    // the run, then sizeUnitMarker repeats (size - sizeRange.lowerBound)
+    // times before the actual content -- simple tally, decoded by counting
+    // consecutive occurrences.
+    private static let sizeCustomMarker: Character = "\u{206A}"  // INHIBIT SYMMETRIC SWAPPING (deprecated, still valid & zero-width)
+    private static let sizeUnitMarker: Character = "\u{206B}"    // ACTIVATE SYMMETRIC SWAPPING (deprecated, still valid & zero-width)
 
-    private static let markerForKind: [SGTextEffectKind: Character] = [
-        .dim: "\u{2062}",
-        .rainbow: "\u{2063}",
-        .sizeBig: "\u{2064}",
-    ]
+    /// Valid range for `.size`; values outside this get clamped when encoding.
+    public static let sizeRange: ClosedRange<Int> = 13...70
 
-    /// The invisible open+kind character sequence to insert before a run that
-    /// should get `kind`'s effect; pair with `closeMarker` after the run.
+    /// The invisible open+kind(+payload) character sequence to insert before a
+    /// run that should get `kind`'s effect; pair with `closeMarker` after the run.
     public static func openSequence(for kind: SGTextEffectKind) -> String {
-        guard let marker = markerForKind[kind] else {
-            return ""
+        switch kind {
+        case .dim:
+            return String(openMarker) + String(dimMarker)
+        case .rainbow:
+            return String(openMarker) + String(rainbowMarker)
+        case .sizeBig:
+            return String(openMarker) + String(sizeBigMarker)
+        case let .size(points):
+            let clamped = min(max(points, sizeRange.lowerBound), sizeRange.upperBound)
+            let tally = String(repeating: sizeUnitMarker, count: clamped - sizeRange.lowerBound)
+            return String(openMarker) + String(sizeCustomMarker) + tally
         }
-        return String(openMarker) + String(marker)
     }
 
     /// Wraps `range` of `text` with the invisible markers for `kind`, so this run
     /// gets decoded and styled wherever `applyEffects` is later called on it.
     public static func wrap(_ text: String, range: Range<String.Index>, kind: SGTextEffectKind) -> String {
-        guard let marker = markerForKind[kind] else {
-            return text
-        }
         var result = text
         result.insert(closeMarker, at: range.upperBound)
-        result.insert(contentsOf: [openMarker, marker], at: range.lowerBound)
+        result.insert(contentsOf: openSequence(for: kind), at: range.lowerBound)
         return result
     }
 
@@ -73,12 +101,32 @@ public enum SGTextEffects {
             guard kindIndex < fullLength else {
                 break
             }
-            let kindChar = nsString.substring(with: NSRange(location: kindIndex, length: 1)).first
-            guard let kindChar, let kind = kindMarkers[kindChar] else {
+            guard let kindChar = nsString.substring(with: NSRange(location: kindIndex, length: 1)).first else {
+                break
+            }
+
+            var contentStart = kindIndex + 1
+            let kind: SGTextEffectKind
+            switch kindChar {
+            case dimMarker:
+                kind = .dim
+            case rainbowMarker:
+                kind = .rainbow
+            case sizeBigMarker:
+                kind = .sizeBig
+            case sizeCustomMarker:
+                var tally = 0
+                let sizeUnitMarkerString = String(sizeUnitMarker)
+                while contentStart < fullLength, nsString.substring(with: NSRange(location: contentStart, length: 1)) == sizeUnitMarkerString {
+                    tally += 1
+                    contentStart += 1
+                }
+                kind = .size(min(sizeRange.upperBound, sizeRange.lowerBound + tally))
+            default:
                 searchStart = kindIndex
                 continue
             }
-            let contentStart = kindIndex + 1
+
             guard contentStart <= fullLength else {
                 break
             }
@@ -105,6 +153,8 @@ public enum SGTextEffects {
             attributedString.addAttribute(.foregroundColor, value: UIColor.gray.withAlphaComponent(0.6), range: range)
         case .sizeBig:
             attributedString.addAttribute(.font, value: baseFont.withSize(baseFont.pointSize * 1.3), range: range)
+        case let .size(points):
+            attributedString.addAttribute(.font, value: baseFont.withSize(CGFloat(points)), range: range)
         case .rainbow:
             // Moderate saturation/brightness (not raw HSB 1.0/1.0) so it stays
             // readable against both light and dark chat backgrounds, per request.

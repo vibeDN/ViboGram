@@ -20,6 +20,7 @@ swift_library(
         "//submodules/Display:Display",
         "//submodules/TelegramCore:TelegramCore",
         "//submodules/TelegramPresentationData:TelegramPresentationData",
+        "//submodules/PresentationDataUtils:PresentationDataUtils",
         "//submodules/TextFormat:TextFormat",
         "//submodules/AccountContext:AccountContext",
         "//submodules/TouchDownGesture:TouchDownGesture",

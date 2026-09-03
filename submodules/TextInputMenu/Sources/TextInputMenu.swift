@@ -23,7 +23,10 @@ public final class TextInputMenu {
     // rest of this fork's own new-feature labels are done elsewhere.
     private var stringDim: String = "Dim"
     private var stringRainbow: String = "Rainbow"
-    private var stringSizeBig: String = "Big"
+    // MARK: ViboGram - label updated from "Big" to "Size": the handler behind
+    // this now opens a size picker (13-70) instead of applying one fixed
+    // multiplier, so "Big" no longer describes what tapping it does.
+    private var stringSizeBig: String = "Size"
     
     private let hasSpoilers: Bool
     private let hasQuotes: Bool

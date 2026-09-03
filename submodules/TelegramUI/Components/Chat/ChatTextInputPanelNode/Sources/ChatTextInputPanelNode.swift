@@ -14,6 +14,7 @@ import SwiftSignalKit
 import TelegramCore
 import MobileCoreServices
 import TelegramPresentationData
+import PresentationDataUtils
 import TextFormat
 import AccountContext
 import TouchDownGesture
@@ -5390,11 +5391,28 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         }
     }
 
+    // MARK: ViboGram - follow-up request: an actual size range (13-70)
+    // instead of one fixed "Big" toggle. Presents a plain preset picker
+    // (textAlertController, vertical layout -- same primitive Telegram's own
+    // duration pickers use) rather than a continuous slider embedded in the
+    // alert, which would be a much more fragile custom-UI path for the same
+    // outcome.
     @objc public func formatAttributesSizeBig(_ sender: Any) {
         self.inputMenu.back()
-        self.interfaceInteraction?.updateTextInputStateAndMode { current, inputMode in
-            return (chatTextInputWrapWithEffect(current, kind: .sizeBig), inputMode)
+        guard let interfaceInteraction = self.interfaceInteraction else {
+            return
         }
+        let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
+        let sizes = [13, 17, 22, 28, 36, 46, 58, 70]
+        var actions: [TextAlertAction] = sizes.map { size in
+            TextAlertAction(type: .genericAction, title: "\(size)", action: { [weak self] in
+                self?.interfaceInteraction?.updateTextInputStateAndMode { current, inputMode in
+                    return (chatTextInputWrapWithEffect(current, kind: .size(size)), inputMode)
+                }
+            })
+        }
+        actions.append(TextAlertAction(type: .genericAction, title: presentationData.strings.Common_Cancel, action: {}))
+        interfaceInteraction.presentController(textAlertController(context: self.context, title: "Text size", text: "", actions: actions, actionLayout: .vertical), nil)
     }
 
     @objc public func formatAttributesQuote(_ sender: Any) {
