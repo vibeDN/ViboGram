@@ -25,11 +25,18 @@ func shouldExcludePeerFromChatList(transaction: Transaction, peerId: PeerId, pee
         switch group.membership {
         case .Member:
             return false
-        case .Removed where SGSimpleSettings.shared.keepBannedChatsVisible:
-            // MARK: ViboGram - keep banned/kicked chats visible (Tier 3).
-            // .Left (voluntary) still hides the chat as normal -- only being
-            // removed by someone else stays visible.
-            return false
+        case .Removed, .Left:
+            // MARK: ViboGram - keep banned/kicked/left chats visible (Tier 3).
+            // Originally only .Removed -- a real user report: getting
+            // removed via the participants list' "-" button apparently
+            // reports back as .Left here, not .Removed, so a voluntary-leave
+            // and an admin-removal-via-minus-button were indistinguishable
+            // at this layer and the toggle silently didn't cover the
+            // latter. Widened to cover both rather than chase a
+            // client-visible signal to tell them apart (there isn't one at
+            // this layer) -- the tradeoff is a chat you genuinely choose to
+            // leave now also stays visible when this toggle is on.
+            return !SGSimpleSettings.shared.keepBannedChatsVisible
         default:
             return true
         }
@@ -37,10 +44,10 @@ func shouldExcludePeerFromChatList(transaction: Transaction, peerId: PeerId, pee
         switch channel.participationStatus {
         case .member:
             return isPeerHiddenByCollapsedCommunity(transaction: transaction, peerId: peerId, peer: channel)
-        case .kicked where SGSimpleSettings.shared.keepBannedChatsVisible:
-            // MARK: ViboGram - keep banned/kicked chats visible (Tier 3).
-            // .left (voluntary) still hides the chat as normal.
-            return false
+        case .kicked, .left:
+            // MARK: ViboGram - see the TelegramGroup case above -- same
+            // widening, same reasoning.
+            return !SGSimpleSettings.shared.keepBannedChatsVisible
         default:
             return true
         }
