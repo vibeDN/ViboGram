@@ -9,6 +9,7 @@ import AccountContext
 import UndoUI
 import SGItemListUI
 import SGPython
+import SGLogging
 
 // MARK: ViboGram - "Plugin Store": lists whatever .vibo/.plugin/.py files
 // currently live in this repo's plugins/ folder on GitHub (via the public,
@@ -60,8 +61,41 @@ private enum SGPluginStoreLoadState: Equatable {
 // for a manually-opened personal screen, not something polled/refreshed
 // automatically.
 private func fetchPluginStoreListing(completion: @escaping (SGPluginStoreLoadState) -> Void) {
+    // MARK: ViboGram - real bug report (on-device, 1.5.2): still stuck on
+    // "Loading..." indefinitely even with the User-Agent header fix above
+    // already shipped. curl against the exact same endpoint/User-Agent from
+    // this machine gets a clean 200 instantly, and every code path in the
+    // dataTask callback below already calls `completion` -- so whatever's
+    // actually happening on-device isn't reachable by reading this file.
+    // Two things added instead of a real fix, since there isn't enough
+    // information yet to have one:
+    // 1. Logging at each step -- app already has a "send logs" debug flow,
+    //    so if that's checked after reproducing this, it should show
+    //    exactly which of these lines was the last one reached (never
+    //    started / no response / bad JSON / etc), instead of guessing.
+    // 2. A hard client-side failsafe: whatever the actual cause turns out
+    //    to be, the *symptom* -- the screen staying on "Loading..." forever
+    //    with no way out -- is fixable right now regardless of the root
+    //    cause. If nothing has resolved within 20s (5s past the request's
+    //    own 15s timeout, to give that its normal chance to fire first),
+    //    force an error state instead of leaving the user stuck.
+    let logTag = "SGPluginStore"
+    let completionLock = NSLock()
+    var didComplete = false
+    let completeOnce: (SGPluginStoreLoadState) -> Void = { result in
+        completionLock.lock()
+        let alreadyDone = didComplete
+        didComplete = true
+        completionLock.unlock()
+        if alreadyDone {
+            return
+        }
+        completion(result)
+    }
+
     guard let url = URL(string: "https://api.github.com/repos/vibeDN/ViboGram/contents/plugins") else {
-        completion(.failed("Bad store URL"))
+        SGLogger.shared.log(logTag, "bad store URL, should never happen")
+        completeOnce(.failed("Bad store URL"))
         return
     }
     var request = URLRequest(url: url, timeoutInterval: 15)
@@ -75,18 +109,25 @@ private func fetchPluginStoreListing(completion: @escaping (SGPluginStoreLoadSta
     // no network) surfaces as an error state within seconds instead of
     // sitting on the default 60s URLSession timeout.
     request.setValue("ViboGram-iOS", forHTTPHeaderField: "User-Agent")
+    SGLogger.shared.log(logTag, "starting request to \(url.absoluteString)")
     let task = URLSession.shared.dataTask(with: request) { data, response, error in
         guard let data else {
-            completion(.failed(error?.localizedDescription ?? "Network error"))
+            SGLogger.shared.log(logTag, "no data: error=\(error?.localizedDescription ?? "nil")")
+            completeOnce(.failed(error?.localizedDescription ?? "Network error"))
             return
         }
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+        SGLogger.shared.log(logTag, "response received, status=\(statusCode), bytes=\(data.count)")
         if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
             let bodyPreview = String(data: data.prefix(200), encoding: .utf8) ?? ""
-            completion(.failed("GitHub returned HTTP \(httpResponse.statusCode). \(bodyPreview)"))
+            SGLogger.shared.log(logTag, "non-200 status \(httpResponse.statusCode): \(bodyPreview)")
+            completeOnce(.failed("GitHub returned HTTP \(httpResponse.statusCode). \(bodyPreview)"))
             return
         }
         guard let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-            completion(.failed("Unexpected response from GitHub (rate-limited?)"))
+            let bodyPreview = String(data: data.prefix(200), encoding: .utf8) ?? ""
+            SGLogger.shared.log(logTag, "JSON decode failed, body preview: \(bodyPreview)")
+            completeOnce(.failed("Unexpected response from GitHub (rate-limited?)"))
             return
         }
         let acceptedExtensions: Set<String> = ["vibo", "plugin", "py"]
@@ -98,9 +139,14 @@ private func fetchPluginStoreListing(completion: @escaping (SGPluginStoreLoadSta
             }
             return SGPluginStoreListing(filename: name, downloadURL: downloadURL)
         }.sorted { $0.filename < $1.filename }
-        completion(.loaded(listings))
+        SGLogger.shared.log(logTag, "loaded \(listings.count) listings")
+        completeOnce(.loaded(listings))
     }
     task.resume()
+    DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
+        SGLogger.shared.log(logTag, "20s client-side failsafe fired -- URLSession never called back at all")
+        completeOnce(.failed("Timed out waiting for a response (no callback from URLSession at all -- check logs for details)"))
+    }
 }
 
 private func sgPluginStoreEntries(state: SGPluginStoreLoadState) -> [SGPluginStoreEntry] {

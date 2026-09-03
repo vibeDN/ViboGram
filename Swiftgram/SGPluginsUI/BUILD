@@ -11,6 +11,7 @@ swift_library(
     ],
     deps = [
         "//Swiftgram/SGItemListUI:SGItemListUI",
+        "//Swiftgram/SGLogging:SGLogging",
         "//Swiftgram/SGPython:SGPython",
         "//submodules/AccountContext:AccountContext",
         "//submodules/Display:Display",
