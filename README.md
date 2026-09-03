@@ -66,9 +66,13 @@ Kept messages are also backed up to their own local JSON store
 (`Swiftgram/SGMessageArchive`, in the app's shared App Group container),
 independent of the app's own database/cache lifecycle — so a cache clear or a
 Postbox rebuild doesn't lose them. Edited messages get their prior text
-versions archived the same way, in a separate file next to it. There's no
-viewer for those versions yet — the long-press **История** (history) menu
-entry that's supposed to show them isn't built.
+versions archived the same way, in a separate file next to it, viewable via a
+long-press **История** (history) menu entry — shown only on messages that
+actually have archived versions. Timestamped down to the second (edits can
+land seconds apart). A replaced photo gets archived too, not just text
+changes, and is tappable to view full-screen; a replaced video/file gets a
+plain description rather than a preview, since that's a bigger separate piece
+of UI than this covers.
 
 The visual treatment (🗑 + transparency) currently only applies to plain text
 messages; media, polls, and stickers get archived correctly but don't look any
@@ -134,7 +138,15 @@ nothing can really be *added* to it — Margelet's own trick is encoding the
 style as invisible Unicode markers inside the message text itself; this fork
 ports that same mechanism and decodes it the same way. Copy the text
 elsewhere in this app (or another build of it, or Margelet itself) and the
-formatting survives; without either fork you just see plain text.
+formatting survives; without either fork you just see plain text. Size picks
+an actual point size (13–70) rather than one fixed "big" toggle, chosen from
+a preset list.
+
+Modern iOS renders the selection menu through a completely separate code path
+from the one this originally shipped through (`UIEditMenuInteraction`, not
+the legacy `UIMenuController`) — an easy thing to miss since both exist side
+by side in the same files, and only one of them is what you actually see on
+a real device. All entries are wired into both.
 
 "Copy with formatting" comes along for free from the same mechanism. There's
 no live preview while composing — the effect only renders after you send.
@@ -232,8 +244,11 @@ this fork and you can see who has a Margelet badge too, and vice versa if
 Margelet ever reads ours.
 
 The badge certifies nothing and asks no server: whoever builds their own fork
-picks their own people. Currently a first cut only — a plain colored marker
-next to the name, tap opens a plain title/about popup. The badge *image*
+picks their own people. Also shows as a small corner marker on avatars in the
+Stories tray at the top of the chat list — there's no title there to sit next
+to, unlike the profile/header placements. Currently a first cut only — a
+plain colored marker next to the name, tap opens a plain title/about popup.
+The badge *image*
 (`img_url` in the JSON) isn't rendered yet, and there's no tap-to-spin-in-3D
 like Margelet's version; the closest existing component in this codebase
 (`CubeAnimationView`, a full 6-face gift-crafting cube) is overbuilt for this,
@@ -273,19 +288,32 @@ actually usable — a bigger UI lift than the other two, not attempted yet.
 <details>
 <summary><b>Python plugins</b></summary>
 
-In progress, not wired into any app target yet. The idea is the same one
-AyuGram4A and exteraGram's Android plugin systems use (both Chaquopy/Python
-based) — there's no iOS-equivalent runtime to build on, so this is a
-significant project of its own. CPython embedding (BeeWare's
-Python-Apple-support `Python.xcframework` + a pruned stdlib) is vendored and
-its interpreter-lifecycle wrapper is validated for correctness against a
-standalone Linux Swift+CPython test — see
-[`docs/plugin-system-tier4.md`](docs/plugin-system-tier4.md) for exactly
-what's confirmed versus still open (resource bundling and dynamic-framework
-signing are the open questions blocking a real build).
+Wired into the main app and working, not a separate build. CPython embedding
+(BeeWare's Python-Apple-support `Python.xcframework` + a pruned stdlib) runs
+plain single-file `.vibo` plugins (`.plugin`/`.py` from elsewhere import fine
+too) through `SGPythonRuntime`.
 
-Will ship in a separate "Vibogram: BETA" app alongside a JIT-unlock mechanism
-for experimental features, not the main app.
+This is a smaller, host-API-based system, not a port of AyuGram4A/
+exteraGram's BasePlugin-style hook frameworks (there's no iOS-equivalent
+runtime those could build on either, and no way to reach into Android/Java
+internals — `org.telegram.*`/`java.*` imports can never work here). A plugin
+exposes `transform`/`settings`/`on_action`/`on_receive` entry points, gets
+called on-send or on-receive via a `# vibo-hook: on_send` /
+`# vibo-hook: on_receive` marker on the file's first line, and can call back
+into the host through a small `vibo` API: `log`/`toast`/`alert`/`share`/
+`get_setting`/`set_setting`/`data_dir`/`get_clipboard`/`set_clipboard`/
+`haptic`/`open_url`/`play_sound`/`device_info`/`list_plugins`/
+`delete_this_message`. Chat-native dot-commands (`.pull`, `.battle`, etc.)
+piggyback on the same `on_send` hook.
+
+Reachable from the Plugins screen: **Import from Files…**, **Import from
+URL…**, or **Plugin Store…** (browses/installs straight from this repo's own
+[`plugins/`](plugins/) folder via the GitHub Contents API — no server of our
+own). Shipped examples there include animefy, piratify, gop_style, calc,
+translit_fix, vaporwave, mock_case, love_calculator, tarot, blackjack, and a
+server-authoritative card-gacha pair (card_pull/phone_pull) with real
+anti-cheat identity and balanced passives, backed by
+[`build-system/game_sync.py`](build-system/game_sync.py).
 </details>
 
 <details>
