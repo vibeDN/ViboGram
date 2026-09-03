@@ -18,6 +18,12 @@ public final class TextInputMenu {
     private var stringSpoiler: String = "Spoiler"
     private var stringQuote: String = "Quote"
     private var stringCode: String = "Code"
+    // MARK: ViboGram - Size/Dim/Rainbow text effects. Plain hardcoded
+    // strings, not upstream PresentationStrings keys, matching how the
+    // rest of this fork's own new-feature labels are done elsewhere.
+    private var stringDim: String = "Dim"
+    private var stringRainbow: String = "Rainbow"
+    private var stringSizeBig: String = "Big"
     
     private let hasSpoilers: Bool
     private let hasQuotes: Bool
@@ -37,7 +43,18 @@ public final class TextInputMenu {
                         UIMenuItem(title: self.stringMonospace, action: Selector(("formatAttributesMonospace:"))),
                         UIMenuItem(title: self.stringLink, action: Selector(("formatAttributesLink:"))),
                         UIMenuItem(title: self.stringStrikethrough, action: Selector(("formatAttributesStrikethrough:"))),
-                        UIMenuItem(title: self.stringUnderline, action: Selector(("formatAttributesUnderline:")))
+                        UIMenuItem(title: self.stringUnderline, action: Selector(("formatAttributesUnderline:"))),
+                        // MARK: ViboGram - real bug fix: formatAttributesDim/
+                        // Rainbow/SizeBig existed and worked (see
+                        // ChatTextFormat.swift's chatTextInputWrapWithEffect,
+                        // called from all three of these @objc handlers) but
+                        // were never actually added to this menu, so the
+                        // format popup could never offer them -- only
+                        // decoding an already-formatted message (applyEffects)
+                        // worked, never composing one this way.
+                        UIMenuItem(title: self.stringDim, action: Selector(("formatAttributesDim:"))),
+                        UIMenuItem(title: self.stringRainbow, action: Selector(("formatAttributesRainbow:"))),
+                        UIMenuItem(title: self.stringSizeBig, action: Selector(("formatAttributesSizeBig:")))
                     ]
                     if self.hasSpoilers {
                         menuItems.insert(UIMenuItem(title: self.stringSpoiler, action: Selector(("formatAttributesSpoiler:"))), at: 0)

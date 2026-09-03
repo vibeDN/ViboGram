@@ -5049,7 +5049,14 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             } else {
                 return ASEditableTextNodeTargetForAction(target: nil)
             }
-        } else if action == #selector(self.formatAttributesBold(_:)) || action == #selector(self.formatAttributesItalic(_:)) || action == #selector(self.formatAttributesMonospace(_:)) || action == #selector(self.formatAttributesLink(_:)) || action == #selector(self.formatAttributesStrikethrough(_:)) || action == #selector(self.formatAttributesUnderline(_:)) || action == #selector(self.formatAttributesSpoiler(_:)) || action == #selector(self.formatAttributesQuote(_:)) || action == #selector(self.formatAttributesCodeBlock(_:)) {
+        } else if action == #selector(self.formatAttributesBold(_:)) || action == #selector(self.formatAttributesItalic(_:)) || action == #selector(self.formatAttributesMonospace(_:)) || action == #selector(self.formatAttributesLink(_:)) || action == #selector(self.formatAttributesStrikethrough(_:)) || action == #selector(self.formatAttributesUnderline(_:)) || action == #selector(self.formatAttributesSpoiler(_:)) || action == #selector(self.formatAttributesQuote(_:)) || action == #selector(self.formatAttributesCodeBlock(_:)) || action == #selector(self.formatAttributesDim(_:)) || action == #selector(self.formatAttributesRainbow(_:)) || action == #selector(self.formatAttributesSizeBig(_:)) {
+            // MARK: ViboGram - real bug fix: Dim/Rainbow/SizeBig weren't
+            // listed here, so even with TextInputMenu.swift's menu items
+            // fixed to show them, iOS would refuse to route the tap to
+            // these handlers at all (this function is what UIKit calls to
+            // decide whether a given selector even has a valid target right
+            // now) -- the effect never had a working end-to-end path from
+            // "tap the menu item" to "text actually gets wrapped".
             if case .format = self.inputMenu.state {
                 if action == #selector(self.formatAttributesSpoiler(_:)), let selectedRange = self.richTextInputNode?.selectedRange {
                     var intersectsMonospace = false
